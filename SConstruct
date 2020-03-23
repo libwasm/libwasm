@@ -5,7 +5,7 @@ Decider('MD5-timestamp')
 
 DEBUG = ARGUMENTS.get('DEBUG', '0')
 NDEBUG   = ARGUMENTS.get('NDEBUG', '0')
-CACHE_DIR = ARGUMENTS.get('CACHE_DIR', '/tmp')
+CACHE_DIR = ARGUMENTS.get('CACHE_DIR', '/tmp/scons_cache_dir')
 GCC = ARGUMENTS.get('GCC', '0')
 
 CacheDir(CACHE_DIR)
