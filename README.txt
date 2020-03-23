@@ -18,6 +18,6 @@ The scons parameters are:
    NDEBUG=1
       Dissable asserts
    CACHE_DIR=<directory name>
-      sets the directory where  the scons cache will be stored (default = /tmp)
+      sets the directory where  the scons cache will be stored (default = /tmp/scons_cache_dir)
       
 Documentation is a work in progress and will be added soon.
