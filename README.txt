@@ -22,4 +22,9 @@ The scons parameters are:
       
 Documentation is a work in progress.
 The documentation is found in '/doc/libwasm.md'.
-It is still very preliminary.
+
+The assembler and disassembler programs are documented.
+The source for these programs ('main/webasm.cpp' and 'main/webdisasm.cpp') can be used to understand
+some of the basics of the library.
+
+The library documentation will be added soon.

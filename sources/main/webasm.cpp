@@ -115,19 +115,19 @@ int main(int argc, char*argv[])
 
     if (wantAsm) {
         if (wantShow) {
-            std::cerr << "Error: The 'a' option can not be used with the 'd','p' or 'P' options\n";
+            std::cerr << "Error: The '-a' option can not be used with the '-d','-p' or '-P' options\n";
             usage(argv[0]);
             exit(-1);
         }
 
         if (outputFile == nullptr) {
-            std::cerr << "Error: The 'a' option requires an output file\n";
+            std::cerr << "Error: The '-a' option requires an output file\n";
             usage(argv[0]);
             exit(-1);
         }
 
         if (inputFiles.size() > 1) {
-            std::cerr << "Error: The 'a' option allows only one input file\n";
+            std::cerr << "Error: The '-a' option allows only one input file\n";
             usage(argv[0]);
             exit(-1);
         }
