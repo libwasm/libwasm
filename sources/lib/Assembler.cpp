@@ -410,6 +410,8 @@ std::vector<Assembler::SectionElementIndex> Assembler::findSectionEntries(bool m
                     sectionType = SectionType::import;
                 } else if (*key == "datacount") {
                     sectionType = SectionType::dataCount;
+                } else if (*key == "elem") {
+                    sectionType = SectionType::element;
                 } else if (*key == "data") {
                     sectionType = SectionType::data;
                 }
@@ -417,7 +419,7 @@ std::vector<Assembler::SectionElementIndex> Assembler::findSectionEntries(bool m
 
             if (sectionType == SectionType::max + 1) {
                 msgs.expected(tokens.peekToken(),
-                        "one of 'type' 'memory' 'table' 'global' 'func' 'start' 'export' 'import' 'dataCount' or 'data'");
+                        "one of 'type' 'memory' 'table' 'global' 'func' 'start' 'export' 'import' 'dataCount' 'elem' or 'data'");
             } else {
                 result.emplace_back(sectionType, startPos);
             }

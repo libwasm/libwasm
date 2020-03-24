@@ -294,7 +294,6 @@ InstructionLocalIdx* InstructionLocalIdx::read(BinaryContext& context)
 InstructionFunctionIdx* InstructionFunctionIdx::parse(SourceContext& context, Opcode opcode)
 {
     auto& tokens = context.tokens();
-    auto& token = tokens.peekToken();
     auto result = new InstructionFunctionIdx();
 
     if (auto index = parseFunctionIndex(context)) {
@@ -497,7 +496,6 @@ InstructionMemory0* InstructionMemory0::read(BinaryContext& context)
 
 InstructionIndirect* InstructionIndirect::parse(SourceContext& context, Opcode opcode)
 {
-    auto& tokens = context.tokens();
     auto result = new InstructionIndirect();
 
     TypeUse typeUse;
@@ -656,9 +654,6 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
 
 void Instruction::parse(SourceContext& context, std::vector<Instruction*>& instructions)
 {
-    auto& tokens = context.tokens();
-    auto& msgs = context.msgs();
-
     for (;;) {
         if (auto instruction = parse(context); instruction != nullptr) {
             instructions.emplace_back(instruction);
