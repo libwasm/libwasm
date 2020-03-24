@@ -487,6 +487,42 @@ bool Assembler::parse()
         }
     }
 
+    if (auto positions = findSectionPositions(entries, SectionType::function); !positions.empty()) {
+        context.functionSectionIndex = sections.size();
+        sections.push_back(std::make_unique<FunctionSection>());
+
+        context.codeSectionIndex = sections.size();
+        sections.push_back(std::make_unique<CodeSection>());
+
+        auto* functionSection = context.getFunctionSection();
+        auto* codeSection = context.getCodeSection();
+        CodeEntry* codeEntry;
+
+        for (auto position : positions) {
+            tokens.setPos(position);
+
+            auto entry = FunctionDeclaration::parse(context, codeEntry);
+            assert(entry != nullptr);
+            functionSection->addFunction(entry);
+            codeSection->addCode(codeEntry);
+        }
+    }
+
+    if (auto positions = findSectionPositions(entries, SectionType::table); !positions.empty()) {
+        context.tableSectionIndex = sections.size();
+        sections.push_back(std::make_unique<TableSection>());
+
+        auto* section = context.getTableSection();
+
+        for (auto position : positions) {
+            tokens.setPos(position);
+
+            auto entry = TableDeclaration::parse(context);
+            assert(entry != nullptr);
+            section->addTable(entry);
+        }
+    }
+
     if (auto positions = findSectionPositions(entries, SectionType::memory); !positions.empty()) {
         context.memorySectionIndex = sections.size();
         sections.push_back(std::make_unique<MemorySection>());
@@ -532,42 +568,6 @@ bool Assembler::parse()
         }
     }
 
-    if (auto positions = findSectionPositions(entries, SectionType::function); !positions.empty()) {
-        context.functionSectionIndex = sections.size();
-        sections.push_back(std::make_unique<FunctionSection>());
-
-        context.codeSectionIndex = sections.size();
-        sections.push_back(std::make_unique<CodeSection>());
-
-        auto* functionSection = context.getFunctionSection();
-        auto* codeSection = context.getCodeSection();
-        CodeEntry* codeEntry;
-
-        for (auto position : positions) {
-            tokens.setPos(position);
-
-            auto entry = FunctionDeclaration::parse(context, codeEntry);
-            assert(entry != nullptr);
-            functionSection->addFunction(entry);
-            codeSection->addCode(codeEntry);
-        }
-    }
-
-    if (auto positions = findSectionPositions(entries, SectionType::table); !positions.empty()) {
-        context.tableSectionIndex = sections.size();
-        sections.push_back(std::make_unique<TableSection>());
-
-        auto* section = context.getTableSection();
-
-        for (auto position : positions) {
-            tokens.setPos(position);
-
-            auto entry = TableDeclaration::parse(context);
-            assert(entry != nullptr);
-            section->addTable(entry);
-        }
-    }
-
     if (auto positions = findSectionPositions(entries, SectionType::start); !positions.empty()) {
         for (size_t i = 1, c = positions.size(); i < c; ++i) {
             tokens.setPos(positions[i]);
@@ -609,135 +609,6 @@ bool Assembler::parse()
             section->addSegment(entry);
         }
     }
-
-#if 0
-    while (!tokens.atEnd()) {
-        CodeEntry* codeEntry;
-
-        if (module && tokens.getPos() == tokens.size() - 1 && tokens.getParenthesis(')')) {
-            //nop
-        } else if (auto entry = TypeDeclaration::parse(context); entry) {
-            if (context.typeSectionIndex == invalidSection) {
-                context.typeSectionIndex = sections.size();
-                sections.push_back(std::make_unique<TypeSection>());
-            }
-
-            auto* section = context.getTypeSection();
-            auto& types = section->getTypes();
-            bool found = false;
-            auto* signature = entry->getSignature();
-
-            for (size_t i = 0, c = types.size(); i < c; ++i) {
-                if (*signature == *(types)[i]->getSignature()) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (found) {
-                delete entry;
-            } else {
-                section->addType(entry);
-            }
-        } else if (auto entry = ImportDeclaration::parse(context); entry) {
-            if (context.importSectionIndex == invalidSection) {
-                context.importSectionIndex = sections.size();
-                sections.push_back(std::make_unique<ImportSection>());
-            }
-
-            auto* section = context.getImportSection();
-
-            section->addImport(entry);
-        } else if (auto entry = MemoryDeclaration::parse(context); entry) {
-            if (context.memorySectionIndex == invalidSection) {
-                context.memorySectionIndex = sections.size();
-                sections.push_back(std::make_unique<MemorySection>());
-            }
-
-            auto* section = context.getMemorySection();
-
-            section->addMemory(entry);
-        } else if (auto entry = TableDeclaration::parse(context); entry) {
-            if (context.tableSectionIndex == invalidSection) {
-                context.tableSectionIndex = sections.size();
-                sections.push_back(std::make_unique<TableSection>());
-            }
-
-            auto* section = context.getTableSection();
-
-            section->addTable(entry);
-        } else if (auto entry = ElementDeclaration::parse(context); entry) {
-            if (context.elementSectionIndex == invalidSection) {
-                context.elementSectionIndex = sections.size();
-                sections.push_back(std::make_unique<ElementSection>());
-            }
-
-            auto* section = context.getElementSection();
-
-            section->addElement(entry);
-        } else if (auto entry = DataSegment::parse(context); entry) {
-            if (context.dataSectionIndex == invalidSection) {
-                context.dataSectionIndex = sections.size();
-                sections.push_back(std::make_unique<DataSection>());
-            }
-
-            auto* section = context.getDataSection();
-
-            section->addSegment(entry);
-        } else if (auto entry = GlobalDeclaration::parse(context); entry) {
-            if (context.globalSectionIndex == invalidSection) {
-                context.globalSectionIndex = sections.size();
-                sections.push_back(std::make_unique<GlobalSection>());
-            }
-
-            auto* section = context.getGlobalSection();
-
-            section->addGlobal(entry);
-        } else if (auto entry = ExportDeclaration::parse(context); entry) {
-            if (context.exportSectionIndex == invalidSection) {
-                context.exportSectionIndex = sections.size();
-                sections.push_back(std::make_unique<ExportSection>());
-            }
-
-            auto* section = context.getExportSection();
-
-            section->addExport(entry);
-        } else if (auto entry = FunctionDeclaration::parse(context, codeEntry); entry) {
-            if (context.functionSectionIndex == invalidSection) {
-                context.functionSectionIndex = sections.size();
-                sections.push_back(std::make_unique<FunctionSection>());
-            }
-
-            auto* section = context.getFunctionSection();
-
-            section->addFunction(entry);
-
-            if (context.codeSectionIndex == invalidSection) {
-                context.codeSectionIndex = sections.size();
-                sections.push_back(std::make_unique<CodeSection>());
-            }
-
-            auto* codeSection = context.getCodeSection();
-
-            codeSection->addCode(codeEntry);
-        } else if (auto section = StartSection::parse(context); section) {
-            if (context.startSectionIndex == invalidSection) {
-                context.startSectionIndex = sections.size();
-                sections.emplace_back(section);
-            } else {
-                context.msgs().error(context.tokens().peekToken(), "Only one start section is allowed.");
-            }
-        } else {
-            msgs.expected(tokens.peekToken(tokens.peekParenthesis() ? 1 : 0),
-                    "one of 'type' 'memory' 'table' 'global' 'func' 'start' 'export' 'import' or 'data'");
-            while (!tokens.getParenthesis()) {
-                //nop
-            }
-
-            tokens.recover();
-        }
-    }
-#endif
 
     Instruction::completeCalls(context);
 
