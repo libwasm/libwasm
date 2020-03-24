@@ -1,4 +1,4 @@
-#libwasm
+# libwasm
 
 Linwasm is a library to manipulate webassembly files from C++.
 It also contains an assembler (converting .wat to .wasm) and a dissassembler (converting .wasm to .wat)
