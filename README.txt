@@ -20,4 +20,6 @@ The scons parameters are:
    CACHE_DIR=<directory name>
       sets the directory where  the scons cache will be stored (default = /tmp/scons_cache_dir)
       
-Documentation is a work in progress and will be added soon.
+Documentation is a work in progress.
+The documentation is found in '/doc/libwasm.md'.
+It is still very preliminary.
