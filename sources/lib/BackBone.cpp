@@ -1880,7 +1880,7 @@ void FunctionDeclaration::write(BinaryContext& context) const
     TypeUse::write(context);
 }
 
-FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context, CodeEntry*& codeEntry)
+FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
 
@@ -1919,13 +1919,9 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context, CodeEntr
     }
 
     TypeUse::parse(context, result);
-    codeEntry = CodeEntry::parse(context);
+    context.endFunction();
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
-
+    // no closing parenthesis because code entry follows.
     return result;
 }
  
@@ -3097,6 +3093,8 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
 
     result->number = context.nextCodeCount();
 
+    context.startCode(result->number);
+
     while (startClause(context, "local")) {
         while (!tokens.peekParenthesis(')')) {
             result->locals.emplace_back(Local::parse(context));
@@ -3108,6 +3106,12 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
     }
 
     result->expression.reset(Expression::parse(context));
+
+    // close the '(func' clause.
+    if (!requiredParenthesis(context, ')')) {
+        tokens.recover();
+        return result;
+    }
 
     return result;
 }

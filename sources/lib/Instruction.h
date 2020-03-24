@@ -80,8 +80,6 @@ class Instruction
         static bool parseFolded(SourceContext& context, std::vector<Instruction*>& dest);
         static Instruction* read(BinaryContext& context);
 
-        static void completeCalls(SourceContext& context);
-
     protected:
         Opcode opcode;
         ParameterEncoding encoding;

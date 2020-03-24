@@ -399,12 +399,9 @@ class Context
             }
         }
 
-        void startFunction()
-        {
-            labelStack.clear();
-            localMap.clear();
-            localCount = 0;
-        }
+        void startFunction();
+        void endFunction();
+        void startCode(uint32_t number);
 
         bool addLocalId(std::string_view id, uint32_t index)
         {
@@ -494,16 +491,6 @@ class Context
             return invalidIndex;
         }
 
-        void addCall(InstructionFunctionIdx* call, const Token& token)
-        {
-            calls.emplace_back(call, token);
-        }
-
-        const auto& getCalls() const
-        {
-            return calls;
-        }
-
         void addExport(ExportDeclaration* _export);
         void addElement(ElementDeclaration* element);
 
@@ -544,7 +531,6 @@ class Context
         std::vector<std::unique_ptr<Section>>& sections;
         std::vector<std::string_view> labelStack;
         std::vector<Local*> locals;
-        std::vector<std::pair<InstructionFunctionIdx*, const Token&>> calls;
 
         IndexMap functionMap;
         IndexMap globalMap;
@@ -552,6 +538,9 @@ class Context
         IndexMap memoryMap;
         IndexMap tableMap;
         IndexMap typeMap;
+
+        std::vector<IndexMap> localMaps;
+        std::vector<uint32_t> localCounts;
 };
 
 class BinaryContext : public Context

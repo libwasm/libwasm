@@ -11,23 +11,21 @@
 
 static void usage(const char* programName)
 {
-    std::cerr << "\nUsage: " << programName << " [options] wasm_files\n"
+    std::cerr << "\nUsage: " << programName << " [options] wat_files\n"
          "Options:\n"
          "  -a          generate binary file\n"
-         "  -d          dump raw file content\n"
          "  -h          print this help message and exit\n"
          "  -o <file>   specify output file.\n"
          "  -p          print formatted file content\n"
-         "  -P          print formatted file content with dassembled code\n:\n"
+         "  -P          print formatted file content with dassembled code\n"
          "  -S          print statistics\n"
          "\n"
-         "The 'a' option cannot be combined with either 'd', 'p' or 'P' options.\n"
+         "The '-a' option cannot be combined with either ''-p' or '-P' options.\n"
+         "The '-a' option requires an output file and allows only one wat_file.\n"
          "\n"
-         "If the 'o' option is given then only one input file is allowed.\n"
+         "If the '-o' option is given then only one input file is allowed.\n"
          "\n"
-         "For the 'd', 'p' and 'P' options the output file defaults to 'std::cout'.\n"
-         "For the 'a' option the aoutput file defaults to the input file name with\n"
-         "the extension replaced with '.wat'.\n";
+         "For the '-p' and '-P' options the output file defaults to 'std::cout'.\n";
 }
 
 int main(int argc, char*argv[])
@@ -35,7 +33,6 @@ int main(int argc, char*argv[])
     char* p;
     char* parm = nullptr;
 
-    bool wantDump = false;
     bool wantAsm = false;
     bool wantShow = false;
     bool wantShowDassemble = false;
@@ -79,10 +76,6 @@ int main(int argc, char*argv[])
                     wantAsm = true;
                     break;
 
-                case 'd':
-                    wantDump = true;
-                    break;
-
                 case 'h':
                     usage(argv[0]);
                     exit(0);
@@ -121,8 +114,20 @@ int main(int argc, char*argv[])
     }
 
     if (wantAsm) {
-        if (wantShow || wantDump) {
-            std::cerr << "Error: The 'a' options can not be used with the 'd','p' or 'P' options\n";
+        if (wantShow) {
+            std::cerr << "Error: The 'a' option can not be used with the 'd','p' or 'P' options\n";
+            usage(argv[0]);
+            exit(-1);
+        }
+
+        if (outputFile == nullptr) {
+            std::cerr << "Error: The 'a' option requires an output file\n";
+            usage(argv[0]);
+            exit(-1);
+        }
+
+        if (inputFiles.size() > 1) {
+            std::cerr << "Error: The 'a' option allows only one input file\n";
             usage(argv[0]);
             exit(-1);
         }
@@ -145,7 +150,7 @@ int main(int argc, char*argv[])
         Assembler assembler(inputStream);
 
         if (assembler.isGood()) {
-            if (wantShow || wantDump || wantAsm) {
+            if (wantShow || wantAsm) {
                 if (outputFile != nullptr) {
                     std::ofstream outputStream(outputFile);
 
@@ -158,24 +163,12 @@ int main(int argc, char*argv[])
                         assembler.show(outputStream, wantShowDassemble ? 1 : 0);
                     }
 
-                    if (wantDump) {
-                        assembler.dump(outputStream);
-                    }
-
                     if (wantAsm) {
                         assembler.write(outputStream);
                     }
                 } else {
                     if (wantShow) {
                         assembler.show(std::cout, wantShowDassemble ? 1 : 0);
-                    }
-
-                    if (wantDump) {
-                        assembler.dump(std::cout);
-                    }
-
-                    if (wantAsm) {
-                        assembler.write(std::cout);
                     }
                 }
             }

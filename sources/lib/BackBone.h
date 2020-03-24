@@ -1110,7 +1110,7 @@ class FunctionDeclaration : public TypeUse
         void generate(std::ostream& os, Context& context);
         void write(BinaryContext& context) const;
 
-        static FunctionDeclaration* parse(SourceContext& context, CodeEntry*& codeEntry);
+        static FunctionDeclaration* parse(SourceContext& context);
         static FunctionDeclaration* read(BinaryContext& context);
 
     protected:

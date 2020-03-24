@@ -6,31 +6,6 @@
 #include "TokenBuffer.h"
 #include "parser.h"
 
-void Instruction::completeCalls(SourceContext& context)
-{
-    auto& msgs = context.msgs();
-
-    for (auto& [call, token] : context.getCalls()) {
-        if (token.isInteger()) {
-            auto index = uint32_t(toI32(token.getValue()));
-
-            if (index >= context.getFunctionCount()) {
-                msgs.error(token, "Invalid function id.");
-            }
-
-            call->setIndex(index);
-        } else if (token.isId()) {
-            auto id = token.getValue();
-
-            if (auto index = context.getFunctionIndex(id); index != invalidIndex) {
-                call->setIndex(index);
-            } else {
-                msgs.error(token, "Invalid function id.");
-            }
-        }
-    }
-}
-
 InstructionNone* InstructionNone::parse(SourceContext& context, Opcode opcode)
 {
     auto& tokens = context.tokens();
@@ -322,11 +297,10 @@ InstructionFunctionIdx* InstructionFunctionIdx::parse(SourceContext& context, Op
     auto& token = tokens.peekToken();
     auto result = new InstructionFunctionIdx();
 
-    if (token.isInteger() || token.isId()) {
-        tokens.nextToken();
-        context.addCall(result, token);
+    if (auto index = parseFunctionIndex(context)) {
+        result->imm = *index;
     } else {
-        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid local index.");
+        context.msgs().error(tokens.peekToken(), "Missing or invalid function index.");
     }
 
     return result;

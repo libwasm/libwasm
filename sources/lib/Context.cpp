@@ -64,3 +64,26 @@ void Context::addElement(ElementDeclaration* element)
 
     section->addElement(element);
 }
+
+void Context::startFunction()
+{
+    labelStack.clear();
+    localMap.clear();
+    localCount = 0;
+}
+
+void Context::endFunction()
+{
+    localMaps.push_back(std::move(localMap));
+    localCounts.push_back(localCount);
+    labelStack.clear();
+    localMap.clear();
+    localCount = 0;
+}
+
+void Context::startCode(uint32_t number)
+{
+    localMap = localMaps[number];
+    localCount = localCounts[number];
+}
+
