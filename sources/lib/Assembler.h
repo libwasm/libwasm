@@ -32,7 +32,6 @@ class Assembler
             return good;
         }
 
-        void dump(std::ostream& os);
         void show(std::ostream& os, unsigned flags);
         void write(std::ostream& os);
 
@@ -91,7 +90,6 @@ class Assembler
         bool parseHex();
         Token::TokenKind parseNumber();
 
-        void dumpSections(std::ostream& os);
         void showSections(std::ostream& os, unsigned flags);
 
         void writeHeader();

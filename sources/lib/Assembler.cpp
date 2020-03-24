@@ -491,20 +491,15 @@ bool Assembler::parse()
         context.functionSectionIndex = sections.size();
         sections.push_back(std::make_unique<FunctionSection>());
 
-        context.codeSectionIndex = sections.size();
-        sections.push_back(std::make_unique<CodeSection>());
-
-        auto* functionSection = context.getFunctionSection();
-        auto* codeSection = context.getCodeSection();
-        CodeEntry* codeEntry;
+        auto* sections = context.getFunctionSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
 
-            auto entry = FunctionDeclaration::parse(context, codeEntry);
+            auto entry = FunctionDeclaration::parse(context);
+            entries.emplace_back(SectionType::code, tokens.getPos());
             assert(entry != nullptr);
-            functionSection->addFunction(entry);
-            codeSection->addCode(codeEntry);
+            sections->addFunction(entry);
         }
     }
 
@@ -550,6 +545,21 @@ bool Assembler::parse()
             auto entry = GlobalDeclaration::parse(context);
             assert(entry != nullptr);
             section->addGlobal(entry);
+        }
+    }
+
+    if (auto positions = findSectionPositions(entries, SectionType::code); !positions.empty()) {
+        context.codeSectionIndex = sections.size();
+        sections.push_back(std::make_unique<CodeSection>());
+
+        auto* section = context.getCodeSection();
+
+        for (auto position : positions) {
+            tokens.setPos(position);
+
+            auto entry = CodeEntry::parse(context);
+            assert(entry != nullptr);
+            section->addCode(entry);
         }
     }
 
@@ -610,16 +620,7 @@ bool Assembler::parse()
         }
     }
 
-    Instruction::completeCalls(context);
-
     return true;
-}
-
-void Assembler::dumpSections(std::ostream& os)
-{
-    for (auto& section : sections) {
-        section->show(os, context);
-    }
 }
 
 void Assembler::showSections(std::ostream& os, unsigned flags)
@@ -627,11 +628,6 @@ void Assembler::showSections(std::ostream& os, unsigned flags)
     for (auto& section : sections) {
         section->show(os, context, flags);
     }
-}
-
-void Assembler::dump(std::ostream& os)
-{
-    dumpSections(os);
 }
 
 void Assembler::show(std::ostream& os, unsigned flags)
