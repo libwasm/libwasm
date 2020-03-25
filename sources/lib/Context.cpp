@@ -37,6 +37,196 @@ Context::~Context()
 
 Context::Context(const Context& other) = default;
 
+TypeSection* Context::getTypeSection() const
+{
+    if (typeSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<TypeSection*>(sections[typeSectionIndex].get());
+    }
+}
+
+TypeSection* Context::requiredTypeSection()
+{
+    if (typeSectionIndex == invalidSection) {
+        typeSectionIndex = sections.size();
+        sections.push_back(std::make_shared<TypeSection>());
+    }
+
+    return reinterpret_cast<TypeSection*>(sections[typeSectionIndex].get());
+}
+
+ImportSection* Context::getImportSection() const
+{
+    if (importSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<ImportSection*>(sections[importSectionIndex].get());
+    }
+}
+
+ImportSection* Context::requiredImportSection()
+{
+    if (importSectionIndex == invalidSection) {
+        importSectionIndex = sections.size();
+        sections.push_back(std::make_shared<ImportSection>());
+    }
+
+    return reinterpret_cast<ImportSection*>(sections[importSectionIndex].get());
+}
+
+MemorySection* Context::getMemorySection() const
+{
+    if (memorySectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<MemorySection*>(sections[memorySectionIndex].get());
+    }
+}
+
+MemorySection* Context::requiredMemorySection()
+{
+    if (memorySectionIndex == invalidSection) {
+        memorySectionIndex = sections.size();
+        sections.push_back(std::make_shared<MemorySection>());
+    }
+
+    return reinterpret_cast<MemorySection*>(sections[memorySectionIndex].get());
+}
+
+TableSection* Context::getTableSection() const
+{
+    if (tableSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<TableSection*>(sections[tableSectionIndex].get());
+    }
+}
+
+TableSection* Context::requiredTableSection()
+{
+    if (tableSectionIndex == invalidSection) {
+        tableSectionIndex = sections.size();
+        sections.push_back(std::make_shared<TableSection>());
+    }
+
+    return reinterpret_cast<TableSection*>(sections[tableSectionIndex].get());
+}
+
+ElementSection* Context::getElementSection() const
+{
+    if (elementSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<ElementSection*>(sections[elementSectionIndex].get());
+    }
+}
+
+ElementSection* Context::requiredElementSection()
+{
+    if (elementSectionIndex == invalidSection) {
+        elementSectionIndex = sections.size();
+        sections.push_back(std::make_shared<ElementSection>());
+    }
+
+    return reinterpret_cast<ElementSection*>(sections[elementSectionIndex].get());
+}
+
+GlobalSection* Context::getGlobalSection() const
+{
+    if (globalSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<GlobalSection*>(sections[globalSectionIndex].get());
+    }
+}
+
+GlobalSection* Context::requiredGlobalSection()
+{
+    if (globalSectionIndex == invalidSection) {
+        globalSectionIndex = sections.size();
+        sections.push_back(std::make_shared<GlobalSection>());
+    }
+
+    return reinterpret_cast<GlobalSection*>(sections[globalSectionIndex].get());
+}
+
+ExportSection* Context::getExportSection() const
+{
+    if (exportSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<ExportSection*>(sections[exportSectionIndex].get());
+    }
+}
+
+ExportSection* Context::requiredExportSection()
+{
+    if (exportSectionIndex == invalidSection) {
+        exportSectionIndex = sections.size();
+        sections.push_back(std::make_shared<ExportSection>());
+    }
+
+    return reinterpret_cast<ExportSection*>(sections[exportSectionIndex].get());
+}
+
+FunctionSection* Context::getFunctionSection() const
+{
+    if (functionSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<FunctionSection*>(sections[functionSectionIndex].get());
+    }
+}
+
+FunctionSection* Context::requiredFunctionSection()
+{
+    if (functionSectionIndex == invalidSection) {
+        functionSectionIndex = sections.size();
+        sections.push_back(std::make_shared<FunctionSection>());
+    }
+
+    return reinterpret_cast<FunctionSection*>(sections[functionSectionIndex].get());
+}
+
+CodeSection* Context::getCodeSection() const
+{
+    if (codeSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<CodeSection*>(sections[codeSectionIndex].get());
+    }
+}
+
+CodeSection* Context::requiredCodeSection()
+{
+    if (codeSectionIndex == invalidSection) {
+        codeSectionIndex = sections.size();
+        sections.push_back(std::make_shared<CodeSection>());
+    }
+
+    return reinterpret_cast<CodeSection*>(sections[codeSectionIndex].get());
+}
+
+DataSection* Context::getDataSection() const
+{
+    if (dataSectionIndex == invalidSection) {
+        return nullptr;
+    } else {
+        return reinterpret_cast<DataSection*>(sections[dataSectionIndex].get());
+    }
+}
+
+DataSection* Context::requiredDataSection()
+{
+    if (dataSectionIndex == invalidSection) {
+        dataSectionIndex = sections.size();
+        sections.push_back(std::make_shared<DataSection>());
+    }
+
+    return reinterpret_cast<DataSection*>(sections[dataSectionIndex].get());
+}
+
 uint32_t Context::getTypeCount() const
 {
     if (auto* section = getTypeSection(); section != nullptr) {
@@ -53,24 +243,14 @@ TypeDeclaration* Context::getType(uint32_t index) const
 
 void Context::addExport(ExportDeclaration* _export)
 {
-    if (getExportSectionIndex() == invalidSection) {
-        setExportSectionIndex(sections.size());
-        sections.push_back(std::make_shared<ExportSection>());
-    }
-
-    auto* section = getExportSection();
+    auto* section = requiredExportSection();
 
     section->addExport(_export);
 }
 
 void Context::addElement(ElementDeclaration* element)
 {
-    if (getElementSectionIndex() == invalidSection) {
-        setElementSectionIndex(sections.size());
-        sections.push_back(std::make_shared<ElementSection>());
-    }
-
-    auto* section = getElementSection();
+    auto* section = requiredElementSection();
 
     section->addElement(element);
 }

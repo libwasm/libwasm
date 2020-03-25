@@ -306,95 +306,27 @@ class Context
             return sections[index].get();
         }
 
-        TypeSection* getTypeSection() const
-        {
-            if (typeSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<TypeSection*>(sections[typeSectionIndex].get());
-            }
-        }
+        TypeSection* getTypeSection() const;
+        ImportSection* getImportSection() const;
+        MemorySection* getMemorySection() const;
+        TableSection* getTableSection() const;
+        ElementSection* getElementSection() const;
+        GlobalSection* getGlobalSection() const;
+        ExportSection* getExportSection() const;
+        FunctionSection* getFunctionSection() const;
+        CodeSection* getCodeSection() const;
+        DataSection* getDataSection() const;
 
-        ImportSection* getImportSection() const
-        {
-            if (importSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<ImportSection*>(sections[importSectionIndex].get());
-            }
-        }
-
-        MemorySection* getMemorySection() const
-        {
-            if (memorySectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<MemorySection*>(sections[memorySectionIndex].get());
-            }
-        }
-
-        TableSection* getTableSection() const
-        {
-            if (tableSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<TableSection*>(sections[tableSectionIndex].get());
-            }
-        }
-
-        ElementSection* getElementSection() const
-        {
-            if (elementSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<ElementSection*>(sections[elementSectionIndex].get());
-            }
-        }
-
-        GlobalSection* getGlobalSection() const
-        {
-            if (globalSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<GlobalSection*>(sections[globalSectionIndex].get());
-            }
-        }
-
-        ExportSection* getExportSection() const
-        {
-            if (exportSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<ExportSection*>(sections[exportSectionIndex].get());
-            }
-        }
-
-        FunctionSection* getFunctionSection() const
-        {
-            if (functionSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<FunctionSection*>(sections[functionSectionIndex].get());
-            }
-        }
-
-        CodeSection* getCodeSection() const
-        {
-            if (codeSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<CodeSection*>(sections[codeSectionIndex].get());
-            }
-        }
-
-        DataSection* getDataSection() const
-        {
-            if (dataSectionIndex == invalidSection) {
-                return nullptr;
-            } else {
-                return reinterpret_cast<DataSection*>(sections[dataSectionIndex].get());
-            }
-        }
+        TypeSection* requiredTypeSection();
+        ImportSection* requiredImportSection();
+        MemorySection* requiredMemorySection();
+        TableSection* requiredTableSection();
+        ElementSection* requiredElementSection();
+        GlobalSection* requiredGlobalSection();
+        ExportSection* requiredExportSection();
+        FunctionSection* requiredFunctionSection();
+        CodeSection* requiredCodeSection();
+        DataSection* requiredDataSection();
 
         void startFunction();
         void endFunction();

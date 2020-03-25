@@ -460,10 +460,7 @@ bool Assembler::parse()
     auto entries = findSectionEntries(module);
 
     if (auto positions = findSectionPositions(entries, SectionType::type); !positions.empty()) {
-        context.typeSectionIndex = sections.size();
-        sections.push_back(std::make_shared<TypeSection>());
-
-        auto* section = context.getTypeSection();
+        auto* section = context.requiredTypeSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -475,10 +472,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::import); !positions.empty()) {
-        context.importSectionIndex = sections.size();
-        sections.push_back(std::make_shared<ImportSection>());
-
-        auto* section = context.getImportSection();
+        auto* section = context.requiredImportSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -490,10 +484,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::function); !positions.empty()) {
-        context.functionSectionIndex = sections.size();
-        sections.push_back(std::make_shared<FunctionSection>());
-
-        auto* sections = context.getFunctionSection();
+        auto* sections = context.requiredFunctionSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -506,10 +497,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::table); !positions.empty()) {
-        context.tableSectionIndex = sections.size();
-        sections.push_back(std::make_shared<TableSection>());
-
-        auto* section = context.getTableSection();
+        auto* section = context.requiredTableSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -521,10 +509,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::memory); !positions.empty()) {
-        context.memorySectionIndex = sections.size();
-        sections.push_back(std::make_shared<MemorySection>());
-
-        auto* section = context.getMemorySection();
+        auto* section = context.requiredMemorySection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -536,10 +521,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::global); !positions.empty()) {
-        context.globalSectionIndex = sections.size();
-        sections.push_back(std::make_shared<GlobalSection>());
-
-        auto* section = context.getGlobalSection();
+        auto* section = context.requiredGlobalSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -551,10 +533,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::code); !positions.empty()) {
-        context.codeSectionIndex = sections.size();
-        sections.push_back(std::make_shared<CodeSection>());
-
-        auto* section = context.getCodeSection();
+        auto* section = context.requiredCodeSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -566,10 +545,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::export_); !positions.empty()) {
-        context.exportSectionIndex = sections.size();
-        sections.push_back(std::make_shared<ExportSection>());
-
-        auto* section = context.getExportSection();
+        auto* section = context.requiredExportSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -593,10 +569,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::element); !positions.empty()) {
-        context.elementSectionIndex = sections.size();
-        sections.push_back(std::make_shared<ElementSection>());
-
-        auto* section = context.getElementSection();
+        auto* section = context.requiredElementSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -608,10 +581,7 @@ bool Assembler::parse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::data); !positions.empty()) {
-        context.dataSectionIndex = sections.size();
-        sections.push_back(std::make_shared<DataSection>());
-
-        auto* section = context.getDataSection();
+        auto* section = context.requiredDataSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
