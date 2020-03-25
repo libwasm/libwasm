@@ -21,7 +21,7 @@ class Disassembler
 {
     public:
         Disassembler(std::istream& stream)
-          : context(data, msgs), sections(context.getSections())
+          : context(msgs), data(context.data()), sections(context.getSections())
         {
             good = readWasm(stream);
         }
@@ -57,12 +57,12 @@ class Disassembler
         void dumpSections(std::ostream& os);
         void generateSections(std::ostream& os, unsigned flags);
 
-        DataBuffer data;
         BinaryErrorHandler msgs;
 
         bool good = false;
 
         BinaryContext context;
+        DataBuffer& data;
         std::vector<std::shared_ptr<Section>>& sections;
 };
 

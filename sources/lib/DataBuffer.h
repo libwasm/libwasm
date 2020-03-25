@@ -39,6 +39,8 @@ class DataBuffer
             pos = 0;
         }
 
+        void reset();
+
         bool atEnd() const
         {
             return pos == container->size();

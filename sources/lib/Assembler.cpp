@@ -595,17 +595,14 @@ bool Assembler::parse()
     return true;
 }
 
-void Assembler::writeHeader()
+void Assembler::writeHeader(BinaryContext& bContext)
 {
-    data.putU32(wasmMagic);
-    data.putU32(wasmVersion);
+    bContext.data().putU32(wasmMagic);
+    bContext.data().putU32(wasmVersion);
 }
 
-void Assembler::writeSections()
+void Assembler::writeSections(BinaryContext& bContext)
 {
-    BinaryErrorHandler error;
-    BinaryContext bContext(context, data, error);
-
     if (bContext.typeSectionIndex != invalidSection) {
         bContext.sections[bContext.typeSectionIndex]->write(bContext);
     }
@@ -655,17 +652,20 @@ void Assembler::writeSections()
     }
 }
 
-void Assembler::writeFile(std::ostream& os)
+void Assembler::writeFile(std::ostream& os, BinaryContext& bContext)
 {
-    os.write(data.data(), data.size());
+    os.write(bContext.data().data(), bContext.data().size());
 }
 
 void Assembler::write(std::ostream& os)
 {
-    data.clear();
+    BinaryErrorHandler error;
+    BinaryContext bContext(context, error);
 
-    writeHeader();
-    writeSections();
-    writeFile(os);
+    bContext.data().reset();
+
+    writeHeader(bContext);
+    writeSections(bContext);
+    writeFile(os, bContext);
 }
 

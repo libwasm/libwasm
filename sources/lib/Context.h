@@ -5,6 +5,7 @@
 
 #include "ErrorHandler.h"
 #include "common.h"
+#include "DataBuffer.h"
 
 #include <cassert>
 #include <cstdint>
@@ -14,7 +15,6 @@
 
 class CodeSection;
 class CustomSection;
-class DataBuffer;
 class DataCountSection;
 class DataSection;
 class ElementDeclaration;
@@ -471,6 +471,7 @@ class Context
         IndexMap tableMap;
         IndexMap typeMap;
 
+        DataBuffer dataBuffer;
         std::vector<IndexMap> localMaps;
         std::vector<uint32_t> localCounts;
 
@@ -481,13 +482,13 @@ class Context
 class BinaryContext : public Context
 {
     public:
-        BinaryContext(DataBuffer& data, BinaryErrorHandler& error)
-          : dataBuffer(data), errorHandler(error)
+        BinaryContext(BinaryErrorHandler& error)
+          : errorHandler(error)
         {
         }
 
-        BinaryContext(Context& other, DataBuffer& data, BinaryErrorHandler& error)
-          : Context(other), dataBuffer(data), errorHandler(error)
+        BinaryContext(Context& other, BinaryErrorHandler& error)
+          : Context(other), errorHandler(error)
         {
         }
 
@@ -504,7 +505,6 @@ class BinaryContext : public Context
         void dump(std::ostream& os);
 
     private:
-        DataBuffer& dataBuffer;
         BinaryErrorHandler& errorHandler;
 
         void dumpSections(std::ostream& os);

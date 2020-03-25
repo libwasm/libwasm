@@ -8,6 +8,12 @@
 
 DataBuffer::DataBuffer()
 {
+    reset();
+}
+
+void DataBuffer::reset()
+{
+    containers.clear();
     containers.emplace_back();
     container = &containers.back();
 }

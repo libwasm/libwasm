@@ -94,9 +94,9 @@ class Assembler
         bool parseHex();
         Token::TokenKind parseNumber();
 
-        void writeHeader();
-        void writeSections();
-        void writeFile(std::ostream& os);
+        void writeHeader(BinaryContext& bContext);
+        void writeSections(BinaryContext& bContext);
+        void writeFile(std::ostream& os, BinaryContext& bContext);
         bool good = false;
         unsigned columnNumber = 1;
         size_t lineNumber = 1;
