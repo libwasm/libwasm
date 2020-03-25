@@ -74,12 +74,9 @@ class IndexMap
 class Context
 {
     public:
-        Context(std::vector<std::unique_ptr<Section>>& s)
-          : sections(s)
-        {
-        }
-
-        Context(const Context& other) = default;
+        Context();
+        ~Context();
+        Context(const Context& other);
 
         auto& getSections()
         {
@@ -494,6 +491,9 @@ class Context
         void addExport(ExportDeclaration* _export);
         void addElement(ElementDeclaration* element);
 
+        void show(std::ostream& os, unsigned flags);
+        void generate(std::ostream& os, unsigned flags);
+
     protected:
         uint32_t codeCount = 0;
         uint32_t elementCount = 0;
@@ -528,7 +528,7 @@ class Context
         std::vector<TypeUse*> functionTable;
         std::vector<size_t> customSectionIndexes;
 
-        std::vector<std::unique_ptr<Section>>& sections;
+        std::vector<std::shared_ptr<Section>> sections;
         std::vector<std::string_view> labelStack;
         std::vector<Local*> locals;
 
@@ -541,13 +541,16 @@ class Context
 
         std::vector<IndexMap> localMaps;
         std::vector<uint32_t> localCounts;
+
+        void showSections(std::ostream& os, unsigned flags);
+        void generateSections(std::ostream& os, unsigned flags = 0);
 };
 
 class BinaryContext : public Context
 {
     public:
-        BinaryContext(DataBuffer& data, BinaryErrorHandler& error, std::vector<std::unique_ptr<Section>>& s)
-          : Context(s), dataBuffer(data), errorHandler(error)
+        BinaryContext(DataBuffer& data, BinaryErrorHandler& error)
+          : dataBuffer(data), errorHandler(error)
         {
         }
 
@@ -566,9 +569,13 @@ class BinaryContext : public Context
             return errorHandler;
         }
 
+        void dump(std::ostream& os);
+
     private:
         DataBuffer& dataBuffer;
         BinaryErrorHandler& errorHandler;
+
+        void dumpSections(std::ostream& os);
 
         friend class Assembler;
         friend class Disassembler;
@@ -577,8 +584,8 @@ class BinaryContext : public Context
 class SourceContext : public Context
 {
     public:
-        SourceContext(TokenBuffer& data, SourceErrorHandler& error, std::vector<std::unique_ptr<Section>>& s)
-          : Context(s), tokenBuffer(data), errorHandler(error)
+        SourceContext(TokenBuffer& data, SourceErrorHandler& error)
+          : tokenBuffer(data), errorHandler(error)
         {
         }
 

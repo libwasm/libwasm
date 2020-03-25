@@ -27,6 +27,16 @@ uint32_t IndexMap::getIndex(std::string_view id) const
     return invalidIndex;
 }
 
+Context::Context()
+{
+}
+
+Context::~Context()
+{
+}
+
+Context::Context(const Context& other) = default;
+
 uint32_t Context::getTypeCount() const
 {
     if (auto* section = getTypeSection(); section != nullptr) {
@@ -45,7 +55,7 @@ void Context::addExport(ExportDeclaration* _export)
 {
     if (getExportSectionIndex() == invalidSection) {
         setExportSectionIndex(sections.size());
-        sections.push_back(std::make_unique<ExportSection>());
+        sections.push_back(std::make_shared<ExportSection>());
     }
 
     auto* section = getExportSection();
@@ -57,7 +67,7 @@ void Context::addElement(ElementDeclaration* element)
 {
     if (getElementSectionIndex() == invalidSection) {
         setElementSectionIndex(sections.size());
-        sections.push_back(std::make_unique<ElementSection>());
+        sections.push_back(std::make_shared<ElementSection>());
     }
 
     auto* section = getElementSection();
@@ -86,4 +96,79 @@ void Context::startCode(uint32_t number)
     localMap = localMaps[number];
     localCount = localCounts[number];
 }
+
+void Context::showSections(std::ostream& os, unsigned flags)
+{
+    for (auto& section : sections) {
+        section->show(os, *this, flags);
+    }
+}
+
+void Context::show(std::ostream& os, unsigned flags)
+{
+    showSections(os, flags);
+}
+
+void Context::generateSections(std::ostream& os, unsigned flags)
+{
+    if (typeSectionIndex != invalidSection) {
+        sections[typeSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (importSectionIndex != invalidSection) {
+        sections[importSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (codeSectionIndex != invalidSection) {
+        sections[codeSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (tableSectionIndex != invalidSection) {
+        sections[tableSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (memorySectionIndex != invalidSection) {
+        sections[memorySectionIndex]->generate(os, *this, flags);
+    }
+
+    if (globalSectionIndex != invalidSection) {
+        sections[globalSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (exportSectionIndex != invalidSection) {
+        sections[exportSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (startSectionIndex != invalidSection) {
+        sections[startSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (elementSectionIndex != invalidSection) {
+        sections[elementSectionIndex]->generate(os, *this, flags);
+    }
+
+    if (dataSectionIndex != invalidSection) {
+        sections[dataSectionIndex]->generate(os, *this, flags);
+    }
+}
+
+void BinaryContext::dumpSections(std::ostream& os)
+{
+    for (auto& section : sections) {
+        section->dump(os, *this);
+    }
+}
+
+void BinaryContext::dump(std::ostream& os)
+{
+    dumpSections(os);
+}
+
+void Context::generate(std::ostream& os, unsigned flags)
+{
+    os << "(module";
+    generateSections(os, flags);
+    os << ")\n";
+}
+
 

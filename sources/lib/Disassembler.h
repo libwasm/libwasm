@@ -21,7 +21,7 @@ class Disassembler
 {
     public:
         Disassembler(std::istream& stream)
-          : context(data, msgs, sections)
+          : context(data, msgs), sections(context.getSections())
         {
             good = readWasm(stream);
         }
@@ -33,9 +33,20 @@ class Disassembler
             return good;
         }
 
-        void dump(std::ostream& os);
-        void show(std::ostream& os, unsigned flags);
-        void generate(std::ostream& os, unsigned flags);
+        void dump(std::ostream& os)
+        {
+            context.dump(os);
+        }
+
+        void show(std::ostream& os, unsigned flags)
+        {
+            context.show(os, flags);
+        }
+
+        void generate(std::ostream& os, unsigned flags)
+        {
+            context.generate(os, flags);
+        }
 
     private:
         bool readWasm(std::istream& stream);
@@ -44,7 +55,6 @@ class Disassembler
         bool readSections();
 
         void dumpSections(std::ostream& os);
-        void showSections(std::ostream& os, unsigned flags);
         void generateSections(std::ostream& os, unsigned flags);
 
         DataBuffer data;
@@ -53,7 +63,7 @@ class Disassembler
         bool good = false;
 
         BinaryContext context;
-        std::vector<std::unique_ptr<Section>> sections;
+        std::vector<std::shared_ptr<Section>>& sections;
 };
 
 

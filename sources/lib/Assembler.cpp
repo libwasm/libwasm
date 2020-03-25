@@ -461,7 +461,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::type); !positions.empty()) {
         context.typeSectionIndex = sections.size();
-        sections.push_back(std::make_unique<TypeSection>());
+        sections.push_back(std::make_shared<TypeSection>());
 
         auto* section = context.getTypeSection();
 
@@ -476,7 +476,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::import); !positions.empty()) {
         context.importSectionIndex = sections.size();
-        sections.push_back(std::make_unique<ImportSection>());
+        sections.push_back(std::make_shared<ImportSection>());
 
         auto* section = context.getImportSection();
 
@@ -491,7 +491,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::function); !positions.empty()) {
         context.functionSectionIndex = sections.size();
-        sections.push_back(std::make_unique<FunctionSection>());
+        sections.push_back(std::make_shared<FunctionSection>());
 
         auto* sections = context.getFunctionSection();
 
@@ -507,7 +507,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::table); !positions.empty()) {
         context.tableSectionIndex = sections.size();
-        sections.push_back(std::make_unique<TableSection>());
+        sections.push_back(std::make_shared<TableSection>());
 
         auto* section = context.getTableSection();
 
@@ -522,7 +522,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::memory); !positions.empty()) {
         context.memorySectionIndex = sections.size();
-        sections.push_back(std::make_unique<MemorySection>());
+        sections.push_back(std::make_shared<MemorySection>());
 
         auto* section = context.getMemorySection();
 
@@ -537,7 +537,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::global); !positions.empty()) {
         context.globalSectionIndex = sections.size();
-        sections.push_back(std::make_unique<GlobalSection>());
+        sections.push_back(std::make_shared<GlobalSection>());
 
         auto* section = context.getGlobalSection();
 
@@ -552,7 +552,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::code); !positions.empty()) {
         context.codeSectionIndex = sections.size();
-        sections.push_back(std::make_unique<CodeSection>());
+        sections.push_back(std::make_shared<CodeSection>());
 
         auto* section = context.getCodeSection();
 
@@ -567,7 +567,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::export_); !positions.empty()) {
         context.exportSectionIndex = sections.size();
-        sections.push_back(std::make_unique<ExportSection>());
+        sections.push_back(std::make_shared<ExportSection>());
 
         auto* section = context.getExportSection();
 
@@ -594,7 +594,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::element); !positions.empty()) {
         context.elementSectionIndex = sections.size();
-        sections.push_back(std::make_unique<ElementSection>());
+        sections.push_back(std::make_shared<ElementSection>());
 
         auto* section = context.getElementSection();
 
@@ -609,7 +609,7 @@ bool Assembler::parse()
 
     if (auto positions = findSectionPositions(entries, SectionType::data); !positions.empty()) {
         context.dataSectionIndex = sections.size();
-        sections.push_back(std::make_unique<DataSection>());
+        sections.push_back(std::make_shared<DataSection>());
 
         auto* section = context.getDataSection();
 
@@ -623,18 +623,6 @@ bool Assembler::parse()
     }
 
     return true;
-}
-
-void Assembler::showSections(std::ostream& os, unsigned flags)
-{
-    for (auto& section : sections) {
-        section->show(os, context, flags);
-    }
-}
-
-void Assembler::show(std::ostream& os, unsigned flags)
-{
-    showSections(os, flags);
 }
 
 void Assembler::writeHeader()

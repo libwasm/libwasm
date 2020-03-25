@@ -20,7 +20,7 @@ class Assembler
 {
     public:
         Assembler(std::istream& stream)
-          : context(tokens, msgs, sections)
+          : context(tokens, msgs), sections(context.getSections())
         {
             good = readWat(stream);
         }
@@ -32,7 +32,11 @@ class Assembler
             return good;
         }
 
-        void show(std::ostream& os, unsigned flags);
+        void show(std::ostream& os, unsigned flags)
+        {
+            context.show(os, flags);
+        }
+
         void write(std::ostream& os);
 
         bool parse();
@@ -90,8 +94,6 @@ class Assembler
         bool parseHex();
         Token::TokenKind parseNumber();
 
-        void showSections(std::ostream& os, unsigned flags);
-
         void writeHeader();
         void writeSections();
         void writeFile(std::ostream& os);
@@ -103,7 +105,7 @@ class Assembler
         SourceErrorHandler msgs;
 
         SourceContext context;
-        std::vector<std::unique_ptr<Section>> sections;
+        std::vector<std::shared_ptr<Section>>& sections;
 };
 
 #endif
