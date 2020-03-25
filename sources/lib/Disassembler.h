@@ -48,6 +48,11 @@ class Disassembler
             context.generate(os, flags);
         }
 
+        void write(std::ostream& os)
+        {
+            context.write(os);
+        }
+
     private:
         bool readWasm(std::istream& stream);
         bool readFile(std::istream& stream);

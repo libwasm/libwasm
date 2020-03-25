@@ -64,6 +64,16 @@ class BinaryErrorHandler
             entryNumber = 0;
         }
 
+        auto getErrorCount() const
+        {
+            return errorCount;
+        }
+
+        auto getWarningCount() const
+        {
+            return warningCount;
+        }
+
     private:
         void showHeader(std::string_view type)
         {
@@ -146,6 +156,16 @@ class SourceErrorHandler
         void expected(const Token& token, const Ts&... ts)
         {
             error(token, "found '", token.getValue(), "', expected ", ts..., '.');
+        }
+
+        auto getErrorCount() const
+        {
+            return errorCount;
+        }
+
+        auto getWarningCount() const
+        {
+            return warningCount;
         }
 
     private:

@@ -351,4 +351,84 @@ void Context::generate(std::ostream& os, unsigned flags)
     os << ")\n";
 }
 
+void BinaryContext::writeHeader()
+{
+    dataBuffer.putU32(wasmMagic);
+    dataBuffer.putU32(wasmVersion);
+}
+
+void BinaryContext::writeSections()
+{
+    if (typeSectionIndex != invalidSection) {
+        sections[typeSectionIndex]->write(*this);
+    }
+
+    if (importSectionIndex != invalidSection) {
+        sections[importSectionIndex]->write(*this);
+    }
+
+    if (functionSectionIndex != invalidSection) {
+        sections[functionSectionIndex]->write(*this);
+    }
+
+    if (tableSectionIndex != invalidSection) {
+        sections[tableSectionIndex]->write(*this);
+    }
+
+    if (memorySectionIndex != invalidSection) {
+        sections[memorySectionIndex]->write(*this);
+    }
+
+    if (globalSectionIndex != invalidSection) {
+        sections[globalSectionIndex]->write(*this);
+    }
+
+    if (exportSectionIndex != invalidSection) {
+        sections[exportSectionIndex]->write(*this);
+    }
+
+    if (startSectionIndex != invalidSection) {
+        sections[startSectionIndex]->write(*this);
+    }
+
+    if (elementSectionIndex != invalidSection) {
+        sections[elementSectionIndex]->write(*this);
+    }
+
+    if (dataCountSectionIndex != invalidSection) {
+        sections[dataCountSectionIndex]->write(*this);
+    }
+
+    if (codeSectionIndex != invalidSection) {
+        sections[codeSectionIndex]->write(*this);
+    }
+
+    if (dataSectionIndex != invalidSection) {
+        sections[dataSectionIndex]->write(*this);
+    }
+}
+
+void BinaryContext::writeFile(std::ostream& os)
+{
+    os.write(data().data(), data().size());
+}
+
+void BinaryContext::write(std::ostream& os)
+{
+    dataBuffer.reset();
+
+    writeHeader();
+    writeSections();
+    writeFile(os);
+}
+
+void SourceContext::write(std::ostream& os)
+{
+    BinaryErrorHandler error;
+    BinaryContext bContext(*this, error);
+
+    bContext.data().reset();
+
+    bContext.write(os);
+}
 

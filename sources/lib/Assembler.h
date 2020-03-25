@@ -37,9 +37,27 @@ class Assembler
             context.show(os, flags);
         }
 
-        void write(std::ostream& os);
+        void generate(std::ostream& os, unsigned flags)
+        {
+            context.generate(os, flags);
+        }
+
+        void write(std::ostream& os)
+        {
+            context.write(os);
+        }
 
         bool parse();
+
+        auto getErrorCount() const
+        {
+            return msgs.getErrorCount();
+        }
+
+        auto getWarningCount() const
+        {
+            return msgs.getWarningCount();
+        }
 
     private:
         struct SectionElementIndex
@@ -94,9 +112,6 @@ class Assembler
         bool parseHex();
         Token::TokenKind parseNumber();
 
-        void writeHeader(BinaryContext& bContext);
-        void writeSections(BinaryContext& bContext);
-        void writeFile(std::ostream& os, BinaryContext& bContext);
         bool good = false;
         unsigned columnNumber = 1;
         size_t lineNumber = 1;

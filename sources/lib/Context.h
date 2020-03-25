@@ -503,11 +503,15 @@ class BinaryContext : public Context
         }
 
         void dump(std::ostream& os);
+        void write(std::ostream& os);
 
     private:
         BinaryErrorHandler& errorHandler;
 
         void dumpSections(std::ostream& os);
+        void writeHeader();
+        void writeSections();
+        void writeFile(std::ostream& os);
 
         friend class Assembler;
         friend class Disassembler;
@@ -530,6 +534,8 @@ class SourceContext : public Context
         {
             return errorHandler;
         }
+
+        void write(std::ostream& os);
 
     private:
         TokenBuffer& tokenBuffer;

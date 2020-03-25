@@ -139,6 +139,9 @@ int main(int argc, char*argv[])
         exit(-1);
     }
 
+    unsigned errors = 0;
+    unsigned warnings = 0;
+
     for (auto inputFile : inputFiles) {
         std::ifstream inputStream(inputFile, std::ios::binary);
 
@@ -172,10 +175,33 @@ int main(int argc, char*argv[])
                     }
                 }
             }
+
+            errors = assembler.getErrorCount();
+            warnings = assembler.getWarningCount();
+
         } else {
             std::cerr << "Error: Failed to process input file " << inputFile << '\n';
+            errors = 1;
         }
     }
+
+    if (errors == 0) {
+        std::cout << "NO ERRORS; ";
+    } else if (errors == 1) {
+        std::cout << "1 ERROR; ";
+    } else {
+        std::cout << errors << " ERRORS; ";
+    }
+
+    if (warnings == 0) {
+        std::cout << "NO WARNINGS; ";
+    } else if (warnings == 1) {
+        std::cout << "1 WARNING; ";
+    } else {
+        std::cout << warnings << " WARNINGS; ";
+    }
+
+    std::cout << '\n';
 
     if (wantStatistics) {
         std::cout << "CPU time = " << std::setw(4) << std::setprecision(2) << std::fixed <<

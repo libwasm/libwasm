@@ -356,7 +356,7 @@ bool Assembler::tokenize()
         whiteSpace();
     }
 
-    return true;
+    return msgs.getErrorCount() == 0;
 }
 
 static SectionType checkImport(TokenBuffer& tokens, SectionType sectionType)
@@ -592,80 +592,6 @@ bool Assembler::parse()
         }
     }
 
-    return true;
-}
-
-void Assembler::writeHeader(BinaryContext& bContext)
-{
-    bContext.data().putU32(wasmMagic);
-    bContext.data().putU32(wasmVersion);
-}
-
-void Assembler::writeSections(BinaryContext& bContext)
-{
-    if (bContext.typeSectionIndex != invalidSection) {
-        bContext.sections[bContext.typeSectionIndex]->write(bContext);
-    }
-
-    if (bContext.importSectionIndex != invalidSection) {
-        bContext.sections[bContext.importSectionIndex]->write(bContext);
-    }
-
-    if (bContext.functionSectionIndex != invalidSection) {
-        bContext.sections[bContext.functionSectionIndex]->write(bContext);
-    }
-
-    if (bContext.tableSectionIndex != invalidSection) {
-        bContext.sections[bContext.tableSectionIndex]->write(bContext);
-    }
-
-    if (bContext.memorySectionIndex != invalidSection) {
-        bContext.sections[bContext.memorySectionIndex]->write(bContext);
-    }
-
-    if (bContext.globalSectionIndex != invalidSection) {
-        bContext.sections[bContext.globalSectionIndex]->write(bContext);
-    }
-
-    if (bContext.exportSectionIndex != invalidSection) {
-        bContext.sections[bContext.exportSectionIndex]->write(bContext);
-    }
-
-    if (bContext.startSectionIndex != invalidSection) {
-        bContext.sections[bContext.startSectionIndex]->write(bContext);
-    }
-
-    if (bContext.elementSectionIndex != invalidSection) {
-        bContext.sections[bContext.elementSectionIndex]->write(bContext);
-    }
-
-    if (bContext.dataCountSectionIndex != invalidSection) {
-        bContext.sections[bContext.dataCountSectionIndex]->write(bContext);
-    }
-
-    if (bContext.codeSectionIndex != invalidSection) {
-        bContext.sections[bContext.codeSectionIndex]->write(bContext);
-    }
-
-    if (bContext.dataSectionIndex != invalidSection) {
-        bContext.sections[bContext.dataSectionIndex]->write(bContext);
-    }
-}
-
-void Assembler::writeFile(std::ostream& os, BinaryContext& bContext)
-{
-    os.write(bContext.data().data(), bContext.data().size());
-}
-
-void Assembler::write(std::ostream& os)
-{
-    BinaryErrorHandler error;
-    BinaryContext bContext(context, error);
-
-    bContext.data().reset();
-
-    writeHeader(bContext);
-    writeSections(bContext);
-    writeFile(os, bContext);
+    return msgs.getErrorCount() == 0;
 }
 

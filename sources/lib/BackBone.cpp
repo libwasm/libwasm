@@ -116,7 +116,11 @@ void Limits::show(std::ostream& os)
 void Section::dump(std::ostream& os, BinaryContext& context)
 {
     os << '\n' << type << " section:";
-    context.data().dump(os, startOffset, endOffset);
+    if (startOffset == 0) {
+        os << "*** no binary data available.\n";
+    } else {
+        context.data().dump(os, startOffset, endOffset);
+    }
 }
 
 CustomSection* CustomSection::read(BinaryContext& context)
