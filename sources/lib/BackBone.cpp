@@ -157,7 +157,7 @@ CustomSection* CustomSection::read(BinaryContext& context)
     return result;
 }
 
-void CustomSection::generate(std::ostream& os, Context& context, unsigned flags)
+void CustomSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
 }
@@ -239,7 +239,7 @@ RelocationSection* RelocationSection::read(BinaryContext& context)
     return result;
 }
 
-void RelocationSection::generate(std::ostream& os, Context& context, unsigned flags)
+void RelocationSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
 }
@@ -685,7 +685,7 @@ LinkingSection* LinkingSection::read(BinaryContext& context, size_t endPos)
     return result;
 }
 
-void LinkingSection::generate(std::ostream& os, Context& context, unsigned flags)
+void LinkingSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
 }
@@ -1006,7 +1006,7 @@ void TypeSection::read(BinaryContext& context, TypeSection* result)
     context.msgs().resetInfo();
 }
 
-void TypeSection::generate(std::ostream& os, Context& context, unsigned flags)
+void TypeSection::generate(std::ostream& os, Context& context)
 {
     for (auto& type : types) {
         type->generate(os, context);
@@ -1861,7 +1861,7 @@ ImportSection* ImportSection::read(BinaryContext& context)
     return result;
 }
 
-void ImportSection::generate(std::ostream& os, Context& context, unsigned flags)
+void ImportSection::generate(std::ostream& os, Context& context)
 {
     for (auto& import : imports) {
         import->generate(os, context);
@@ -2004,7 +2004,7 @@ FunctionSection* FunctionSection::read(BinaryContext& context)
     return result;
 }
 
-void FunctionSection::generate(std::ostream& os, Context& context, unsigned flags)
+void FunctionSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
 }
@@ -2180,7 +2180,7 @@ TableSection* TableSection::read(BinaryContext& context)
     return result;
 }
 
-void TableSection::generate(std::ostream& os, Context& context, unsigned flags)
+void TableSection::generate(std::ostream& os, Context& context)
 {
     for (auto& table : tables) {
         table->generate(os, context);
@@ -2309,7 +2309,7 @@ MemorySection* MemorySection::read(BinaryContext& context)
     return result;
 }
 
-void MemorySection::generate(std::ostream& os, Context& context, unsigned flags)
+void MemorySection::generate(std::ostream& os, Context& context)
 {
     for (auto& memory : memories) {
         memory->generate(os, context);
@@ -2481,7 +2481,7 @@ GlobalSection* GlobalSection::read(BinaryContext& context)
     return result;
 }
 
-void GlobalSection::generate(std::ostream& os, Context& context, unsigned flags)
+void GlobalSection::generate(std::ostream& os, Context& context)
 {
     for (auto& global : globals) {
         global->generate(os, context);
@@ -2657,7 +2657,7 @@ ExportSection* ExportSection::read(BinaryContext& context)
     return result;
 }
 
-void ExportSection::generate(std::ostream& os, Context& context, unsigned flags)
+void ExportSection::generate(std::ostream& os, Context& context)
 {
     for (auto& export_ : exports) {
         export_->generate(os, context);
@@ -2721,7 +2721,7 @@ StartSection* StartSection::read(BinaryContext& context)
     return result;
 }
 
-void StartSection::generate(std::ostream& os, Context& context, unsigned flags)
+void StartSection::generate(std::ostream& os, Context& context)
 {
     os << "\n  (start " << functionIndex << ')';
 }
@@ -2991,7 +2991,7 @@ ElementSection* ElementSection::read(BinaryContext& context)
     return result;
 }
 
-void ElementSection::generate(std::ostream& os, Context& context, unsigned flags)
+void ElementSection::generate(std::ostream& os, Context& context)
 {
     for (auto& element : elements) {
         element->generate(os, context);
@@ -3260,7 +3260,7 @@ CodeSection* CodeSection::read(BinaryContext& context)
     return result;
 }
 
-void CodeSection::generate(std::ostream& os, Context& context, unsigned flags)
+void CodeSection::generate(std::ostream& os, Context& context)
 {
     for (auto& code : codes) {
         code->generate(os, context);
@@ -3418,7 +3418,7 @@ DataSection* DataSection::read(BinaryContext& context)
     return result;
 }
 
-void DataSection::generate(std::ostream& os, Context& context, unsigned flags)
+void DataSection::generate(std::ostream& os, Context& context)
 {
     for (auto& segment : segments) {
         segment->generate(os, context);
@@ -3458,7 +3458,7 @@ DataCountSection* DataCountSection::read(BinaryContext& context)
     return result;
 }
 
-void DataCountSection::generate(std::ostream& os, Context& context, unsigned flags)
+void DataCountSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
 }

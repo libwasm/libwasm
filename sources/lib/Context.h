@@ -424,7 +424,7 @@ class Context
         void addElement(ElementDeclaration* element);
 
         void show(std::ostream& os, unsigned flags);
-        void generate(std::ostream& os, unsigned flags);
+        void generate(std::ostream& os);
 
     protected:
         uint32_t codeCount = 0;
@@ -476,7 +476,7 @@ class Context
         std::vector<uint32_t> localCounts;
 
         void showSections(std::ostream& os, unsigned flags);
-        void generateSections(std::ostream& os, unsigned flags = 0);
+        void generateSections(std::ostream& os);
 };
 
 class BinaryContext : public Context

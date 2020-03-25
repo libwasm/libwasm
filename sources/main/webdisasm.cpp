@@ -174,7 +174,7 @@ int main(int argc, char*argv[])
                     }
 
                     if (wantGenerate) {
-                        disassembler.generate(outputStream, 0);
+                        disassembler.generate(outputStream);
                     }
                 } else {
                     if (wantShow) {
@@ -186,7 +186,7 @@ int main(int argc, char*argv[])
                     }
 
                     if (wantGenerate) {
-                        disassembler.generate(std::cout, 0);
+                        disassembler.generate(std::cout);
                     }
                 }
             }

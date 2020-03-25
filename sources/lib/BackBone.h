@@ -73,7 +73,7 @@ class Section
         void dump(std::ostream& os, BinaryContext& context);
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) = 0;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) = 0;
+        virtual void generate(std::ostream& os, Context& context) = 0;
         virtual void write(BinaryContext& context) const = 0;
 
     protected:
@@ -105,7 +105,7 @@ class CustomSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
 
         static CustomSection* read(BinaryContext& context);
 
@@ -192,7 +192,7 @@ class RelocationSection : public CustomSection
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override
         {
         }
@@ -590,7 +590,7 @@ class LinkingSection : public CustomSection
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override
         {
         }
@@ -807,7 +807,7 @@ class TypeSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static void read(BinaryContext& context, TypeSection* result);
@@ -1073,7 +1073,7 @@ class ImportSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static ImportSection* read(BinaryContext& context);
@@ -1136,7 +1136,7 @@ class FunctionSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static FunctionSection* read(BinaryContext& context);
@@ -1188,7 +1188,7 @@ class TableSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static TableSection* read(BinaryContext& context);
@@ -1240,7 +1240,7 @@ class MemorySection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static MemorySection* read(BinaryContext& context);
@@ -1293,7 +1293,7 @@ class GlobalSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static GlobalSection* read(BinaryContext& context);
@@ -1378,7 +1378,7 @@ class ExportSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static ExportSection* read(BinaryContext& context);
@@ -1406,7 +1406,7 @@ class StartSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static StartSection* parse(SourceContext& context);
@@ -1492,7 +1492,7 @@ class ElementSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static ElementSection* read(BinaryContext& context);
@@ -1551,7 +1551,7 @@ class CodeSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static CodeSection* read(BinaryContext& context);
@@ -1633,7 +1633,7 @@ class DataSection : public Section
         static DataSection* read(BinaryContext& context);
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
     private:
@@ -1659,7 +1659,7 @@ class DataCountSection : public Section
         }
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static DataCountSection* read(BinaryContext& context);

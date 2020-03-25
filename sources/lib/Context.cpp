@@ -289,46 +289,46 @@ void Context::show(std::ostream& os, unsigned flags)
     showSections(os, flags);
 }
 
-void Context::generateSections(std::ostream& os, unsigned flags)
+void Context::generateSections(std::ostream& os)
 {
     if (typeSectionIndex != invalidSection) {
-        sections[typeSectionIndex]->generate(os, *this, flags);
+        sections[typeSectionIndex]->generate(os, *this);
     }
 
     if (importSectionIndex != invalidSection) {
-        sections[importSectionIndex]->generate(os, *this, flags);
+        sections[importSectionIndex]->generate(os, *this);
     }
 
     if (codeSectionIndex != invalidSection) {
-        sections[codeSectionIndex]->generate(os, *this, flags);
+        sections[codeSectionIndex]->generate(os, *this);
     }
 
     if (tableSectionIndex != invalidSection) {
-        sections[tableSectionIndex]->generate(os, *this, flags);
+        sections[tableSectionIndex]->generate(os, *this);
     }
 
     if (memorySectionIndex != invalidSection) {
-        sections[memorySectionIndex]->generate(os, *this, flags);
+        sections[memorySectionIndex]->generate(os, *this);
     }
 
     if (globalSectionIndex != invalidSection) {
-        sections[globalSectionIndex]->generate(os, *this, flags);
+        sections[globalSectionIndex]->generate(os, *this);
     }
 
     if (exportSectionIndex != invalidSection) {
-        sections[exportSectionIndex]->generate(os, *this, flags);
+        sections[exportSectionIndex]->generate(os, *this);
     }
 
     if (startSectionIndex != invalidSection) {
-        sections[startSectionIndex]->generate(os, *this, flags);
+        sections[startSectionIndex]->generate(os, *this);
     }
 
     if (elementSectionIndex != invalidSection) {
-        sections[elementSectionIndex]->generate(os, *this, flags);
+        sections[elementSectionIndex]->generate(os, *this);
     }
 
     if (dataSectionIndex != invalidSection) {
-        sections[dataSectionIndex]->generate(os, *this, flags);
+        sections[dataSectionIndex]->generate(os, *this);
     }
 }
 
@@ -344,10 +344,10 @@ void BinaryContext::dump(std::ostream& os)
     dumpSections(os);
 }
 
-void Context::generate(std::ostream& os, unsigned flags)
+void Context::generate(std::ostream& os)
 {
     os << "(module";
-    generateSections(os, flags);
+    generateSections(os);
     os << ")\n";
 }
 

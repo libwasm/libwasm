@@ -43,9 +43,9 @@ class Disassembler
             context.show(os, flags);
         }
 
-        void generate(std::ostream& os, unsigned flags)
+        void generate(std::ostream& os)
         {
-            context.generate(os, flags);
+            context.generate(os);
         }
 
         void write(std::ostream& os)
