@@ -20,6 +20,7 @@ The start the assembler use the command
 
 *options* is a list of options.
 
+
 ### Options
 In the description of the options, the following example source file (called 'sample.wat') will be used:
 
@@ -31,6 +32,7 @@ In the description of the options, the following example source file (called 'sa
           local.get $rhs
           i32.add)
       )
+
 
 #### The *-h* option.
 The *-h* option shows the help page.
@@ -54,9 +56,11 @@ The *-h* option shows the help page.
 
      For the '-p' and '-P' options the output file defaults to 'std::cout'.
 
+
 #### The *-a* option.
 The *-a* option specifies that a binary ouput file (usually a *.wasm* file) must be produced.
 The name of the output file must be given with thw *-o* option.
+
 
 #### The *-o* option.
 The *-o* option specifies the output file to be written.
@@ -66,8 +70,9 @@ If the *-a* option is also given then the output file will be a binary (usually 
 If any of the the *-p* or *-P* options is also given then the output file
 will be a text file.
 
+
 #### The *-p* option.
-The *-p* option specifies that the internal data structure of the assembelr must be
+The *-p* option specifies that the internal data structure of the assembler must be
 dumped in a human readable format.  The internal data structure represents all the sections and
 their content parsed from the inout file.
 
@@ -85,6 +90,7 @@ their content parsed from the inout file.
 
      DataCount section:
        data count: 0
+
 
 #### The *-P* option.
 The *-P* produces the same output as the *-p* option, but adds the code to each function.
@@ -106,8 +112,10 @@ The *-P* produces the same output as the *-p* option, but adds the code to each 
      DataCount section:
        data count: 0
 
+
 #### The *-s* option.
 The *-S* option prints assembler statistics.
+
 
 ## Disassembler.
 
@@ -119,9 +127,11 @@ The start the disassembler use the command
 
 *options* is a list of options.
 
+
 ### Options
 In the description of the options, The binary file (called 'sample.wasm') will be used that
 correspond to the 'sample.wat' file in the description of the assembler.
+
 
 #### The *-h* option.
 The *-h* option shows the help page.
@@ -147,9 +157,11 @@ The *-h* option shows the help page.
 
      For the '-d', '-p' and '-P' options the output file defaults to 'std::cout'.
 
+
 #### The *-a* option.
 The *-a* option specifies that a source ouput file (usually a *.wat* file) must be produced.
 The name of the output file must be given with thw *-o* option.
+
 
 #### The *-o* option.
 The *-o* option specifies the output file to be written.
@@ -158,6 +170,7 @@ If the *-a* option is also given then the output file will be a binary (usually 
 
 If any of the the *-d*, *-p* or *-P* options is also given then the output file
 will be a text file.
+
 
 #### The *-p* option.
 The *-p* option specifies that the internal data structure of the assembelr must be
@@ -179,6 +192,7 @@ their content parsed from the inout file.
      DataCount section:
        data count: 0
 
+
 #### The *-P* option.
 The *-P* produces the same output as the *-p* option, but adds the code to each function.
 
@@ -198,6 +212,7 @@ The *-P* produces the same output as the *-p* option, but adds the code to each 
 
      DataCount section:
        data count: 0
+
 
 #### The *-d* option.
 the *-d* option specifies that the raw content of all sections must be dumped.
@@ -219,6 +234,92 @@ the *-d* option specifies that the raw content of all sections must be dumped.
 
 The *-d* option can be combined with the *-p* or *-P* option
 
+
 #### The *-s* option.
 The *-S* option prints assembler statistics.
+
+<P style="page-break-before: always">
+
+## Library.
+
+The libwasm library consists of the following major parts:
+
+classes to assemble and disassemble programmatically:
+
+* the *Assembler* class
+* the *Disassembler* class
+
+classes and functions to manipulate the contents:
+
+* the backbone
+* the *Context* classes
+* utility functions.
+
+
+### The *Assembler* class
+The *Assembler* class allows to parse webassembly text and produce several outputs.
+
+The Interface for the *Assembler* class is:
+
+     class Assembler
+     {
+         public:
+             Assembler(std::istream& stream)
+             ~Assembler() = default;
+             bool isGood() const
+             bool parse();
+             void show(std::ostream& os, unsigned flags)
+             void generate(std::ostream& os)
+             void write(std::ostream& os)
+             auto errorCount() const;
+     }
+
+
+#### *Assembler* constructor.
+The constructor takes an input stream as parameter.  The webassembly text will be read from that input stream.
+This allows to read from a file or a string.
+
+
+#### The *isGood* method.
+Once the *Assembler* is instantiated, the *isGood* method returns true if the input stream was
+successfuly read, false otherwise.
+
+
+#### The *parse* method.
+The *parse* method parses the data read from the input stream and creates an intermediate structure
+known as the backbone.
+
+
+#### The *generate* method.
+The *generate* method generates webassembly text code from the backbone into the given output stream.
+
+
+#### The *show* method.
+The *show* method generates a human-readable dump of the backbone into the given output stream.
+
+The *flags* parameter should be set to 1 if the dump must contain disassembled code, 0 otherwise.
+
+
+#### The *write* method.
+The *write* method generates webassembly binary code from the backbone into the given output stream.
+
+
+### The Disassembler class
+
+To be done.
+
+
+### The backbone
+
+To be done.
+
+
+### The Context classes
+
+To be done.
+
+
+### Utility functions.
+
+To be done.
 
