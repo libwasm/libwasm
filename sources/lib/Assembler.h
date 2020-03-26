@@ -47,8 +47,6 @@ class Assembler
             context.write(os);
         }
 
-        bool parse();
-
         auto getErrorCount() const
         {
             return msgs.getErrorCount();
@@ -107,6 +105,8 @@ class Assembler
             return lineComment() || blockComment();
         }
 
+        bool parse();
+        bool doParse();
         bool parseInteger(bool allowHex = true);
         bool parseString();
         bool parseHex();

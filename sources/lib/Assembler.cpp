@@ -34,9 +34,7 @@ bool Assembler::readFile(std::istream& stream)
 bool Assembler::readWat(std::istream& stream)
 {
     return readFile(stream) &&
-        tokenize() &&
-        parse() &&
-        checkSemantics(context);
+        parse();
 };
 
 bool isFormatChar(char c)
@@ -449,6 +447,13 @@ std::vector<size_t> Assembler::findSectionPositions(
 }
 
 bool Assembler::parse()
+{
+    return tokenize() &&
+        doParse() &&
+        checkSemantics(context);
+}
+
+bool Assembler::doParse()
 {
     bool module = false;
 
