@@ -53,6 +53,16 @@ class Disassembler
             context.write(os);
         }
 
+        auto getErrorCount() const
+        {
+            return msgs.getErrorCount();
+        }
+
+        auto getWarningCount() const
+        {
+            return msgs.getWarningCount();
+        }
+
     private:
         bool readWasm(std::istream& stream);
         bool readFile(std::istream& stream);

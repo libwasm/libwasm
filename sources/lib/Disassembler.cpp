@@ -137,7 +137,7 @@ bool Disassembler::readSections()
         }
     }
 
-    return true;
+    return msgs.getErrorCount() == 0;
 }
 
 bool Disassembler::readWasm(std::istream& stream)

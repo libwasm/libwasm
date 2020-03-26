@@ -265,12 +265,12 @@ The Interface for the *Assembler* class is:
      {
          public:
              Assembler(std::istream& stream)
-             ~Assembler() = default;
              bool isGood() const
              void show(std::ostream& os, unsigned flags)
              void generate(std::ostream& os)
              void write(std::ostream& os)
-             auto errorCount() const;
+             auto getErrorCount() const;
+             auto getWarningCount() const;
      }
 
 
@@ -297,6 +297,10 @@ The *flags* parameter should be set to 1 if the dump must contain disassembled c
 
 #### The *write* method.
 The *write* method generates webassembly binary code from the backbone into the given output stream.
+
+#### the *getErrorCount* and *getWarningCount* methods.
+The *getErrorCount* and *getWarningCount* methods return the numper of errors and warnings
+that were given during preceding processing.
 
 ##### Example
 The following program reads and parses the test file 'sample.wat', produces a human readable dump of
@@ -330,15 +334,41 @@ the backbone and generates the binary file 'sample.wasm'.
          }
      }
 
-This program can be compiled as folloes:
+This program can be compiled with the following command:
 
      $ clang++ -o test -std=c++17 test.cpp -I libwasmdir/sources/lib -L libwasmdir/lib -lwasm
 
 where 'test.cpp' is de name of the source file and 'libwasmdir' is de directory where libwasm is installed.
 
+'g++' can be substituted for 'clang++'.
+
 ### The Disassembler class
 
-To be done.
+The *Disassembler* class allows to read webassembly binary input and produce several outputs.
+
+The Interface for the *Assembler* class is:
+
+class Disassembler
+{
+    public:
+        Disassembler(std::istream& stream)'
+        bool isGood() const;
+        void dump(std::ostream& os);
+        void show(std::ostream& os, unsigned flags);
+        void generate(std::ostream& os);
+        void write(std::ostream& os);
+        auto getErrorCount() const;
+        auto getWarningCount() const;
+}
+
+#### *Disassembler* constructor.
+The constructor takes an input stream as parameter.  The webassembly binary will be read from that input stream.
+This allows to read from a file or a string.
+
+The constructor will create the internal structure known as the backbone.
+
+#### Other methods.
+Other methods have the same functionality as for the *Assembler* class.
 
 
 ### The backbone
