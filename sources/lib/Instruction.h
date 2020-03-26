@@ -6,6 +6,7 @@
 #include "DataBuffer.h"
 #include "Context.h"
 #include "Encodings.h"
+#include "TreeNode.h"
 
 #include <iostream>
 #include <memory>
@@ -35,7 +36,7 @@ class InstructionContext
         unsigned blockDepth = 0;
 };
 
-class Instruction
+class Instruction : public TreeNode
 {
     public:
         Instruction() = default;

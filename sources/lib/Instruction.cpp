@@ -23,12 +23,12 @@ InstructionNone* InstructionNone::parse(SourceContext& context, Opcode opcode)
         context.popLabel();
     }
 
-    return new InstructionNone();
+    return context.makeTreeNode<InstructionNone>();
 }
 
 InstructionNone* InstructionNone::read(BinaryContext& context)
 {
-    auto result = new InstructionNone();
+    auto result = context.makeTreeNode<InstructionNone>();
 
     return result;
 }
@@ -50,7 +50,7 @@ void InstructionNone::generate(std::ostream& os, InstructionContext& context)
 
 InstructionI32* InstructionI32::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionI32();
+    auto result = context.makeTreeNode<InstructionI32>();
 
     result->imm = requiredI32(context);
 
@@ -59,7 +59,7 @@ InstructionI32* InstructionI32::parse(SourceContext& context, Opcode opcode)
 
 InstructionI32* InstructionI32::read(BinaryContext& context)
 {
-    auto result = new InstructionI32();
+    auto result = context.makeTreeNode<InstructionI32>();
 
     result->imm = context.data().getI32leb();
 
@@ -81,7 +81,7 @@ void InstructionI32::generate(std::ostream& os, InstructionContext& context)
 
 InstructionI64* InstructionI64::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionI64();
+    auto result = context.makeTreeNode<InstructionI64>();
 
     result->imm = requiredI64(context);
 
@@ -90,7 +90,7 @@ InstructionI64* InstructionI64::parse(SourceContext& context, Opcode opcode)
 
 InstructionI64* InstructionI64::read(BinaryContext& context)
 {
-    auto result = new InstructionI64();
+    auto result = context.makeTreeNode<InstructionI64>();
 
     result->imm = context.data().getI64leb();
 
@@ -112,7 +112,7 @@ void InstructionI64::generate(std::ostream& os, InstructionContext& context)
 
 InstructionF32* InstructionF32::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionF32();
+    auto result = context.makeTreeNode<InstructionF32>();
 
     result->imm = requiredF32(context);
 
@@ -121,7 +121,7 @@ InstructionF32* InstructionF32::parse(SourceContext& context, Opcode opcode)
 
 InstructionF32* InstructionF32::read(BinaryContext& context)
 {
-    auto result = new InstructionF32();
+    auto result = context.makeTreeNode<InstructionF32>();
 
     result->imm = context.data().getF();
 
@@ -146,7 +146,7 @@ void InstructionF32::generate(std::ostream& os, InstructionContext& context)
 
 InstructionF64* InstructionF64::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionF64();
+    auto result = context.makeTreeNode<InstructionF64>();
 
     result->imm = requiredF64(context);
 
@@ -155,7 +155,7 @@ InstructionF64* InstructionF64::parse(SourceContext& context, Opcode opcode)
 
 InstructionF64* InstructionF64::read(BinaryContext& context)
 {
-    auto result = new InstructionF64();
+    auto result = context.makeTreeNode<InstructionF64>();
 
     result->imm = context.data().getD();
 
@@ -182,7 +182,7 @@ InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
 {
     auto& tokens = context.tokens();
 
-    auto result = new InstructionBlock();
+    auto result = context.makeTreeNode<InstructionBlock>();
 
     if (auto id = tokens.getId()) {
         result->label = *id;
@@ -212,7 +212,7 @@ InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
 
 InstructionBlock* InstructionBlock::read(BinaryContext& context)
 {
-    auto result = new InstructionBlock();
+    auto result = context.makeTreeNode<InstructionBlock>();
 
     result->imm = ValueType(context.data().getI32leb());
 
@@ -240,7 +240,7 @@ void InstructionBlock::generate(std::ostream& os, InstructionContext& context)
 
 InstructionIdx* InstructionIdx::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionIdx();
+    auto result = context.makeTreeNode<InstructionIdx>();
 
     result->imm = requiredU32(context);
 
@@ -249,7 +249,7 @@ InstructionIdx* InstructionIdx::parse(SourceContext& context, Opcode opcode)
 
 InstructionIdx* InstructionIdx::read(BinaryContext& context)
 {
-    auto result = new InstructionIdx();
+    auto result = context.makeTreeNode<InstructionIdx>();
 
     result->imm = context.data().getU32leb();
 
@@ -271,7 +271,7 @@ void InstructionIdx::generate(std::ostream& os, InstructionContext& context)
 
 InstructionLocalIdx* InstructionLocalIdx::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionLocalIdx();
+    auto result = context.makeTreeNode<InstructionLocalIdx>();
 
     if (auto index = parseLocalIndex(context); index) {
         result->imm = *index;
@@ -284,7 +284,7 @@ InstructionLocalIdx* InstructionLocalIdx::parse(SourceContext& context, Opcode o
 
 InstructionLocalIdx* InstructionLocalIdx::read(BinaryContext& context)
 {
-    auto result = new InstructionLocalIdx();
+    auto result = context.makeTreeNode<InstructionLocalIdx>();
 
     result->imm = context.data().getU32leb();
 
@@ -294,7 +294,7 @@ InstructionLocalIdx* InstructionLocalIdx::read(BinaryContext& context)
 InstructionFunctionIdx* InstructionFunctionIdx::parse(SourceContext& context, Opcode opcode)
 {
     auto& tokens = context.tokens();
-    auto result = new InstructionFunctionIdx();
+    auto result = context.makeTreeNode<InstructionFunctionIdx>();
 
     if (auto index = parseFunctionIndex(context)) {
         result->imm = *index;
@@ -307,7 +307,7 @@ InstructionFunctionIdx* InstructionFunctionIdx::parse(SourceContext& context, Op
 
 InstructionFunctionIdx* InstructionFunctionIdx::read(BinaryContext& context)
 {
-    auto result = new InstructionFunctionIdx();
+    auto result = context.makeTreeNode<InstructionFunctionIdx>();
 
     result->imm = context.data().getU32leb();
 
@@ -316,7 +316,7 @@ InstructionFunctionIdx* InstructionFunctionIdx::read(BinaryContext& context)
 
 InstructionGlobalIdx* InstructionGlobalIdx::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionGlobalIdx();
+    auto result = context.makeTreeNode<InstructionGlobalIdx>();
 
     if (auto index = parseGlobalIndex(context); index) {
         result->imm = *index;
@@ -329,7 +329,7 @@ InstructionGlobalIdx* InstructionGlobalIdx::parse(SourceContext& context, Opcode
 
 InstructionGlobalIdx* InstructionGlobalIdx::read(BinaryContext& context)
 {
-    auto result = new InstructionGlobalIdx();
+    auto result = context.makeTreeNode<InstructionGlobalIdx>();
 
     result->imm = context.data().getU32leb();
 
@@ -338,7 +338,7 @@ InstructionGlobalIdx* InstructionGlobalIdx::read(BinaryContext& context)
 
 InstructionLabelIdx* InstructionLabelIdx::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionLabelIdx();
+    auto result = context.makeTreeNode<InstructionLabelIdx>();
 
     if (auto index = parseLabelIndex(context); index) {
         result->imm = *index;
@@ -351,7 +351,7 @@ InstructionLabelIdx* InstructionLabelIdx::parse(SourceContext& context, Opcode o
 
 InstructionLabelIdx* InstructionLabelIdx::read(BinaryContext& context)
 {
-    auto result = new InstructionLabelIdx();
+    auto result = context.makeTreeNode<InstructionLabelIdx>();
 
     result->imm = context.data().getU32leb();
 
@@ -362,7 +362,7 @@ InstructionTable* InstructionTable::parse(SourceContext& context, Opcode opcode)
 {
     auto& tokens = context.tokens();
 
-    auto result = new InstructionTable();
+    auto result = context.makeTreeNode<InstructionTable>();
 
     while (auto label = parseLabelIndex(context)) {
         result->labels.push_back(*label);
@@ -381,7 +381,7 @@ InstructionTable* InstructionTable::parse(SourceContext& context, Opcode opcode)
 InstructionTable* InstructionTable::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new InstructionTable();
+    auto result = context.makeTreeNode<InstructionTable>();
 
     for (auto length = data.getU32leb(); length > 0; --length) {
         result->labels.push_back(data.getU32leb());
@@ -420,7 +420,7 @@ InstructionMemory* InstructionMemory::parse(SourceContext& context, Opcode opcod
 {
     auto& tokens = context.tokens();
 
-    auto result = new InstructionMemory();
+    auto result = context.makeTreeNode<InstructionMemory>();
 
     if (tokens.getKeyword("offset=")) {
         result->offset = requiredU32(context);
@@ -450,7 +450,7 @@ InstructionMemory* InstructionMemory::parse(SourceContext& context, Opcode opcod
 InstructionMemory* InstructionMemory::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new InstructionMemory();
+    auto result = context.makeTreeNode<InstructionMemory>();
 
     result->alignPower = data.getU32leb();
     result->offset = data.getU32leb();
@@ -482,13 +482,13 @@ void InstructionMemory::generate(std::ostream& os, InstructionContext& context)
 
 InstructionMemory0* InstructionMemory0::parse(SourceContext& context, Opcode opcode)
 {
-    return new InstructionMemory0();
+    return context.makeTreeNode<InstructionMemory0>();
 }
 
 InstructionMemory0* InstructionMemory0::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new InstructionMemory0();
+    auto result = context.makeTreeNode<InstructionMemory0>();
 
     context.msgs().errorWhen(data.getU8() != 0, "reserved argument must be 0.");
     return result ;
@@ -496,7 +496,7 @@ InstructionMemory0* InstructionMemory0::read(BinaryContext& context)
 
 InstructionIndirect* InstructionIndirect::parse(SourceContext& context, Opcode opcode)
 {
-    auto result = new InstructionIndirect();
+    auto result = context.makeTreeNode<InstructionIndirect>();
 
     TypeUse typeUse;
 
@@ -509,7 +509,7 @@ InstructionIndirect* InstructionIndirect::parse(SourceContext& context, Opcode o
 
 InstructionIndirect* InstructionIndirect::read(BinaryContext& context)
 {
-    auto result = new InstructionIndirect();
+    auto result = context.makeTreeNode<InstructionIndirect>();
 
     result->typeIndex = context.data().getU32leb();
     result->dummy = context.data().getU32leb();
@@ -561,7 +561,7 @@ Instruction* Instruction::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new Instruction();
+    auto result = context.makeTreeNode<Instruction>();
 
     auto encoding = opcode->getParameterEncoding();
 
@@ -602,7 +602,7 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
                     instruction0->getOpcode() == Opcode::loop) {
                 instructions.push_back(instruction0);
                 parse(context, instructions);
-                instructions.push_back(new InstructionNone(Opcode(Opcode::end)));
+                instructions.push_back(context.makeTreeNode<InstructionNone>(Opcode(Opcode::end)));
             } else if (instruction0->getOpcode() == Opcode::if_) {
                 while (parseFolded(context, instructions)) {
                     // nop
@@ -619,7 +619,7 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
                 }
 
                 if (startClause(context, "else")) {
-                    instructions.push_back(new InstructionNone(Opcode(Opcode::else_)));
+                    instructions.push_back(context.makeTreeNode<InstructionNone>(Opcode(Opcode::else_)));
                     parse(context, instructions);
 
                     if (!requiredParenthesis(context, ')')) {
@@ -627,7 +627,7 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
                     }
                 }
 
-                instructions.push_back(new InstructionNone(Opcode(Opcode::end)));
+                instructions.push_back(context.makeTreeNode<InstructionNone>(Opcode(Opcode::end)));
             } else {
                 while (parseFolded(context, instructions)) {
                     // nop
@@ -668,7 +668,7 @@ void Instruction::parse(SourceContext& context, std::vector<Instruction*>& instr
 Instruction* Instruction::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new Instruction();
+    auto result = context.makeTreeNode<Instruction>();
 
     Opcode opcode(data.getU8());
     auto encoding = opcode.getParameterEncoding();

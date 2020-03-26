@@ -6,6 +6,8 @@
 #include "ErrorHandler.h"
 #include "common.h"
 #include "DataBuffer.h"
+#include "TokenBuffer.h"
+#include "TreeNode.h"
 
 #include <cassert>
 #include <cstdint>
@@ -35,7 +37,6 @@ class StartSection;
 class SymbolTableInfo;
 class Table;
 class TableSection;
-class TokenBuffer;
 class TypeSection;
 class TypeUse;
 class TypeDeclaration;
@@ -505,6 +506,15 @@ class BinaryContext : public Context
         void dump(std::ostream& os);
         void write(std::ostream& os);
 
+        template<typename T, typename... Ts>
+        T* makeTreeNode(const Ts&... ts)
+        {
+            T* result = new T(ts...);
+
+            result->setLineNumber(dataBuffer.getPos());
+            return result;
+        }
+
     private:
         BinaryErrorHandler& errorHandler;
 
@@ -536,6 +546,16 @@ class SourceContext : public Context
         }
 
         void write(std::ostream& os);
+
+        template<typename T, typename... Ts>
+        T* makeTreeNode(const Ts&... ts)
+        {
+            T* result = new T(ts...);
+
+            result->setLineNumber(tokenBuffer.peekToken(-1).getLineNumber());
+            result->setColumnNumber(tokenBuffer.peekToken(-1).getColumnNumber());
+            return result;
+        }
 
     private:
         TokenBuffer& tokenBuffer;

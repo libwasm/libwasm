@@ -8,12 +8,13 @@
 #include "Encodings.h"
 #include "Instruction.h"
 #include "TokenBuffer.h"
+#include "TreeNode.h"
 
 #include <iostream>
 #include <memory>
 #include <vector>
 
-class Expression
+class Expression : public TreeNode
 {
     public:
         void addInstruction(Instruction* instruction)
@@ -39,15 +40,13 @@ class Expression
         std::vector<std::unique_ptr<Instruction>> instructions;
 };
 
-class Section
+class Section : public TreeNode
 {
     public:
         Section(SectionType t)
           : type(t)
         {
         }
-
-        virtual ~Section() = default;
 
         void setOffsets(size_t start, size_t end)
         {
@@ -113,7 +112,7 @@ class CustomSection : public Section
         std::string name;
 };
 
-class RelocationEntry
+class RelocationEntry : public TreeNode
 {
     public:
         void show(std::ostream& os, Context& context);
@@ -204,7 +203,7 @@ class RelocationSection : public CustomSection
         std::vector<std::unique_ptr<RelocationEntry>> relocations;
 };
 
-class LinkingSubsection
+class LinkingSubsection : public TreeNode
 {
     public:
         auto getType() const
@@ -217,8 +216,6 @@ class LinkingSubsection
             type = value;
         }
 
-        virtual ~LinkingSubsection() = default;
-
         virtual void show(std::ostream& os, Context& context);
         virtual void generate(std::ostream& os, Context& context);
 
@@ -228,7 +225,7 @@ class LinkingSubsection
         LinkingType type;
 };
 
-class LinkingSegmentInfo
+class LinkingSegmentInfo : public TreeNode
 {
     public:
         std::string_view getName() const
@@ -289,7 +286,7 @@ class LinkingSegmentSubsection : public LinkingSubsection
         std::vector<std::unique_ptr<LinkingSegmentInfo>> infos;
 };
 
-class LinkingInitFunc
+class LinkingInitFunc : public TreeNode
 {
     public:
         auto getPriority() const
@@ -339,7 +336,7 @@ class LinkingInitFuncSubsection : public LinkingSubsection
         std::vector<std::unique_ptr<LinkingInitFunc>> inits;
 };
 
-class ComdatSym
+class ComdatSym : public TreeNode
 {
     public:
         auto getIndex() const
@@ -362,7 +359,7 @@ class ComdatSym
         uint32_t index = invalidIndex;
 };
 
-class LinkingComdat
+class LinkingComdat : public TreeNode
 {
     public:
         std::string_view getName() const
@@ -418,10 +415,9 @@ class LinkingComdatSubsection : public LinkingSubsection
         std::vector<std::unique_ptr<LinkingComdat>> comdats;
 };
 
-class SymbolTableInfo
+class SymbolTableInfo : public TreeNode
 {
     public:
-        virtual ~SymbolTableInfo() = default;
         virtual void show(std::ostream& os, Context& context);
         virtual void generate(std::ostream& os, Context& context);
 
@@ -602,7 +598,7 @@ class LinkingSection : public CustomSection
         std::vector<std::unique_ptr<LinkingSubsection>> subSections;
 };
 
-class Local
+class Local : public TreeNode
 {
     public:
         Local() = default;
@@ -654,7 +650,7 @@ class Local
     friend class CodeEntry;
 };
 
-class Signature
+class Signature : public TreeNode
 {
     public:
         Signature() = default;
@@ -741,7 +737,7 @@ class TypeUse
         std::string id;
 };
 
-class TypeDeclaration
+class TypeDeclaration : public TreeNode
 {
     public:
         TypeDeclaration() = default;
@@ -816,15 +812,13 @@ class TypeSection : public Section
         std::vector<std::unique_ptr<TypeDeclaration>> types;
 };
 
-class ImportDeclaration
+class ImportDeclaration : public TreeNode
 {
     public:
         ImportDeclaration(ExternalKind k)
           : kind(k)
         {
         }
-
-        virtual ~ImportDeclaration() = default;
 
         const std::string_view getModuleName() const
         {
@@ -1092,8 +1086,7 @@ class ImportSection : public Section
         std::vector<std::unique_ptr<ImportDeclaration>> imports;
 };
 
-class CodeEntry;
-class FunctionDeclaration : public TypeUse
+class FunctionDeclaration : public TypeUse, public TreeNode
 {
     public:
         auto getNumber() const
@@ -1145,7 +1138,7 @@ class FunctionSection : public Section
         std::vector<std::unique_ptr<FunctionDeclaration>> functions;
 };
 
-class TableDeclaration : public Table
+class TableDeclaration : public Table, public TreeNode
 {
     public:
         auto getNumber() const
@@ -1197,7 +1190,7 @@ class TableSection : public Section
         std::vector<std::unique_ptr<TableDeclaration>> tables;
 };
 
-class MemoryDeclaration : public Memory
+class MemoryDeclaration : public Memory, public TreeNode
 {
     public:
         auto getNumber() const
@@ -1249,7 +1242,7 @@ class MemorySection : public Section
         std::vector<std::unique_ptr<MemoryDeclaration>> memories;
 };
 
-class GlobalDeclaration : public Global
+class GlobalDeclaration : public Global, public TreeNode
 {
     public:
         auto getNumber() const
@@ -1302,7 +1295,7 @@ class GlobalSection : public Section
         std::vector<std::unique_ptr<GlobalDeclaration>> globals;
 };
 
-class ExportDeclaration
+class ExportDeclaration : public TreeNode
 {
     public:
         std::string_view getName() const
@@ -1416,7 +1409,7 @@ class StartSection : public Section
         uint32_t functionIndex = invalidIndex;
 };
 
-class ElementDeclaration
+class ElementDeclaration : public TreeNode
 {
     public:
         auto getTableIndex() const
@@ -1501,7 +1494,7 @@ class ElementSection : public Section
         std::vector<std::unique_ptr<ElementDeclaration>> elements;
 };
 
-class CodeEntry
+class CodeEntry : public TreeNode
 {
     public:
         auto getNumber() const
@@ -1560,7 +1553,7 @@ class CodeSection : public Section
         std::vector<std::unique_ptr<CodeEntry>> codes;
 };
 
-class DataSegment
+class DataSegment : public TreeNode
 {
     public:
         auto getNumber() const

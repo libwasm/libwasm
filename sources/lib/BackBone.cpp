@@ -138,7 +138,7 @@ CustomSection* CustomSection::read(BinaryContext& context)
     } else if (name == "linking") {
         result = LinkingSection::read(context, startPos + size);
     } else {
-        result = new CustomSection;
+        result = context.makeTreeNode<CustomSection>();
         context.msgs().warning("Custom section '", name, "' ignored");
     }
 
@@ -170,7 +170,7 @@ void CustomSection::show(std::ostream& os, Context& context, unsigned flags)
 RelocationEntry* RelocationEntry::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new RelocationEntry;
+    auto result = context.makeTreeNode<RelocationEntry>();
 
     result->type = RelocationType(data.getU8());
     result->offset = data.getU32leb();
@@ -228,7 +228,7 @@ void RelocationEntry::show(std::ostream& os, Context& context)
 RelocationSection* RelocationSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new RelocationSection;
+    auto result = context.makeTreeNode<RelocationSection>();
 
     result->targetSectionIndex = data.getU32leb();
 
@@ -259,7 +259,7 @@ void RelocationSection::show(std::ostream& os, Context& context, unsigned flags)
 LinkingSegmentInfo* LinkingSegmentInfo::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new LinkingSegmentInfo;
+    auto result = context.makeTreeNode<LinkingSegmentInfo>();
 
     result->name = readByteArray(context);
     result->align = data.getU32leb();
@@ -281,7 +281,7 @@ void LinkingSegmentInfo::show(std::ostream& os, Context& context)
 LinkingSegmentSubsection* LinkingSegmentSubsection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new LinkingSegmentSubsection;
+    auto result = context.makeTreeNode<LinkingSegmentSubsection>();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         result->infos.emplace_back(LinkingSegmentInfo::read(context));
@@ -307,7 +307,7 @@ void LinkingSegmentSubsection::show(std::ostream& os, Context& context)
 LinkingInitFunc* LinkingInitFunc::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new LinkingInitFunc;
+    auto result = context.makeTreeNode<LinkingInitFunc>();
 
     result->priority = data.getU32leb();
     result->functionIndex = data.getU32leb();
@@ -328,7 +328,7 @@ void LinkingInitFunc::show(std::ostream& os, Context& context)
 LinkingInitFuncSubsection* LinkingInitFuncSubsection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new LinkingInitFuncSubsection;
+    auto result = context.makeTreeNode<LinkingInitFuncSubsection>();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         result->inits.emplace_back(LinkingInitFunc::read(context));
@@ -354,7 +354,7 @@ void LinkingInitFuncSubsection::show(std::ostream& os, Context& context)
 ComdatSym* ComdatSym::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new ComdatSym;
+    auto result = context.makeTreeNode<ComdatSym>();
 
     result->kind = ComdatSymKind(data.getU8());
     result->index = data.getU32leb();
@@ -375,7 +375,7 @@ void ComdatSym::show(std::ostream& os, Context& context)
 LinkingComdat* LinkingComdat::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new LinkingComdat;
+    auto result = context.makeTreeNode<LinkingComdat>();
 
     result->name = readByteArray(context);
     result->flags = data.getU8();
@@ -404,7 +404,7 @@ void LinkingComdat::show(std::ostream& os, Context& context)
 LinkingComdatSubsection* LinkingComdatSubsection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new LinkingComdatSubsection;
+    auto result = context.makeTreeNode<LinkingComdatSubsection>();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         result->comdats.emplace_back(LinkingComdat::read(context));
@@ -431,7 +431,7 @@ SymbolTableFGETInfo* SymbolTableFGETInfo::read(BinaryContext& context,
         SymbolKind kind, SymbolFlags flags)
 {
     auto& data = context.data();
-    auto result = new SymbolTableFGETInfo;
+    auto result = context.makeTreeNode<SymbolTableFGETInfo>();
 
     result->index = data.getU32leb();
 
@@ -472,7 +472,7 @@ void SymbolTableFGETInfo::show(std::ostream& os, Context& context)
 SymbolTableDataInfo* SymbolTableDataInfo::read(BinaryContext& context, SymbolFlags flags)
 {
     auto& data = context.data();
-    auto result = new SymbolTableDataInfo;
+    auto result = context.makeTreeNode<SymbolTableDataInfo>();
 
     result->name = readByteArray(context);
 
@@ -505,7 +505,7 @@ void SymbolTableDataInfo::show(std::ostream& os, Context& context)
 SymbolTableSectionInfo* SymbolTableSectionInfo::read(BinaryContext& context, SymbolFlags flags)
 {
     auto& data = context.data();
-    auto result = new SymbolTableSectionInfo;
+    auto result = context.makeTreeNode<SymbolTableSectionInfo>();
 
     result->tableIndex = data.getU32leb();
 
@@ -530,7 +530,7 @@ SymbolTableInfo* SymbolTableInfo::read(BinaryContext& context)
     auto kind = SymbolKind(data.getU8());
     auto flags = SymbolFlags(data.getU32leb());
 
-    auto result = new SymbolTableInfo;
+    auto result = context.makeTreeNode<SymbolTableInfo>();
 
     switch (kind) {
         case SymbolKind::function:
@@ -602,7 +602,7 @@ void SymbolTableInfo::showFlags(std::ostream& os)
 LinkingSymbolTableSubSectionn* LinkingSymbolTableSubSectionn::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new LinkingSymbolTableSubSectionn;
+    auto result = context.makeTreeNode<LinkingSymbolTableSubSectionn>();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         result->infos.emplace_back(SymbolTableInfo::read(context));
@@ -632,7 +632,7 @@ LinkingSubsection* LinkingSubsection::read(BinaryContext& context)
     auto length = data.getU32leb();
     auto startPos = data.getPos();
 
-    auto result = new LinkingSubsection;
+    auto result = context.makeTreeNode<LinkingSubsection>();
 
     switch (type) {
         case LinkingType::segmentInfo: 
@@ -672,7 +672,7 @@ void LinkingSubsection::show(std::ostream& os, Context& context)
 LinkingSection* LinkingSection::read(BinaryContext& context, size_t endPos)
 {
     auto& data = context.data();
-    auto result = new LinkingSection;
+    auto result = context.makeTreeNode<LinkingSection>();
 
     result->version = data.getU32leb();
     context.msgs().errorWhen(result->version != wasmLinkingVersion,
@@ -742,14 +742,14 @@ void Signature::write(BinaryContext& context) const
 Signature* Signature::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
-    auto result = new Signature;
+    auto result = context.makeTreeNode<Signature>();
     bool found = false;
 
     while (startClause(context, "param")) {
         found = true;
         if (auto id = tokens.getId()) {
             if (auto value = parseValueType(context)) {
-                auto local = new Local(*id, *value);
+                auto local = context.makeTreeNode<Local>(*id, *value);
 
                 local->setNumber(context.nextLocalCount());
 
@@ -761,7 +761,7 @@ Signature* Signature::parse(SourceContext& context)
         } else {
             for (;;) {
                 if (auto valueType = parseValueType(context)) {
-                    auto local = new Local(*valueType);
+                    auto local = context.makeTreeNode<Local>(*valueType);
 
                     local->setNumber(context.nextLocalCount());
 
@@ -803,10 +803,10 @@ Signature* Signature::parse(SourceContext& context)
 Signature* Signature::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new Signature;
+    auto result = context.makeTreeNode<Signature>();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        result->params.push_back(new Local(readValueType(context)));
+        result->params.push_back(context.makeTreeNode<Local>(readValueType(context)));
     }
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
@@ -895,7 +895,7 @@ TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new TypeDeclaration;
+    auto result = context.makeTreeNode<TypeDeclaration>();
 
     result->number = context.getTypeCount();
 
@@ -915,7 +915,7 @@ TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
     if (auto* sig = Signature::parse(context); sig != nullptr) {
         result->signature.reset(sig);
     } else {
-        result->signature.reset(new Signature);
+        result->signature.reset(context.makeTreeNode<Signature>());
     }
 
     // terminate func
@@ -935,7 +935,7 @@ TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
  
 TypeDeclaration* TypeDeclaration::read(BinaryContext& context)
 {
-    auto result = new TypeDeclaration;
+    auto result = context.makeTreeNode<TypeDeclaration>();
 
     if (auto f = readValueType(context); f != ValueType::func) {
         context.msgs().error("Invalid func opcode ", std::hex, f, std::dec);
@@ -1030,11 +1030,11 @@ void TypeUse::checkSignature(SourceContext& context)
 
     if (signatureIndex == invalidIndex) {
         if (!signature) {
-            signature.reset(new Signature);
+            signature.reset(context.makeTreeNode<Signature>());
         }
 
         if (typeSection == 0) {
-            typeSection = new TypeSection;
+            typeSection = context.makeTreeNode<TypeSection>();
 
             context.setTypeSectionIndex(context.getSections().size());
             context.getSections().emplace_back(typeSection);
@@ -1049,7 +1049,7 @@ void TypeUse::checkSignature(SourceContext& context)
             }
         }
 
-        auto* typeDeclaration = new TypeDeclaration(new Signature(*signature));
+        auto* typeDeclaration = context.makeTreeNode<TypeDeclaration>(context.makeTreeNode<Signature>(*signature));
 
         typeDeclaration->setNumber(context.getTypeCount());
         typeSection->getTypes().emplace_back(typeDeclaration);
@@ -1063,7 +1063,7 @@ void TypeUse::checkSignature(SourceContext& context)
                 context.msgs().error(context.tokens().peekToken(-1), "Signature of function differs from indexed type.");
             }
         } else {
-            signature.reset(new Signature(*typeDeclaration->getSignature()));
+            signature.reset(context.makeTreeNode<Signature>(*typeDeclaration->getSignature()));
 
             for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
                 context.nextLocalCount();
@@ -1116,7 +1116,7 @@ void TypeUse::read(BinaryContext& context, TypeUse* result)
 
     auto* typeDeclaration = context.getType(result->signatureIndex);
 
-    result->signature.reset(new Signature(*typeDeclaration->getSignature()));
+    result->signature.reset(context.makeTreeNode<Signature>(*typeDeclaration->getSignature()));
 }
 
 void TypeUse::generate(std::ostream& os, Context& context)
@@ -1149,7 +1149,7 @@ FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_
         return nullptr;
     }
 
-    auto result = new FunctionImport;
+    auto result = context.makeTreeNode<FunctionImport>();
 
     context.addFunction(result);
     context.startFunction();
@@ -1177,7 +1177,7 @@ FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_
  
 FunctionImport* FunctionImport::read(BinaryContext& context, const std::string_view name)
 {
-    auto result = new FunctionImport;
+    auto result = context.makeTreeNode<FunctionImport>();
 
     context.addFunction(result);
     result->number = context.nextFunctionCount();
@@ -1229,7 +1229,7 @@ MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view
         return nullptr;
     }
 
-    auto result = new MemoryImport;
+    auto result = context.makeTreeNode<MemoryImport>();
 
     result->number = context.nextMemoryCount();
 
@@ -1257,7 +1257,7 @@ MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view
  
 MemoryImport* MemoryImport::read(BinaryContext& context, const std::string_view name)
 {
-    auto result = new MemoryImport;
+    auto result = context.makeTreeNode<MemoryImport>();
 
     result->limits = readLimits(context);
     result->number = context.nextMemoryCount();
@@ -1303,7 +1303,7 @@ TableImport* TableImport::parse(SourceContext& context, const std::string_view n
         return nullptr;
     }
 
-    auto result = new TableImport;
+    auto result = context.makeTreeNode<TableImport>();
 
     context.addTable(result);
     result->number = context.nextTableCount();
@@ -1339,7 +1339,7 @@ TableImport* TableImport::parse(SourceContext& context, const std::string_view n
  
 TableImport* TableImport::read(BinaryContext& context, const std::string_view name)
 {
-    auto result = new TableImport;
+    auto result = context.makeTreeNode<TableImport>();
 
     context.addTable(result);
     result->type = readValueType(context);
@@ -1388,7 +1388,7 @@ GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view
         return nullptr;
     }
 
-    auto result = new GlobalImport;
+    auto result = context.makeTreeNode<GlobalImport>();
 
     result->number = context.nextGlobalCount();
     context.addGlobal(result);
@@ -1430,7 +1430,7 @@ GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view
 GlobalImport* GlobalImport::read(BinaryContext& context, const std::string_view name)
 {
     auto& data = context.data();
-    auto result = new GlobalImport;
+    auto result = context.makeTreeNode<GlobalImport>();
 
     result->type = readValueType(context);
     result->mut = Mut(data.getU8());
@@ -1489,7 +1489,7 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
     }
 
     auto& msgs = context.msgs();
-    auto result = new FunctionImport;
+    auto result = context.makeTreeNode<FunctionImport>();
 
     context.addFunction(result);
     context.startFunction();
@@ -1545,7 +1545,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
     }
 
     auto& msgs = context.msgs();
-    auto result = new TableImport;
+    auto result = context.makeTreeNode<TableImport>();
 
     context.addTable(result);
     result->number = context.nextTableCount();
@@ -1612,7 +1612,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
     }
 
     auto& msgs = context.msgs();
-    auto result = new MemoryImport;
+    auto result = context.makeTreeNode<MemoryImport>();
 
     context.addMemory(result);
     result->number = context.nextMemoryCount();
@@ -1672,7 +1672,7 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
     }
 
     auto& msgs = context.msgs();
-    auto result = new GlobalImport;
+    auto result = context.makeTreeNode<GlobalImport>();
 
     context.addGlobal(result);
     result->number = context.nextGlobalCount();
@@ -1815,7 +1815,7 @@ void ImportSection::write(BinaryContext& context) const
 ImportSection* ImportSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new ImportSection;
+    auto result = context.makeTreeNode<ImportSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -1892,7 +1892,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new FunctionDeclaration;
+    auto result = context.makeTreeNode<FunctionDeclaration>();
 
     context.addFunction(result);
     context.startFunction();
@@ -1907,7 +1907,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
     }
 
     while (startClause(context, "export")) {
-        auto* _export = new ExportDeclaration;
+        auto* _export = context.makeTreeNode<ExportDeclaration>();
 
         _export->setKind(ExternalKind::function);
         _export->setNumber(context.nextExportCount());
@@ -1931,7 +1931,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
  
 FunctionDeclaration* FunctionDeclaration::read(BinaryContext& context)
 {
-    auto result = new FunctionDeclaration;
+    auto result = context.makeTreeNode<FunctionDeclaration>();
 
     context.addFunction(result);
 
@@ -1980,7 +1980,7 @@ void FunctionSection::write(BinaryContext& context) const
 FunctionSection* FunctionSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new FunctionSection;
+    auto result = context.makeTreeNode<FunctionSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -2034,7 +2034,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new TableDeclaration;
+    auto result = context.makeTreeNode<TableDeclaration>();
 
     context.addTable(result);
     result->number = context.nextTableCount();
@@ -2050,7 +2050,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
         result->type = *valueType;
         context.msgs().errorWhen(valueType != ValueType::funcref, tokens.peekToken(-1), "ValueType must be 'funcref'");
         if (startClause(context, "elem")) {
-            auto element = new ElementDeclaration;
+            auto element = context.makeTreeNode<ElementDeclaration>();
             uint32_t functionIndexCount = 0;
 
             element->setNumber(context.nextElementCount());
@@ -2060,8 +2060,8 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
                 ++functionIndexCount;
             }
 
-            auto* expression = new Expression;
-            auto* instruction = new InstructionI32;
+            auto* expression = context.makeTreeNode<Expression>();
+            auto* instruction = context.makeTreeNode<InstructionI32>();
 
             instruction->setOpcode(Opcode::i32__const);
             expression->addInstruction(instruction);
@@ -2106,7 +2106,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
  
 TableDeclaration* TableDeclaration::read(BinaryContext& context)
 {
-    auto result = new TableDeclaration;
+    auto result = context.makeTreeNode<TableDeclaration>();
 
     context.addTable(result);
     result->type = readValueType(context);
@@ -2158,7 +2158,7 @@ void TableSection::write(BinaryContext& context) const
 TableSection* TableSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new TableSection;
+    auto result = context.makeTreeNode<TableSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -2211,7 +2211,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new MemoryDeclaration;
+    auto result = context.makeTreeNode<MemoryDeclaration>();
     result->number = context.nextMemoryCount();
     context.addMemory(result);
 
@@ -2240,7 +2240,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
  
 MemoryDeclaration* MemoryDeclaration::read(BinaryContext& context)
 {
-    auto result = new MemoryDeclaration;
+    auto result = context.makeTreeNode<MemoryDeclaration>();
 
     result->limits = readLimits(context);
     result->number = context.nextMemoryCount();
@@ -2287,7 +2287,7 @@ void MemorySection::write(BinaryContext& context) const
 MemorySection* MemorySection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new MemorySection;
+    auto result = context.makeTreeNode<MemorySection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -2345,7 +2345,7 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new GlobalDeclaration;
+    auto result = context.makeTreeNode<GlobalDeclaration>();
 
     result->number = context.nextGlobalCount();
     context.addGlobal(result);
@@ -2399,7 +2399,7 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
 GlobalDeclaration* GlobalDeclaration::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new GlobalDeclaration;
+    auto result = context.makeTreeNode<GlobalDeclaration>();
 
     result->type = readValueType(context);
     result->mut = Mut(data.getU8());
@@ -2459,7 +2459,7 @@ void GlobalSection::write(BinaryContext& context) const
 GlobalSection* GlobalSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new GlobalSection;
+    auto result = context.makeTreeNode<GlobalSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -2516,7 +2516,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new ExportDeclaration;
+    auto result = context.makeTreeNode<ExportDeclaration>();
 
     result->number = context.nextExportCount();
     result->name = requiredString(context);
@@ -2589,7 +2589,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
 ExportDeclaration* ExportDeclaration::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new ExportDeclaration;
+    auto result = context.makeTreeNode<ExportDeclaration>();
 
     result->name = readByteArray(context);
     result->kind = readExternalKind(context);
@@ -2635,7 +2635,7 @@ void ExportSection::write(BinaryContext& context) const
 ExportSection* ExportSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new ExportSection;
+    auto result = context.makeTreeNode<ExportSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -2683,7 +2683,7 @@ StartSection* StartSection::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new StartSection;
+    auto result = context.makeTreeNode<StartSection>();
 
     if (auto index = parseFunctionIndex(context)) {
         result->functionIndex = *index;
@@ -2702,7 +2702,7 @@ StartSection* StartSection::parse(SourceContext& context)
 StartSection* StartSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new StartSection;
+    auto result = context.makeTreeNode<StartSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -2760,7 +2760,7 @@ void Expression::write(BinaryContext& context) const
 
 Expression* Expression::parse(SourceContext& context, bool oneInstruction)
 {
-    auto result = new Expression;
+    auto result = context.makeTreeNode<Expression>();
 
     if (oneInstruction) {
         if (auto* instruction = Instruction::parse(context)) {
@@ -2781,7 +2781,7 @@ Expression* Expression::parse(SourceContext& context, bool oneInstruction)
  
 Expression* Expression::read(BinaryContext& context)
 {
-    auto result = new Expression;
+    auto result = context.makeTreeNode<Expression>();
 
     for (;;) {
         auto instruction = Instruction::read(context);
@@ -2800,7 +2800,7 @@ Expression* Expression::read(BinaryContext& context)
 Expression* Expression::read(BinaryContext& context, size_t endPos)
 {
     auto& data = context.data();
-    auto result = new Expression;
+    auto result = context.makeTreeNode<Expression>();
 
     while (data.getPos() < endPos) {
         result->instructions.emplace_back(Instruction::read(context));
@@ -2811,7 +2811,7 @@ Expression* Expression::read(BinaryContext& context, size_t endPos)
 
 Expression* Expression::readInit(BinaryContext& context)
 {
-    auto result = new Expression;
+    auto result = context.makeTreeNode<Expression>();
 
     result->instructions.emplace_back(Instruction::read(context));
 
@@ -2866,7 +2866,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new ElementDeclaration;
+    auto result = context.makeTreeNode<ElementDeclaration>();
 
     result->number = context.nextElementCount();
 
@@ -2900,7 +2900,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new ElementDeclaration;
+    auto result = context.makeTreeNode<ElementDeclaration>();
 
     result->tableIndex = data.getU32leb();
     result->expression.reset(Expression::readInit(context));
@@ -2969,7 +2969,7 @@ void ElementSection::write(BinaryContext& context) const
 ElementSection* ElementSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new ElementSection;
+    auto result = context.makeTreeNode<ElementSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -3013,7 +3013,7 @@ Local* Local::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto& msgs = context.msgs();
-    auto result = new Local;
+    auto result = context.makeTreeNode<Local>();
 
     result->number = context.nextLocalCount();
 
@@ -3093,7 +3093,7 @@ void CodeEntry::write(BinaryContext& context) const
 CodeEntry* CodeEntry::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
-    auto result = new CodeEntry;
+    auto result = context.makeTreeNode<CodeEntry>();
 
     result->number = context.nextCodeCount();
 
@@ -3123,7 +3123,7 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
 CodeEntry* CodeEntry::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new CodeEntry;
+    auto result = context.makeTreeNode<CodeEntry>();
 
     auto size = data.getU32leb();
     auto startPos = data.getPos();
@@ -3133,7 +3133,7 @@ CodeEntry* CodeEntry::read(BinaryContext& context)
         auto type = readValueType(context);
 
         for (uint32_t j = 0; j < localCount; ++j) {
-            result->locals.emplace_back(new Local(type));
+            result->locals.emplace_back(context.makeTreeNode<Local>(type));
         }
     }
 
@@ -3238,7 +3238,7 @@ void CodeSection::write(BinaryContext& context) const
 CodeSection* CodeSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new CodeSection;
+    auto result = context.makeTreeNode<CodeSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -3304,7 +3304,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = new DataSegment;
+    auto result = context.makeTreeNode<DataSegment>();
 
     result->number = context.nextSegmentCount();
 
@@ -3344,7 +3344,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
 DataSegment* DataSegment::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new DataSegment;
+    auto result = context.makeTreeNode<DataSegment>();
 
     result->memoryIndex = data.getU32leb();
     result->expression.reset(Expression::readInit(context));
@@ -3396,7 +3396,7 @@ void DataSection::write(BinaryContext& context) const
 DataSection* DataSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new DataSection;
+    auto result = context.makeTreeNode<DataSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
@@ -3439,7 +3439,7 @@ void DataSection::show(std::ostream& os, Context& context, unsigned flags)
 DataCountSection* DataCountSection::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = new DataCountSection;
+    auto result = context.makeTreeNode<DataCountSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
 
