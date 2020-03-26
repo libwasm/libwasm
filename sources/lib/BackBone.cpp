@@ -806,7 +806,7 @@ Signature* Signature::read(BinaryContext& context)
     auto result = context.makeTreeNode<Signature>();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        result->params.push_back(context.makeTreeNode<Local>(readValueType(context)));
+        result->params.emplace_back(context.makeTreeNode<Local>(readValueType(context)));
     }
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {

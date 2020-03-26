@@ -41,8 +41,6 @@ class Instruction : public TreeNode
     public:
         Instruction() = default;
 
-        virtual ~Instruction() = default;
-
         Instruction(ParameterEncoding p)
           : encoding(p)
         {
@@ -184,6 +182,10 @@ class InstructionBlock : public Instruction
     public:
         InstructionBlock()
           : Instruction(ParameterEncoding::block)
+        {
+        }
+
+        virtual ~InstructionBlock() override
         {
         }
 

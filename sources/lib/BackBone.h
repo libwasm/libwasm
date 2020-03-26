@@ -17,6 +17,10 @@
 class Expression : public TreeNode
 {
     public:
+        virtual ~Expression() override
+        {
+        }
+
         void addInstruction(Instruction* instruction)
         {
             instructions.emplace_back(instruction);
@@ -657,7 +661,10 @@ class Signature : public TreeNode
 
         Signature(const Signature& other)
         {
-            params = other.params;
+            for (auto& param : other.params) {
+                params.emplace_back(new Local(*param.get()));
+            }
+
             results = other.results;
         }
 
@@ -685,7 +692,7 @@ class Signature : public TreeNode
         static Signature* read(BinaryContext& context);
 
     private:
-        std::vector<Local*> params;
+        std::vector<std::unique_ptr<Local>> params;
         std::vector<ValueType> results;
 };
 

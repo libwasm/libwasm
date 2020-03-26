@@ -561,7 +561,7 @@ Instruction* Instruction::parse(SourceContext& context)
         return nullptr;
     }
 
-    auto result = context.makeTreeNode<Instruction>();
+    Instruction* result = nullptr;
 
     auto encoding = opcode->getParameterEncoding();
 
