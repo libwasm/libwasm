@@ -267,7 +267,6 @@ The Interface for the *Assembler* class is:
              Assembler(std::istream& stream)
              ~Assembler() = default;
              bool isGood() const
-             bool parse();
              void show(std::ostream& os, unsigned flags)
              void generate(std::ostream& os)
              void write(std::ostream& os)
@@ -279,15 +278,11 @@ The Interface for the *Assembler* class is:
 The constructor takes an input stream as parameter.  The webassembly text will be read from that input stream.
 This allows to read from a file or a string.
 
+The constructor will create the internal structure known as the backbone.
 
 #### The *isGood* method.
 Once the *Assembler* is instantiated, the *isGood* method returns true if the input stream was
 successfuly read, false otherwise.
-
-
-#### The *parse* method.
-The *parse* method parses the data read from the input stream and creates an intermediate structure
-known as the backbone.
 
 
 #### The *generate* method.
@@ -303,6 +298,43 @@ The *flags* parameter should be set to 1 if the dump must contain disassembled c
 #### The *write* method.
 The *write* method generates webassembly binary code from the backbone into the given output stream.
 
+##### Example
+The following program reads and parses the test file 'sample.wat', produces a human readable dump of
+the backbone and generates the binary file 'sample.wasm'.
+
+     #include "Assembler.h"
+
+     #include <fstream>
+     #include <iostream>
+
+     int main()
+     {
+         std::ifstream inputStream("sample.wat", std::ios::binary);if (!inputStream.good()) {
+             std::cerr << "Error: Unable to open input file 'sample.wat'\n";
+             exit(1);
+         }
+
+         Assembler assembler(inputStream);
+
+         if (assembler.isGood()) {
+             assembler.show(std::cout, 0);
+
+             std::ofstream outputStream("sample.wasm");
+
+             if (!outputStream.good()) {
+                 std::cerr << "Error: Unable to open output file 'sample.wasm'\n";
+                 exit(1);
+             }
+
+             assembler.write(outputStream);
+         }
+     }
+
+This program can be compiled as folloes:
+
+     $ clang++ -o test -std=c++17 test.cpp -I libwasmdir/sources/lib -L libwasmdir/lib -lwasm
+
+where 'test.cpp' is de name of the source file and 'libwasmdir' is de directory where libwasm is installed.
 
 ### The Disassembler class
 

@@ -42,7 +42,7 @@ if GCC == '1':
 else:
     compiler=clang
 
-wasmlib=compiler.Library('lib/wasmlib', libSources)
+wasmlib=compiler.Library('lib/libwasm', libSources)
 
 for source in mainSources:
     executable = os.path.split(source)[1]
@@ -50,6 +50,6 @@ for source in mainSources:
     executable = 'bin/' + executable
  
     compiler.Program(executable, source,
-         LIBS=['wasmlib'], LIBPATH='lib',
+         LIBS=['libwasm'], LIBPATH='lib',
          CPPPATH=['.', 'sources/lib'])
 

@@ -27,4 +27,4 @@ The assembler and disassembler programs are documented.
 The source for these programs ('main/webasm.cpp' and 'main/webdisasm.cpp') can be used to understand
 some of the basics of the library.
 
-The library documentation will be added soon.
+The library documentation is partly there. It contains example programs that show the usage of the library.
