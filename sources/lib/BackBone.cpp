@@ -14,12 +14,26 @@ static ValueType readValueType(BinaryContext& context)
 {
     ValueType result(context.data().getI32leb());
 
-    context.msgs().errorWhen(!result.isValid(), "Invalid ValueType ", int32_t(result));
+    context.msgs().errorWhen(!result.isValid(), "Invalid value type ", int32_t(result));
 
     return result;
 }
 
 static void writeValueType(BinaryContext& context, ValueType type)
+{
+    context.data().putI32leb(int32_t(type));
+}
+
+static ElementType readElementType(BinaryContext& context)
+{
+    ElementType result(context.data().getI32leb());
+
+    context.msgs().errorWhen(!result.isValid(), "Invalid element type ", int32_t(result));
+
+    return result;
+}
+
+static void writeElementType(BinaryContext& context, ElementType type)
 {
     context.data().putI32leb(int32_t(type));
 }
@@ -157,6 +171,11 @@ CustomSection* CustomSection::read(BinaryContext& context)
     return result;
 }
 
+void CustomSection::check(CheckContext& context)
+{
+    // nothing to do
+}
+
 void CustomSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
@@ -181,11 +200,6 @@ RelocationEntry* RelocationEntry::read(BinaryContext& context)
     }
 
     return result;
-}
-
-void RelocationEntry::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
 }
 
 void RelocationEntry::show(std::ostream& os, Context& context)
@@ -239,6 +253,11 @@ RelocationSection* RelocationSection::read(BinaryContext& context)
     return result;
 }
 
+void RelocationSection::check(CheckContext& context)
+{
+    // nothing to do
+}
+
 void RelocationSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
@@ -268,11 +287,6 @@ LinkingSegmentInfo* LinkingSegmentInfo::read(BinaryContext& context)
     return result;
 }
 
-void LinkingSegmentInfo::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
-}
-
 void LinkingSegmentInfo::show(std::ostream& os, Context& context)
 {
     os << "    name=\"" << name << "\", align=" << align << ", flags=" << flags << '\n';
@@ -288,11 +302,6 @@ LinkingSegmentSubsection* LinkingSegmentSubsection::read(BinaryContext& context)
     }
 
     return result;
-}
-
-void LinkingSegmentSubsection::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
 }
 
 void LinkingSegmentSubsection::show(std::ostream& os, Context& context)
@@ -315,11 +324,6 @@ LinkingInitFunc* LinkingInitFunc::read(BinaryContext& context)
     return result;
 }
 
-void LinkingInitFunc::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
-}
-
 void LinkingInitFunc::show(std::ostream& os, Context& context)
 {
     os << "    function=" << functionIndex << ", priority=" << priority << '\n';
@@ -335,11 +339,6 @@ LinkingInitFuncSubsection* LinkingInitFuncSubsection::read(BinaryContext& contex
     }
 
     return result;
-}
-
-void LinkingInitFuncSubsection::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
 }
 
 void LinkingInitFuncSubsection::show(std::ostream& os, Context& context)
@@ -362,11 +361,6 @@ ComdatSym* ComdatSym::read(BinaryContext& context)
     return result;
 }
 
-void ComdatSym::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
-}
-
 void ComdatSym::show(std::ostream& os, Context& context)
 {
     os << "      " << kind << ", index=" << index << '\n';
@@ -385,11 +379,6 @@ LinkingComdat* LinkingComdat::read(BinaryContext& context)
     }
 
     return result;
-}
-
-void LinkingComdat::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
 }
 
 void LinkingComdat::show(std::ostream& os, Context& context)
@@ -411,11 +400,6 @@ LinkingComdatSubsection* LinkingComdatSubsection::read(BinaryContext& context)
     }
 
     return result;
-}
-
-void LinkingComdatSubsection::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
 }
 
 void LinkingComdatSubsection::show(std::ostream& os, Context& context)
@@ -452,11 +436,6 @@ SymbolTableFGETInfo* SymbolTableFGETInfo::read(BinaryContext& context,
     return result;
 }
 
-void SymbolTableFGETInfo::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
-}
-
 void SymbolTableFGETInfo::show(std::ostream& os, Context& context)
 {
     os << "    " << kind << ", index=" << index;
@@ -485,11 +464,6 @@ SymbolTableDataInfo* SymbolTableDataInfo::read(BinaryContext& context, SymbolFla
     return result;
 }
 
-void SymbolTableDataInfo::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
-}
-
 void SymbolTableDataInfo::show(std::ostream& os, Context& context)
 {
     os << "    " << kind << ", name=\"" << name << '\"';
@@ -510,11 +484,6 @@ SymbolTableSectionInfo* SymbolTableSectionInfo::read(BinaryContext& context, Sym
     result->tableIndex = data.getU32leb();
 
     return result;
-}
-
-void SymbolTableSectionInfo::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
 }
 
 void SymbolTableSectionInfo::show(std::ostream& os, Context& context)
@@ -555,11 +524,6 @@ SymbolTableInfo* SymbolTableInfo::read(BinaryContext& context)
     context.addSymbol(result);
 
     return result;
-}
-
-void SymbolTableInfo::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
 }
 
 void SymbolTableInfo::show(std::ostream& os, Context& context)
@@ -611,11 +575,6 @@ LinkingSymbolTableSubSectionn* LinkingSymbolTableSubSectionn::read(BinaryContext
     return result;
 }
 
-void LinkingSymbolTableSubSectionn::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
-}
-
 void LinkingSymbolTableSubSectionn::show(std::ostream& os, Context& context)
 {
     os << "  Symbol table\n";
@@ -660,11 +619,6 @@ LinkingSubsection* LinkingSubsection::read(BinaryContext& context)
     return result;
 }
 
-void LinkingSubsection::generate(std::ostream& os, Context& context)
-{
-    // nothing to do
-}
-
 void LinkingSubsection::show(std::ostream& os, Context& context)
 {
 }
@@ -683,6 +637,11 @@ LinkingSection* LinkingSection::read(BinaryContext& context, size_t endPos)
     }
 
     return result;
+}
+
+void LinkingSection::check(CheckContext& context)
+{
+    // nothing to do
 }
 
 void LinkingSection::generate(std::ostream& os, Context& context)
@@ -816,6 +775,17 @@ Signature* Signature::read(BinaryContext& context)
     return result;
 }
 
+void Signature::check(CheckContext& context)
+{
+    for (auto& param : params) {
+        param->check(context);
+    }
+
+    for (auto result : results) {
+        context.checkValueType(this, result);
+    }
+}
+
 void Signature::generate(std::ostream& os, Context& context)
 {
     bool inParam = false;
@@ -883,7 +853,9 @@ void Signature::show(std::ostream& os, Context& context)
 
 void TypeDeclaration::write(BinaryContext& context) const
 {
-    writeValueType(context, ValueType::func);
+    auto& data = context.data();
+
+    data.putU8(func);
     signature->write(context);
 }
 
@@ -936,8 +908,9 @@ TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
 TypeDeclaration* TypeDeclaration::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<TypeDeclaration>();
+    auto& data = context.data();
 
-    if (auto f = readValueType(context); f != ValueType::func) {
+    if (auto f = data.getU8(); f != func) {
         context.msgs().error("Invalid func opcode ", std::hex, f, std::dec);
         return result;
     }
@@ -946,6 +919,11 @@ TypeDeclaration* TypeDeclaration::read(BinaryContext& context)
     result->number = context.getTypeCount();
 
     return result;
+}
+
+void TypeDeclaration::check(CheckContext& context)
+{
+    signature->check(context);
 }
 
 void TypeDeclaration::generate(std::ostream& os, Context& context)
@@ -1004,6 +982,19 @@ void TypeSection::read(BinaryContext& context, TypeSection* result)
     }
 
     context.msgs().resetInfo();
+}
+
+void TypeSection::check(CheckContext& context)
+{
+    uint32_t count = 0;
+
+    for (auto& type : types) {
+        context.msgs().errorWhen(type->getNumber() != count, type.get(),
+                "Invalid type number ", type->getNumber(), "; exported ", count);
+        ++count;
+
+        type->check(context);
+    }
 }
 
 void TypeSection::generate(std::ostream& os, Context& context)
@@ -1192,6 +1183,12 @@ FunctionImport* FunctionImport::read(BinaryContext& context, const std::string_v
     return result;
 }
 
+void FunctionImport::check(CheckContext& context)
+{
+    context.checkTypeIndex(this, signatureIndex);
+    signature->check(context);
+}
+
 void FunctionImport::generate(std::ostream& os, Context& context)
 {
     os << "\n  (import";
@@ -1265,6 +1262,11 @@ MemoryImport* MemoryImport::read(BinaryContext& context, const std::string_view 
     return result;
 }
 
+void MemoryImport::check(CheckContext& context)
+{
+    context.checkLimits(this, limits);
+}
+
 void MemoryImport::generate(std::ostream& os, Context& context)
 {
     os << "\n  (import";
@@ -1291,7 +1293,7 @@ void TableImport::write(BinaryContext& context) const
     writeByteArray(context, name);
 
     data.putU8(uint8_t(ExternalKind::table));
-    writeValueType(context, type);
+    writeElementType(context, type);
     writeLimits(context, limits);
 }
 
@@ -1322,9 +1324,8 @@ TableImport* TableImport::parse(SourceContext& context, const std::string_view n
         return result;
     }
 
-    if (auto valueType = parseValueType(context)) {
-        result->type = *valueType;
-        context.msgs().errorWhen(valueType != ValueType::funcref, tokens.peekToken(-1), "ValueType must be 'funcref'");
+    if (auto elementType = parseElementType(context)) {
+        result->type = *elementType;
     } else {
         context.msgs().expected(tokens.peekToken(), "funcref");
     }
@@ -1342,11 +1343,17 @@ TableImport* TableImport::read(BinaryContext& context, const std::string_view na
     auto result = context.makeTreeNode<TableImport>();
 
     context.addTable(result);
-    result->type = readValueType(context);
+    result->type = readElementType(context);
     result->limits = readLimits(context);
     result->number = context.nextTableCount();
 
     return result;
+}
+
+void TableImport::check(CheckContext& context)
+{
+    context.checkElementType(this, type);
+    context.checkLimits(this, limits);
 }
 
 void TableImport::generate(std::ostream& os, Context& context)
@@ -1437,6 +1444,12 @@ GlobalImport* GlobalImport::read(BinaryContext& context, const std::string_view 
     result->number = context.nextGlobalCount();
 
     return result;
+}
+
+void GlobalImport::check(CheckContext& context)
+{
+    context.checkValueType(this, type);
+    context.checkMut(this, mut);
 }
 
 void GlobalImport::generate(std::ostream& os, Context& context)
@@ -1579,9 +1592,8 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
         return result;
     }
 
-    if (auto valueType = parseValueType(context)) {
-        result->setType(*valueType);
-        context.msgs().errorWhen(valueType != ValueType::funcref, tokens.peekToken(-1), "ValueType must be 'funcref'");
+    if (auto elementType = parseElementType(context)) {
+        result->setType(*elementType);
     } else {
         context.msgs().expected(tokens.peekToken(), "funcref");
     }
@@ -1861,6 +1873,13 @@ ImportSection* ImportSection::read(BinaryContext& context)
     return result;
 }
 
+void ImportSection::check(CheckContext& context)
+{
+    for (auto& import : imports) {
+        import->check(context);
+    }
+}
+
 void ImportSection::generate(std::ostream& os, Context& context)
 {
     for (auto& import : imports) {
@@ -1941,6 +1960,12 @@ FunctionDeclaration* FunctionDeclaration::read(BinaryContext& context)
     return result;
 }
 
+void FunctionDeclaration::check(CheckContext& context)
+{
+    context.checkTypeIndex(this, signatureIndex);
+    signature->check(context);
+}
+
 void FunctionDeclaration::generate(std::ostream& os, Context& context)
 {
     // nothing to do
@@ -2004,6 +2029,19 @@ FunctionSection* FunctionSection::read(BinaryContext& context)
     return result;
 }
 
+void FunctionSection::check(CheckContext& context)
+{
+    uint32_t count = context.getLocalFunctionStart();
+
+    for (auto& function : functions) {
+        context.msgs().errorWhen(function->getNumber() != count, function.get(),
+                "Invalid function number ", function->getNumber(), "; exported ", count);
+        ++count;
+
+        function->check(context);
+    }
+}
+
 void FunctionSection::generate(std::ostream& os, Context& context)
 {
     // nothing to do
@@ -2022,7 +2060,7 @@ void FunctionSection::show(std::ostream& os, Context& context, unsigned flags)
 
 void TableDeclaration::write(BinaryContext& context) const
 {
-    writeValueType(context, type);
+    writeElementType(context, type);
     writeLimits(context, limits);
 }
 
@@ -2046,9 +2084,9 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
         }
     }
 
-    if (auto valueType = parseValueType(context)) {
-        result->type = *valueType;
-        context.msgs().errorWhen(valueType != ValueType::funcref, tokens.peekToken(-1), "ValueType must be 'funcref'");
+    if (auto elementType = parseElementType(context)) {
+        result->type = *elementType;
+
         if (startClause(context, "elem")) {
             auto element = context.makeTreeNode<ElementDeclaration>();
             uint32_t functionIndexCount = 0;
@@ -2085,9 +2123,8 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
     } else if (auto limits = requiredLimits(context)) {
         result->limits = *limits;
 
-        if (auto valueType = parseValueType(context)) {
-            result->type = *valueType;
-            context.msgs().errorWhen(valueType != ValueType::funcref, tokens.peekToken(-1), "ValueType must be 'funcref'");
+        if (auto elementType = parseElementType(context)) {
+            result->type = *elementType;
         } else {
             context.msgs().expected(tokens.peekToken(), "funcref");
         }
@@ -2109,8 +2146,7 @@ TableDeclaration* TableDeclaration::read(BinaryContext& context)
     auto result = context.makeTreeNode<TableDeclaration>();
 
     context.addTable(result);
-    result->type = readValueType(context);
-    context.msgs().errorWhen(result->type != ValueType::funcref, "ValueType must be 'funcref'");
+    result->type = readElementType(context);
 
     result->limits = readLimits(context);
     result->number = context.nextTableCount();
@@ -2126,6 +2162,12 @@ void TableDeclaration::show(std::ostream& os, Context& context)
     os << ": type=" << type << ',';
     limits.show(os);
     os << '\n';
+}
+
+void TableDeclaration::check(CheckContext& context)
+{
+    context.checkElementType(this, type);
+    context.checkLimits(this, limits);
 }
 
 void TableDeclaration::generate(std::ostream& os, Context& context)
@@ -2178,6 +2220,13 @@ TableSection* TableSection::read(BinaryContext& context)
 
     context.msgs().resetInfo();
     return result;
+}
+
+void TableSection::check(CheckContext& context)
+{
+    for (auto& table : tables) {
+        table->check(context);
+    }
 }
 
 void TableSection::generate(std::ostream& os, Context& context)
@@ -2258,6 +2307,11 @@ void MemoryDeclaration::show(std::ostream& os, Context& context)
     os << '\n';
 }
 
+void MemoryDeclaration::check(CheckContext& context)
+{
+    context.checkLimits(this, limits);
+}
+
 void MemoryDeclaration::generate(std::ostream& os, Context& context)
 {
     os << "\n  (memory (;" << number << ";)";
@@ -2307,6 +2361,13 @@ MemorySection* MemorySection::read(BinaryContext& context)
 
     context.msgs().resetInfo();
     return result;
+}
+
+void MemorySection::check(CheckContext& context)
+{
+    for (auto& memory : memories) {
+        memory->check(context);
+    }
 }
 
 void MemorySection::generate(std::ostream& os, Context& context)
@@ -2421,6 +2482,13 @@ void GlobalDeclaration::show(std::ostream& os, Context& context)
 
 }
 
+void GlobalDeclaration::check(CheckContext& context)
+{
+    context.checkValueType(this, type);
+    context.checkMut(this, mut);
+    expression->check(context);
+}
+
 void GlobalDeclaration::generate(std::ostream& os, Context& context)
 {
     os << "\n  (global (;" << number << ";)";
@@ -2479,6 +2547,13 @@ GlobalSection* GlobalSection::read(BinaryContext& context)
 
     context.msgs().resetInfo();
     return result;
+}
+
+void GlobalSection::check(CheckContext& context)
+{
+    for (auto& global : globals) {
+        global->check(context);
+    }
 }
 
 void GlobalSection::generate(std::ostream& os, Context& context)
@@ -2607,6 +2682,32 @@ void ExportDeclaration::show(std::ostream& os, Context& context)
 
 }
 
+void ExportDeclaration::check(CheckContext& context)
+{
+    context.checkExternalType(this, uint8_t(kind));
+
+    switch(uint8_t(kind)) {
+        case ExternalKind::function:
+            context.checkFunctionIndex(this, index);
+            break;
+
+        case ExternalKind::table:
+            context.checkTableIndex(this, index);
+            break;
+
+        case ExternalKind::memory:
+            context.checkMemoryIndex(this, index);
+            break;
+
+        case ExternalKind::global:
+            context.checkGlobalIndex(this, index);
+            break;
+
+        default:
+            break;
+    }
+}
+
 void ExportDeclaration::generate(std::ostream& os, Context& context)
 {
     os << "\n  (export (;" << number << ";) \"" << name << "\" (" << kind << ' ' << index << ')';
@@ -2655,6 +2756,13 @@ ExportSection* ExportSection::read(BinaryContext& context)
 
     context.msgs().resetInfo();
     return result;
+}
+
+void ExportSection::check(CheckContext& context)
+{
+    for (auto& export_ : exports) {
+        export_->check(context);
+    }
 }
 
 void ExportSection::generate(std::ostream& os, Context& context)
@@ -2719,6 +2827,11 @@ StartSection* StartSection::read(BinaryContext& context)
 
     context.msgs().resetInfo();
     return result;
+}
+
+void StartSection::check(CheckContext& context)
+{
+    context.checkFunctionIndex(this, functionIndex);
 }
 
 void StartSection::generate(std::ostream& os, Context& context)
@@ -2822,6 +2935,13 @@ Expression* Expression::readInit(BinaryContext& context)
     return result;
 }
 
+void Expression::check(CheckContext& context)
+{
+    for (auto& instruction : instructions) {
+        instruction->check(context);
+    }
+}
+
 void Expression::generate(std::ostream& os, Context& context)
 {
     const char* separator = "";
@@ -2913,6 +3033,16 @@ ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
     return result;
 }
 
+void ElementDeclaration::check(CheckContext& context)
+{
+    context.checkTableIndex(this,tableIndex);
+    expression->check(context);
+
+    for (auto index : functionIndexes) {
+        context.checkFunctionIndex(this, index);
+    }
+}
+
 void ElementDeclaration::generate(std::ostream& os, Context& context)
 {
     os << "\n  (elem (;" << number << ";)";
@@ -2991,6 +3121,13 @@ ElementSection* ElementSection::read(BinaryContext& context)
     return result;
 }
 
+void ElementSection::check(CheckContext& context)
+{
+    for (auto& element : elements) {
+        element->check(context);
+    }
+}
+
 void ElementSection::generate(std::ostream& os, Context& context)
 {
     for (auto& element : elements) {
@@ -3031,6 +3168,11 @@ Local* Local::parse(SourceContext& context)
     }
 
     return result;
+}
+
+void Local::check(CheckContext& context)
+{
+    context.checkValueType(this, type);
 }
 
 void Local::generate(std::ostream& os, Context& context)
@@ -3097,7 +3239,7 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
 
     result->number = context.nextCodeCount();
 
-    context.startCode(result->number);
+    context.startCode(result->number - context.getLocalFunctionStart());
 
     while (startClause(context, "local")) {
         while (!tokens.peekParenthesis(')')) {
@@ -3141,6 +3283,15 @@ CodeEntry* CodeEntry::read(BinaryContext& context)
     result->number = context.nextCodeCount();
 
     return result;
+}
+
+void CodeEntry::check(CheckContext& context)
+{
+    for (auto& local : locals) {
+        local->check(context);
+    }
+
+    expression->check(context);
 }
 
 void CodeEntry::generate(std::ostream& os, Context& context)
@@ -3260,6 +3411,13 @@ CodeSection* CodeSection::read(BinaryContext& context)
     return result;
 }
 
+void CodeSection::check(CheckContext& context)
+{
+    for (auto& code : codes) {
+        code->check(context);
+    }
+}
+
 void CodeSection::generate(std::ostream& os, Context& context)
 {
     for (auto& code : codes) {
@@ -3306,7 +3464,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<DataSegment>();
 
-    result->number = context.nextSegmentCount();
+    result->number = context.getSegmentCount();
 
     if (auto index = parseTableIndex(context)) {
         result->memoryIndex = *index;
@@ -3349,9 +3507,15 @@ DataSegment* DataSegment::read(BinaryContext& context)
     result->memoryIndex = data.getU32leb();
     result->expression.reset(Expression::readInit(context));
     result->init = readByteArray(context);
-    result->number = context.nextSegmentCount();
+    result->number = context.getSegmentCount();
 
     return result;
+}
+
+void DataSegment::check(CheckContext& context)
+{
+    context.checkMemoryIndex(this, memoryIndex);
+    expression->check(context);
 }
 
 void DataSegment::generate(std::ostream& os, Context& context)
@@ -3418,6 +3582,13 @@ DataSection* DataSection::read(BinaryContext& context)
     return result;
 }
 
+void DataSection::check(CheckContext& context)
+{
+    for (auto& segment : segments) {
+        segment->check(context);
+    }
+}
+
 void DataSection::generate(std::ostream& os, Context& context)
 {
     for (auto& segment : segments) {
@@ -3456,6 +3627,11 @@ DataCountSection* DataCountSection::read(BinaryContext& context)
 
     context.msgs().resetInfo();
     return result;
+}
+
+void DataCountSection::check(CheckContext& context)
+{
+    context.checkDataCount(this, dataCount);
 }
 
 void DataCountSection::generate(std::ostream& os, Context& context)

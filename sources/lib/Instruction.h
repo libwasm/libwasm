@@ -74,6 +74,10 @@ class Instruction : public TreeNode
         {
         }
 
+        virtual void check(CheckContext& context)
+        {
+        }
+
         static Instruction* parse(SourceContext& context);
         static void parse(SourceContext& context, std::vector<Instruction*>& dest);
         static bool parseFolded(SourceContext& context, std::vector<Instruction*>& dest);
@@ -100,6 +104,7 @@ class InstructionNone : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionNone* parse(SourceContext& context, Opcode opcode);
         static InstructionNone* read(BinaryContext& context);
@@ -115,6 +120,7 @@ class InstructionI32 : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionI32* parse(SourceContext& context, Opcode opcode);
         static InstructionI32* read(BinaryContext& context);
@@ -133,6 +139,7 @@ class InstructionI64 : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionI64* parse(SourceContext& context, Opcode opcode);
         static InstructionI64* read(BinaryContext& context);
@@ -151,6 +158,7 @@ class InstructionF32 : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionF32* parse(SourceContext& context, Opcode opcode);
         static InstructionF32* read(BinaryContext& context);
@@ -169,6 +177,7 @@ class InstructionF64 : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionF64* parse(SourceContext& context, Opcode opcode);
         static InstructionF64* read(BinaryContext& context);
@@ -191,6 +200,7 @@ class InstructionBlock : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionBlock* parse(SourceContext& context, Opcode opcode);
         static InstructionBlock* read(BinaryContext& context);
@@ -291,6 +301,7 @@ class InstructionTable : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionTable* parse(SourceContext& context, Opcode opcode);
         static InstructionTable* read(BinaryContext& context);
@@ -310,6 +321,7 @@ class InstructionMemory : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionMemory* parse(SourceContext& context, Opcode opcode);
         static InstructionMemory* read(BinaryContext& context);
@@ -329,6 +341,7 @@ class InstructionMemory0 : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionMemory0* parse(SourceContext& context, Opcode opcode);
         static InstructionMemory0* read(BinaryContext& context);
@@ -344,6 +357,7 @@ class InstructionIndirect : public Instruction
 
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
 
         static InstructionIndirect* parse(SourceContext& context, Opcode opcode);
         static InstructionIndirect* read(BinaryContext& context);

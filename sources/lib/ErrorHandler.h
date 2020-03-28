@@ -4,12 +4,31 @@
 #define ERROR_HANDLER_H
 
 #include "Token.h"
+#include "TreeNode.h"
 
 #include <iostream>
 #include <string>
 #include <string_view>
 
-class BinaryErrorHandler
+class ErrorHandler
+{
+    public:
+        auto getErrorCount() const
+        {
+            return errorCount;
+        }
+
+        auto getWarningCount() const
+        {
+            return warningCount;
+        }
+
+    protected:
+        unsigned errorCount = 0;
+        unsigned warningCount = 0;
+};
+
+class BinaryErrorHandler : public ErrorHandler
 {
     public:
         template<typename... Ts>
@@ -64,16 +83,6 @@ class BinaryErrorHandler
             entryNumber = 0;
         }
 
-        auto getErrorCount() const
-        {
-            return errorCount;
-        }
-
-        auto getWarningCount() const
-        {
-            return warningCount;
-        }
-
     private:
         void showHeader(std::string_view type)
         {
@@ -82,20 +91,18 @@ class BinaryErrorHandler
                 std::cerr << "in " << sectionName << " section at entry " << entryNumber;
             }
 
-            std::cerr << "\n    ";
+            std::cerr << ":\n    ";
         }
 
-        unsigned errorCount = 0;
-        unsigned warningCount = 0;
         std::string sectionName;
         unsigned entryNumber;
 };
 
-class SourceErrorHandler
+class SourceErrorHandler : public ErrorHandler
 {
     public:
         template<typename... Ts>
-        void error(size_t lineNumber, unsigned columnNumber, const Ts&... ts)
+        void error(size_t lineNumber, size_t columnNumber, const Ts&... ts)
         {
             showHeader("Error", lineNumber, columnNumber);
 
@@ -111,7 +118,7 @@ class SourceErrorHandler
         }
 
         template<typename... Ts>
-        void errorWhen(bool condition, size_t lineNumber, unsigned columnNumber, const Ts&... ts)
+        void errorWhen(bool condition, size_t lineNumber, size_t columnNumber, const Ts&... ts)
         {
             if (condition) {
                 error(lineNumber, columnNumber, ts...);
@@ -127,7 +134,7 @@ class SourceErrorHandler
         }
 
         template<typename... Ts>
-        void warning(size_t lineNumber, unsigned columnNumber, const Ts&... ts)
+        void warning(size_t lineNumber, size_t columnNumber, const Ts&... ts)
         {
             showHeader("Warning", lineNumber, columnNumber);
 
@@ -137,7 +144,7 @@ class SourceErrorHandler
         }
 
         template<typename... Ts>
-        void warningWhen(bool condition, size_t lineNumber, unsigned columnNumber, const Ts&... ts)
+        void warningWhen(bool condition, size_t lineNumber, size_t columnNumber, const Ts&... ts)
         {
             if (condition) {
                 warning(lineNumber, columnNumber, ts...);
@@ -158,25 +165,73 @@ class SourceErrorHandler
             error(token, "found '", token.getValue(), "', expected ", ts..., '.');
         }
 
-        auto getErrorCount() const
+    private:
+        void showHeader(std::string_view type, size_t lineNumber, size_t columnNumber)
         {
-            return errorCount;
+            std::cerr << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
+        }
+};
+
+class CheckErrorHandler : public ErrorHandler
+{
+    public:
+        template<typename... Ts>
+        void error(size_t lineNumber, size_t columnNumber, const Ts&... ts)
+        {
+            showHeader("Error", lineNumber, columnNumber);
+
+            ((std::cerr << ts), ...);
+            std::cerr << std::endl;
+            errorCount++;
         }
 
-        auto getWarningCount() const
+        template<typename... Ts>
+        void error(const TreeNode* node, const Ts&... ts)
         {
-            return warningCount;
+            error(node->getLineNumber(), node->getColumnNumber(), ts...);
+        }
+
+        template<typename... Ts>
+        void errorWhen(bool condition, const TreeNode* node, const Ts&... ts)
+        {
+            if (condition) {
+                error(node, ts...);
+            }
+        }
+
+        template<typename... Ts>
+        void warning(size_t lineNumber, size_t columnNumber, const Ts&... ts)
+        {
+            showHeader("Warning", lineNumber, columnNumber);
+
+            ((std::cerr << ts), ...);
+            std::cerr << std::endl;
+            warningCount++;
+        }
+
+        template<typename... Ts>
+        void warning(const TreeNode* node, const Ts&... ts)
+        {
+            warning(node->getLineNumber(), node->getColumnNumber(), ts...);
+        }
+
+        template<typename... Ts>
+        void warningWhen(bool condition, const TreeNode* node, const Ts&... ts)
+        {
+            if (condition) {
+                warning(node, ts...);
+            }
         }
 
     private:
-        void showHeader(std::string_view type, size_t lineNumber, unsigned columnNumber)
+        void showHeader(std::string_view type, size_t lineNumber, size_t columnNumber)
         {
-            std::cerr << type << " at line " << lineNumber << '(' << columnNumber << ")\n"
-                "    ";
+            if (lineNumber == 0) {
+                std::cerr << type << " at position " << columnNumber << ":\n    ";
+            } else {
+                std::cerr << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
+            }
         }
-
-        unsigned errorCount = 0;
-        unsigned warningCount = 0;
 };
 
 #endif

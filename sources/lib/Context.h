@@ -6,6 +6,7 @@
 #include "ErrorHandler.h"
 #include "common.h"
 #include "DataBuffer.h"
+#include "Encodings.h"
 #include "TokenBuffer.h"
 #include "TreeNode.h"
 
@@ -270,15 +271,7 @@ class Context
             return codeCount;
         }
 
-        auto nextSegmentCount()
-        {
-            return segmentCount++;
-        }
-
-        auto getSegmentCount() const
-        {
-            return segmentCount;
-        }
+        uint32_t getSegmentCount() const;
 
         auto nextElementCount()
         {
@@ -427,6 +420,8 @@ class Context
         void show(std::ostream& os, unsigned flags);
         void generate(std::ostream& os);
 
+        void makeDataCountSection();
+
     protected:
         uint32_t codeCount = 0;
         uint32_t elementCount = 0;
@@ -436,7 +431,6 @@ class Context
         uint32_t globalCount = 0;
         uint32_t localFunctionStart = 0;
         uint32_t memoryCount = 0;
-        uint32_t segmentCount = 0;
         uint32_t tableCount = 0;
         uint32_t localCount = 0;
 
@@ -511,7 +505,7 @@ class BinaryContext : public Context
         {
             T* result = new T(ts...);
 
-            result->setLineNumber(dataBuffer.getPos());
+            result->setColumnNumber(dataBuffer.getPos());
             return result;
         }
 
@@ -562,6 +556,41 @@ class SourceContext : public Context
         SourceErrorHandler& errorHandler;
 
         friend class Assembler;
+};
+
+class CheckContext : public Context
+{
+    public:
+        CheckContext(CheckErrorHandler& error)
+          : errorHandler(error)
+        {
+        }
+
+        CheckContext(Context& other, CheckErrorHandler& error)
+          : Context(other), errorHandler(error)
+        {
+        }
+
+        auto& msgs()
+        {
+            return errorHandler;
+        }
+
+        bool checkSemantics();
+        void checkDataCount(TreeNode* node, uint32_t count);
+        void checkTypeIndex(TreeNode* node, uint32_t count);
+        void checkFunctionIndex(TreeNode* node, uint32_t index);
+        void checkMemoryIndex(TreeNode* node, uint32_t index);
+        void checkTableIndex(TreeNode* node, uint32_t index);
+        void checkGlobalIndex(TreeNode* node, uint32_t index);
+        void checkValueType(TreeNode* node, const ValueType& type);
+        void checkElementType(TreeNode* node, const ElementType& type);
+        void checkExternalType(TreeNode* node, const ExternalKind& type);
+        void checkLimits(TreeNode* node, const Limits& limits);
+        void checkMut(TreeNode* node, Mut& mut);
+
+    private:
+        CheckErrorHandler& errorHandler;
 };
 
 #endif

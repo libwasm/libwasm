@@ -2,6 +2,7 @@
 
 #include "Context.h"
 #include "BackBone.h"
+#include "Encodings.h"
 
 #include <algorithm>
 #include <iostream>
@@ -236,6 +237,15 @@ uint32_t Context::getTypeCount() const
     }
 }
 
+uint32_t Context::getSegmentCount() const
+{
+    if (auto* section = getDataSection(); section != nullptr) {
+        return uint32_t(section->getSegments().size());
+    } else {
+        return 0;
+    }
+}
+
 TypeDeclaration* Context::getType(uint32_t index) const
 {
     return getTypeSection()->getTypes()[index].get();
@@ -332,6 +342,29 @@ void Context::generateSections(std::ostream& os)
     }
 }
 
+void Context::generate(std::ostream& os)
+{
+    os << "(module";
+    generateSections(os);
+    os << ")\n";
+}
+
+void Context::makeDataCountSection()
+{
+    if (dataCountSectionIndex == invalidSection) {
+        auto* section = new DataCountSection();
+
+        if (dataSectionIndex == invalidSection) {
+            section->setDataCount(0);
+        } else {
+            section->setDataCount(uint32_t(getDataSection()->getSegments().size()));
+        }
+
+        dataCountSectionIndex = sections.size();
+        sections.emplace_back(section);
+    }
+}
+
 void BinaryContext::dumpSections(std::ostream& os)
 {
     for (auto& section : sections) {
@@ -342,13 +375,6 @@ void BinaryContext::dumpSections(std::ostream& os)
 void BinaryContext::dump(std::ostream& os)
 {
     dumpSections(os);
-}
-
-void Context::generate(std::ostream& os)
-{
-    os << "(module";
-    generateSections(os);
-    os << ")\n";
 }
 
 void BinaryContext::writeHeader()
@@ -430,5 +456,80 @@ void SourceContext::write(std::ostream& os)
     bContext.data().reset();
 
     bContext.write(os);
+}
+
+bool CheckContext::checkSemantics()
+{
+    for (auto& section : sections) {
+        section->check(*this);
+    }
+
+    return errorHandler.getErrorCount() == 0;
+}
+
+void CheckContext::checkDataCount(TreeNode* node, uint32_t count)
+{
+    errorHandler.errorWhen((count != uint32_t(getSegmentCount())), node,
+            "Invalid data count ", count, "; expected ", getSegmentCount(), '.');
+}
+
+void CheckContext::checkTypeIndex(TreeNode* node, uint32_t index)
+{
+    errorHandler.errorWhen((index >= uint32_t(getTypeCount())), node,
+            "Type index (", index, ") is larger then maximum (", getTypeCount(), ")");
+}
+
+void CheckContext::checkFunctionIndex(TreeNode* node, uint32_t index)
+{
+    errorHandler.errorWhen((index >= uint32_t(getFunctionCount())), node,
+            "Function index (", index, ") is larger then maximum (", getFunctionCount(), ")");
+}
+
+void CheckContext::checkTableIndex(TreeNode* node, uint32_t index)
+{
+    errorHandler.errorWhen((index >= uint32_t(getTableCount())), node,
+            "Table index (", index, ") is larger then maximum (", getTableCount(), ")");
+}
+
+void CheckContext::checkMemoryIndex(TreeNode* node, uint32_t index)
+{
+    errorHandler.errorWhen((index >= uint32_t(getMemoryCount())), node,
+            "Memory index (", index, ") is larger then maximum (", getMemoryCount(), ")");
+}
+
+void CheckContext::checkGlobalIndex(TreeNode* node, uint32_t index)
+{
+    errorHandler.errorWhen((index >= uint32_t(getGlobalCount())), node,
+            "Global index (", index, ") is larger then maximum (", getGlobalCount(), ")");
+}
+
+void CheckContext::checkValueType(TreeNode* node, const ValueType& type)
+{
+    errorHandler.errorWhen((!type.isValid()), node,
+            "Invalid valuetype ", int32_t(type));
+}
+
+void CheckContext::checkElementType(TreeNode* node, const ElementType& type)
+{
+    errorHandler.errorWhen((!type.isValid()), node,
+            "Invalid element ", int32_t(type));
+}
+
+void CheckContext::checkExternalType(TreeNode* node, const ExternalKind& type)
+{
+    errorHandler.errorWhen((!ExternalKind(type).isValid()), node,
+            "Invalid external type ", uint32_t(uint8_t(type)));
+}
+
+void CheckContext::checkLimits(TreeNode* node, const Limits& limits)
+{
+    errorHandler.errorWhen((limits.kind == LimitKind::hasMax && limits.max < limits.min), node,
+            "Invalid limits; maximum (", limits.max, ") is less then minimum (", limits.min, ')');
+}
+
+void CheckContext::checkMut(TreeNode* node, Mut& mut)
+{
+    errorHandler.errorWhen((mut != Mut::const_ && mut != Mut::var), node,
+            "Invalid mut");
 }
 

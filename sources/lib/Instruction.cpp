@@ -40,6 +40,11 @@ void InstructionNone::write(BinaryContext& context)
     data.putU8(uint8_t(opcode));
 }
 
+void InstructionNone::check(CheckContext& context)
+{
+    // nothing to do
+}
+
 void InstructionNone::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode;
@@ -74,6 +79,11 @@ void InstructionI32::write(BinaryContext& context)
     data.putI32leb(imm);
 }
 
+void InstructionI32::check(CheckContext& context)
+{
+    // nothing to do
+}
+
 void InstructionI32::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode << " " << imm;
@@ -105,6 +115,11 @@ void InstructionI64::write(BinaryContext& context)
     data.putI64leb(imm);
 }
 
+void InstructionI64::check(CheckContext& context)
+{
+    // nothing to do
+}
+
 void InstructionI64::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode << " " << imm;
@@ -134,6 +149,11 @@ void InstructionF32::write(BinaryContext& context)
 
     data.putU8(uint8_t(opcode));
     data.putF(imm);
+}
+
+void InstructionF32::check(CheckContext& context)
+{
+    // nothing to do
 }
 
 void InstructionF32::generate(std::ostream& os, InstructionContext& context)
@@ -168,6 +188,11 @@ void InstructionF64::write(BinaryContext& context)
 
     data.putU8(uint8_t(opcode));
     data.putD(imm);
+}
+
+void InstructionF64::check(CheckContext& context)
+{
+    // nothing to do
 }
 
 void InstructionF64::generate(std::ostream& os, InstructionContext& context)
@@ -225,6 +250,11 @@ void InstructionBlock::write(BinaryContext& context)
 
     data.putU8(uint8_t(opcode));
     data.putI32leb(int32_t(imm));
+}
+
+void InstructionBlock::check(CheckContext& context)
+{
+    context.checkValueType(this, imm);
 }
 
 void InstructionBlock::generate(std::ostream& os, InstructionContext& context)
@@ -405,6 +435,11 @@ void InstructionTable::write(BinaryContext& context)
     data.putU32leb(defaultLabel);
 }
 
+void InstructionTable::check(CheckContext& context)
+{
+    // nothing to do
+}
+
 void InstructionTable::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode;
@@ -467,6 +502,11 @@ void InstructionMemory::write(BinaryContext& context)
     data.putU32leb(offset);
 }
 
+void InstructionMemory::check(CheckContext& context)
+{
+    // nothing to do
+}
+
 void InstructionMemory::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode;
@@ -526,6 +566,11 @@ void InstructionIndirect::write(BinaryContext& context)
     data.putU32leb(dummy);
 }
 
+void InstructionIndirect::check(CheckContext& context)
+{
+    context.checkTypeIndex(this, typeIndex);
+}
+
 void InstructionIndirect::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode << " (type " << typeIndex << ')';
@@ -537,6 +582,11 @@ void InstructionMemory0::write(BinaryContext& context)
 
     data.putU8(uint8_t(opcode));
     data.putU8(0);
+}
+
+void InstructionMemory0::check(CheckContext& context)
+{
+    // nothing to do
 }
 
 void InstructionMemory0::generate(std::ostream& os, InstructionContext& context)

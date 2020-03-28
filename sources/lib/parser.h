@@ -8,6 +8,7 @@
 #include "TokenBuffer.h"
 
 std::optional<ValueType> parseValueType(SourceContext& context);
+std::optional<ElementType> parseElementType(SourceContext& context);
 std::optional<uint32_t> parseTableIndex(SourceContext& context);
 std::optional<uint32_t> parseFunctionIndex(SourceContext& context);
 std::optional<uint32_t> parseMemoryIndex(SourceContext& context);

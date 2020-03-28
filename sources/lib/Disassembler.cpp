@@ -1,7 +1,6 @@
 // disassemble.cpp
 
 #include "Disassembler.h"
-#include "semantics.h"
 
 bool Disassembler::readFile(std::istream& stream)
 {
@@ -140,12 +139,28 @@ bool Disassembler::readSections()
     return msgs.getErrorCount() == 0;
 }
 
+bool Disassembler::checkSemantics()
+{
+    context.makeDataCountSection();
+
+    CheckErrorHandler error;
+    CheckContext checkContext(context, error);
+
+    if (!checkContext.checkSemantics()) {
+        errorCount += checkContext.msgs().getErrorCount();
+        warningCount += checkContext.msgs().getWarningCount();
+        return false;
+    } else {
+        return true;
+    }
+}
+
 bool Disassembler::readWasm(std::istream& stream)
 {
     return readFile(stream) &&
         checkHeader() &&
         readSections() &&
-        checkSemantics(context);
+        checkSemantics();
 
     return true;
 }

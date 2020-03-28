@@ -33,6 +33,7 @@ class Expression : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static Expression* parse(SourceContext& context, bool oneInstruction = false);
@@ -77,6 +78,7 @@ class Section : public TreeNode
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) = 0;
         virtual void generate(std::ostream& os, Context& context) = 0;
+        virtual void check(CheckContext& context) = 0;
         virtual void write(BinaryContext& context) const = 0;
 
     protected:
@@ -109,6 +111,7 @@ class CustomSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
 
         static CustomSection* read(BinaryContext& context);
 
@@ -120,9 +123,6 @@ class RelocationEntry : public TreeNode
 {
     public:
         void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
-
-        static RelocationEntry* read(BinaryContext& context);
 
         auto getType() const
         {
@@ -164,6 +164,8 @@ class RelocationEntry : public TreeNode
             addend = value;
         }
 
+        static RelocationEntry* read(BinaryContext& context);
+
     private:
         RelocationType type;
         uint32_t offset = 0;
@@ -196,6 +198,7 @@ class RelocationSection : public CustomSection
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override
         {
         }
@@ -221,7 +224,6 @@ class LinkingSubsection : public TreeNode
         }
 
         virtual void show(std::ostream& os, Context& context);
-        virtual void generate(std::ostream& os, Context& context);
 
         static LinkingSubsection* read(BinaryContext& context);
 
@@ -263,7 +265,6 @@ class LinkingSegmentInfo : public TreeNode
         }
 
         void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
 
         static LinkingSegmentInfo* read(BinaryContext& context);
 
@@ -282,7 +283,6 @@ class LinkingSegmentSubsection : public LinkingSubsection
         }
 
         virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
 
         static LinkingSegmentSubsection* read(BinaryContext& context);
 
@@ -314,7 +314,6 @@ class LinkingInitFunc : public TreeNode
         }
 
         void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
 
         static LinkingInitFunc* read(BinaryContext& context);
 
@@ -332,7 +331,6 @@ class LinkingInitFuncSubsection : public LinkingSubsection
         }
 
         virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
 
         static LinkingInitFuncSubsection* read(BinaryContext& context);
 
@@ -354,7 +352,6 @@ class ComdatSym : public TreeNode
         }
 
         void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
 
         static ComdatSym* read(BinaryContext& context);
 
@@ -392,7 +389,6 @@ class LinkingComdat : public TreeNode
         }
 
         void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
 
         static LinkingComdat* read(BinaryContext& context);
 
@@ -411,7 +407,6 @@ class LinkingComdatSubsection : public LinkingSubsection
         }
 
         virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
 
         static LinkingComdatSubsection* read(BinaryContext& context);
 
@@ -423,7 +418,6 @@ class SymbolTableInfo : public TreeNode
 {
     public:
         virtual void show(std::ostream& os, Context& context);
-        virtual void generate(std::ostream& os, Context& context);
 
         virtual std::string_view getName() const
         {
@@ -448,7 +442,6 @@ class SymbolTableFGETInfo : public SymbolTableInfo
 {
     public:
         virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
 
         virtual std::string_view getName() const override
         {
@@ -481,7 +474,6 @@ class SymbolTableDataInfo : public SymbolTableInfo
 {
     public:
         virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
 
         virtual std::string_view getName() const override
         {
@@ -546,7 +538,6 @@ class SymbolTableSectionInfo : public SymbolTableInfo
         }
 
         virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
 
         static SymbolTableSectionInfo* read(BinaryContext& context, SymbolFlags flags);
 
@@ -563,7 +554,6 @@ class LinkingSymbolTableSubSectionn : public LinkingSubsection
         }
 
         virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
 
         static LinkingSymbolTableSubSectionn* read(BinaryContext& context);
 
@@ -591,6 +581,7 @@ class LinkingSection : public CustomSection
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override
         {
         }
@@ -643,12 +634,13 @@ class Local : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
 
         static Local* parse(SourceContext& context);
 
     protected:
         std::string id;
-        ValueType type = ValueType::void_;
+        ValueType type = 0;
         uint32_t number;
 
     friend class CodeEntry;
@@ -680,6 +672,7 @@ class Signature : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         bool operator==(const Signature& other);
@@ -780,6 +773,7 @@ class TypeDeclaration : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static TypeDeclaration* parse(SourceContext& context);
@@ -789,6 +783,7 @@ class TypeDeclaration : public TreeNode
         std::unique_ptr<Signature> signature;
         uint32_t number = 0;
         std::string id;
+        static const uint8_t func = 0x60;
 };
 
 class TypeSection : public Section
@@ -811,6 +806,7 @@ class TypeSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static void read(BinaryContext& context, TypeSection* result);
@@ -870,6 +866,7 @@ class ImportDeclaration : public TreeNode
         void generateNames(std::ostream& os);
         virtual void show(std::ostream& os, Context& context) = 0;
         virtual void generate(std::ostream& os, Context& context) = 0;
+        virtual void check(CheckContext& context) = 0;
         virtual void write(BinaryContext& context) const = 0;
 
         static ImportDeclaration* parse(SourceContext& context);
@@ -905,6 +902,7 @@ class FunctionImport : public TypeUse, public ImportDeclaration
 
         virtual void show(std::ostream& os, Context& context) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static FunctionImport* parse(SourceContext& context, const std::string_view name);
@@ -929,7 +927,7 @@ class Table
             return type;
         }
 
-        void setType(ValueType value)
+        void setType(ElementType value)
         {
             type = value;
         }
@@ -945,7 +943,7 @@ class Table
         }
 
     protected:
-        ValueType type = ValueType::void_;
+        ElementType type = 0;
         Limits limits;
         std::string id;
 };
@@ -960,6 +958,7 @@ class TableImport : public Table, public ImportDeclaration
 
         virtual void show(std::ostream& os, Context& context) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static TableImport* parse(SourceContext& context, const std::string_view name);
@@ -1004,6 +1003,7 @@ class MemoryImport : public Memory, public ImportDeclaration
 
         virtual void show(std::ostream& os, Context& context) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static MemoryImport* parse(SourceContext& context, const std::string_view name);
@@ -1044,7 +1044,7 @@ class Global
         }
 
     protected:
-        ValueType type = ValueType::void_;
+        ValueType type = 0;
         Mut mut;
         std::string id;
 };
@@ -1059,6 +1059,7 @@ class GlobalImport : public Global, public ImportDeclaration
 
         virtual void show(std::ostream& os, Context& context) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static GlobalImport* parse(SourceContext& context, const std::string_view name);
@@ -1075,6 +1076,7 @@ class ImportSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static ImportSection* read(BinaryContext& context);
@@ -1108,6 +1110,7 @@ class FunctionDeclaration : public TypeUse, public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static FunctionDeclaration* parse(SourceContext& context);
@@ -1137,6 +1140,7 @@ class FunctionSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static FunctionSection* read(BinaryContext& context);
@@ -1160,6 +1164,7 @@ class TableDeclaration : public Table, public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static TableDeclaration* parse(SourceContext& context);
@@ -1189,6 +1194,7 @@ class TableSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static TableSection* read(BinaryContext& context);
@@ -1212,6 +1218,7 @@ class MemoryDeclaration : public Memory, public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static MemoryDeclaration* parse(SourceContext& context);
@@ -1241,6 +1248,7 @@ class MemorySection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static MemorySection* read(BinaryContext& context);
@@ -1264,6 +1272,7 @@ class GlobalDeclaration : public Global, public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static GlobalDeclaration* parse(SourceContext& context);
@@ -1294,6 +1303,7 @@ class GlobalSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static GlobalSection* read(BinaryContext& context);
@@ -1347,6 +1357,7 @@ class ExportDeclaration : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static ExportDeclaration* parse(SourceContext& context);
@@ -1379,6 +1390,7 @@ class ExportSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static ExportSection* read(BinaryContext& context);
@@ -1407,6 +1419,7 @@ class StartSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static StartSection* parse(SourceContext& context);
@@ -1461,6 +1474,7 @@ class ElementDeclaration : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static ElementDeclaration* parse(SourceContext& context);
@@ -1493,6 +1507,7 @@ class ElementSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static ElementSection* read(BinaryContext& context);
@@ -1521,6 +1536,7 @@ class CodeEntry : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static CodeEntry* parse(SourceContext& context);
@@ -1552,6 +1568,7 @@ class CodeSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static CodeSection* read(BinaryContext& context);
@@ -1595,6 +1612,7 @@ class DataSegment : public TreeNode
 
         void show(std::ostream& os, Context& context);
         void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
         static DataSegment* parse(SourceContext& context);
@@ -1634,6 +1652,7 @@ class DataSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
     private:
@@ -1660,6 +1679,7 @@ class DataCountSection : public Section
 
         virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
         static DataCountSection* read(BinaryContext& context);

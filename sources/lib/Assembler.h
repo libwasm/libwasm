@@ -49,12 +49,12 @@ class Assembler
 
         auto getErrorCount() const
         {
-            return msgs.getErrorCount();
+            return errorCount + msgs.getErrorCount();
         }
 
         auto getWarningCount() const
         {
-            return msgs.getWarningCount();
+            return warningCount + msgs.getWarningCount();
         }
 
     private:
@@ -110,10 +110,14 @@ class Assembler
         bool parseInteger(bool allowHex = true);
         bool parseString();
         bool parseHex();
+        bool checkSemantics();
         Token::TokenKind parseNumber();
 
+        unsigned errorCount = 0;
+        unsigned warningCount = 0;
+
         bool good = false;
-        unsigned columnNumber = 1;
+        size_t columnNumber = 1;
         size_t lineNumber = 1;
         DataBuffer data;
         TokenBuffer tokens;

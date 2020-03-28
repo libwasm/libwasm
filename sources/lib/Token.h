@@ -21,7 +21,7 @@ class Token
 
         Token() = default;
 
-        Token(TokenKind k, size_t l, unsigned c, std::string_view v)
+        Token(TokenKind k, size_t l, size_t c, std::string_view v)
           : kind(k), columnNumber(c), lineNumber(l), value(v)
         {
         }
@@ -100,7 +100,7 @@ class Token
 
     private:
         TokenKind kind = none;
-        unsigned columnNumber = 0;
+        size_t columnNumber = 0;
         size_t lineNumber = 0;
         std::string_view value;
 

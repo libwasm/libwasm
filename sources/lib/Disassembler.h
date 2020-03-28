@@ -55,12 +55,12 @@ class Disassembler
 
         auto getErrorCount() const
         {
-            return msgs.getErrorCount();
+            return errorCount + msgs.getErrorCount();
         }
 
         auto getWarningCount() const
         {
-            return msgs.getWarningCount();
+            return warningCount + msgs.getWarningCount();
         }
 
     private:
@@ -68,6 +68,10 @@ class Disassembler
         bool readFile(std::istream& stream);
         bool checkHeader();
         bool readSections();
+        bool checkSemantics();
+
+        unsigned errorCount = 0;
+        unsigned warningCount = 0;
 
         void dumpSections(std::ostream& os);
         void generateSections(std::ostream& os, unsigned flags);

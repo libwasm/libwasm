@@ -474,10 +474,9 @@ bool ValueType::isValid() const
         case f32:
         case f64:
         case v128:
-        case funcref:
-        case anyref:
-        case exnref:
-        case func:
+        // case anyref:
+        // case exnref:
+        // case func:
         case void_:
             return true;
     }
@@ -493,10 +492,9 @@ std::string_view ValueType::getName() const
         case f32:          return "f32";
         case f64:          return "f64";
         case v128:         return "v128";
-        case funcref:      return "funcref";
-        case anyref:       return "anyref";
-        case exnref:       return "exnref";
-        case func:         return "func";
+        // case anyref:       return "anyref";
+        // case exnref:       return "exnref";
+        // case func:         return "func";
         case void_:        return "void";
     }
 
@@ -510,17 +508,34 @@ struct ValueTypeEntry
 };
 
 ValueTypeEntry valueTypeMap[] = {
-    { "anyref", ValueType::anyref },
-    { "exnref", ValueType::exnref },
+    // { "anyref", ValueType::anyref },
+    // { "exnref", ValueType::exnref },
     { "f32", ValueType::f32 },
     { "f64", ValueType:: f64},
-    { "func", ValueType::func },
-    { "funcref", ValueType::funcref },
+    // { "func", ValueType::func },
     { "i32", ValueType::i32 },
     { "i64", ValueType::i64 },
     { "v128", ValueType::v128 },
     { "void", ValueType::void_ }
 };
+
+std::optional<ElementType> ElementType::getEncoding(std::string_view name)
+{
+    if (name == "funcref") {
+        return funcref;
+    }
+
+    return {};
+}
+
+std::string_view ElementType::getName() const
+{
+    switch (value) {
+        case funcref:  return "funcref";
+    }
+
+    return std::string_view();
+}
 
 std::optional<ValueType> ValueType::getEncoding(std::string_view n)
 {
@@ -584,7 +599,7 @@ std::optional<ExternalKind> ExternalKind::getEncoding(std::string_view name)
         return event;
     }
 
-    return 0;
+    return {};
 }
 
 std::ostream& operator<<(std::ostream& os, RelocationType type)

@@ -1,7 +1,6 @@
 // Assembler.cpp
 
 #include "Assembler.h"
-#include "semantics.h"
 
 #include <cctype>
 
@@ -446,11 +445,27 @@ std::vector<size_t> Assembler::findSectionPositions(
     return result;
 }
 
+bool Assembler::checkSemantics()
+{
+    context.makeDataCountSection();
+
+    CheckErrorHandler error;
+    CheckContext checkContext(context, error);
+
+    if (!checkContext.checkSemantics()) {
+        errorCount += checkContext.msgs().getErrorCount();
+        warningCount += checkContext.msgs().getWarningCount();
+        return false;
+    } else {
+        return true;
+    }
+}
+
 bool Assembler::parse()
 {
     return tokenize() &&
         doParse() &&
-        checkSemantics(context);
+        checkSemantics();
 }
 
 bool Assembler::doParse()
@@ -487,6 +502,8 @@ bool Assembler::doParse()
             section->addImport(entry);
         }
     }
+
+    context.startLocalFunctions();
 
     if (auto positions = findSectionPositions(entries, SectionType::function); !positions.empty()) {
         auto* sections = context.requiredFunctionSection();

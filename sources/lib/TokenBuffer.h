@@ -96,7 +96,7 @@ class TokenBuffer
 
         void recover();
         
-        void addToken(Token::TokenKind kind, size_t lineNumber, unsigned columnNumber, std::string_view value)
+        void addToken(Token::TokenKind kind, size_t lineNumber, size_t columnNumber, std::string_view value)
         {
             container.emplace_back(kind, lineNumber, columnNumber, value);
         }

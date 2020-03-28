@@ -354,6 +354,73 @@ inline std::ostream& operator<<(std::ostream& os, SectionType type)
     return os << type.getName();
 }
 
+class ElementType
+{
+    public:
+        enum : int32_t
+        {
+            funcref = -0x10  // 0x70
+        };
+
+        bool isValid() const
+        {
+            return value == funcref;
+        }
+
+        std::string_view getName() const;
+
+        bool operator==(int32_t v) const
+        {
+            return value == v;
+        }
+
+        bool operator!=(int32_t v) const
+        {
+            return value != v;
+        }
+
+        ElementType() = default;
+        ElementType(int32_t v)
+          : value(v)
+        {
+        }
+
+        bool operator==(const ElementType& other) const
+        {
+            return value == other.value;
+        }
+
+        bool operator!=(const ElementType& other) const
+        {
+            return value != other.value;
+        }
+
+        explicit operator int32_t() const
+        {
+            return value;
+        }
+
+        static std::optional<ElementType> getEncoding(std::string_view name);
+
+    private:
+        int32_t value = 0;
+};
+
+inline bool operator==(int32_t v, const ElementType& type)
+{
+    return type == v;
+}
+
+inline bool operator!=(int32_t v, const ElementType& type)
+{
+    return type != v;
+}
+
+inline std::ostream& operator<<(std::ostream& os, ElementType type)
+{
+    return os << type.getName();
+}
+
 class ValueType
 {
     public:
@@ -364,10 +431,9 @@ class ValueType
             f32 = -0x03,      // 0x7d
             f64 = -0x04,      // 0x7c
             v128 = -0x05,     // 0x7b
-            funcref = -0x10,  // 0x70
-            anyref = -0x11,   // 0x6f
-            exnref = -0x18,   // 0x68
-            func = -0x20,     // 0x60
+            // anyref = -0x11,   // 0x6f
+            // exnref = -0x18,   // 0x68
+            // func = -0x20,     // 0x60
             void_ = -0x40,    // 0x40
         };
 
@@ -400,7 +466,7 @@ class ValueType
             return value != other.value;
         }
 
-        explicit operator int32_t()
+        explicit operator int32_t() const
         {
             return value;
         }
@@ -408,7 +474,7 @@ class ValueType
         static std::optional<ValueType> getEncoding(std::string_view v);
 
     private:
-        int32_t value;
+        int32_t value = 0;
         
 };
 

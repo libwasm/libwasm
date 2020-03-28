@@ -2,6 +2,21 @@
 
 #include "parser.h"
 
+std::optional<ElementType> parseElementType(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
+
+    if (auto value = tokens.getKeyword()) {
+        if (auto encoding = ElementType::getEncoding(*value)) {
+            return encoding;
+        }
+    }
+
+    tokens.setPos(pos);
+    return {};
+}
+
 std::optional<ValueType> parseValueType(SourceContext& context)
 {
     auto& tokens = context.tokens();
