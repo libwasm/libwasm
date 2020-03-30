@@ -24,18 +24,14 @@ static void writeValueType(BinaryContext& context, ValueType type)
     context.data().putI32leb(int32_t(type));
 }
 
-static ElementType readElementType(BinaryContext& context)
+static ValueType readElementType(BinaryContext& context)
 {
-    ElementType result(context.data().getI32leb());
+    ValueType result(context.data().getI32leb());
 
     context.msgs().errorWhen(!result.isValid(), "Invalid element type ", int32_t(result));
+    context.msgs().errorWhen((result != ValueType::funcref), "Invalid element type '", result, "'; must be 'funcref'");
 
     return result;
-}
-
-static void writeElementType(BinaryContext& context, ElementType type)
-{
-    context.data().putI32leb(int32_t(type));
 }
 
 static Limits readLimits(BinaryContext& context)
@@ -68,12 +64,12 @@ static void writeLimits(BinaryContext& context, const Limits& limits)
     }
 }
 
-static ExternalKind readExternalKind(BinaryContext& context)
+static ExternalType readExternalType(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = ExternalKind(data.getU8());
+    auto result = ExternalType(data.getU8());
 
-    context.msgs().errorWhen(!result.isValid(), "Invalid ExternalKind ", uint8_t(result));
+    context.msgs().errorWhen(!result.isValid(), "Invalid ExternalType ", uint8_t(result));
 
     return result;
 }
@@ -1128,7 +1124,7 @@ void FunctionImport::write(BinaryContext& context) const
     writeByteArray(context, moduleName);
     writeByteArray(context, name);
 
-    data.putU8(uint8_t(ExternalKind::function));
+    data.putU8(uint8_t(ExternalType::function));
     TypeUse::write(context);
 }
 
@@ -1214,7 +1210,7 @@ void MemoryImport::write(BinaryContext& context) const
     writeByteArray(context, moduleName);
     writeByteArray(context, name);
 
-    data.putU8(uint8_t(ExternalKind::memory));
+    data.putU8(uint8_t(ExternalType::memory));
     writeLimits(context, limits);
 }
 
@@ -1285,6 +1281,89 @@ void MemoryImport::show(std::ostream& os, Context& context)
     os << '\n';
 }
 
+void EventImport::write(BinaryContext& context) const
+{
+    auto& data = context.data();
+
+    writeByteArray(context, moduleName);
+    writeByteArray(context, name);
+
+    data.putU8(uint8_t(ExternalType::event));
+    data.putU8(uint8_t(attribute));
+    data.putU32leb(typeIndex);
+}
+
+EventImport* EventImport::parse(SourceContext& context, const std::string_view name)
+{
+    auto& tokens = context.tokens();
+
+    if (!startClause(context, "event")) {
+        return nullptr;
+    }
+
+    auto result = context.makeTreeNode<EventImport>();
+
+    result->number = context.nextEventCount();
+
+    if (auto id = tokens.getId()) {
+        result->id = *id;
+        if (!context.addEventId(*id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
+        }
+    }
+
+    result->setAttribute(EventType(requiredU32(context)));
+
+    if (auto index = parseTypeIndex(context)) {
+        result->typeIndex = *index;
+    } else {
+        context.msgs().error(tokens.peekToken(), "Missing or invalid Type index.");
+    }
+
+    if (!requiredParenthesis(context, ')')) {
+        tokens.recover();
+        return result;
+    }
+
+    return result;
+}
+ 
+EventImport* EventImport::read(BinaryContext& context, const std::string_view name)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<EventImport>();
+
+    result->attribute = EventType(data.getU8());
+    result->typeIndex = data.getU32leb();
+    result->number = context.nextEventCount();
+
+    return result;
+}
+
+void EventImport::check(CheckContext& context)
+{
+    context.checkEventType(this, attribute);
+    context.checkTypeIndex(this, typeIndex);
+}
+
+void EventImport::generate(std::ostream& os, Context& context)
+{
+    os << attribute << ' ' << typeIndex;
+    os << "\n  (import";
+    generateNames(os);
+    os << " (event (;" << number << ";) " << attribute << ' ' << typeIndex;
+    os << "))";
+}
+
+void EventImport::show(std::ostream& os, Context& context)
+{
+    os << "  event " << number << ':';
+    generateNames(os);
+    os << " type attribute=\"" << attribute << "\" ";
+    os << ",  type index=\"" << typeIndex << "\" ";
+    os << '\n';
+}
+
 void TableImport::write(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -1292,8 +1371,8 @@ void TableImport::write(BinaryContext& context) const
     writeByteArray(context, moduleName);
     writeByteArray(context, name);
 
-    data.putU8(uint8_t(ExternalKind::table));
-    writeElementType(context, type);
+    data.putU8(uint8_t(ExternalType::table));
+    writeValueType(context, type);
     writeLimits(context, limits);
 }
 
@@ -1381,7 +1460,7 @@ void GlobalImport::write(BinaryContext& context) const
     writeByteArray(context, moduleName);
     writeByteArray(context, name);
 
-    data.putU8(uint8_t(ExternalKind::global));
+    data.putU8(uint8_t(ExternalType::global));
     writeValueType(context, type);
     data.putU8(uint8_t(mut));
 }
@@ -1666,6 +1745,65 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
     return result;
 }
 
+ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (!startClause(context, "event")) {
+        return nullptr;
+    }
+
+    auto startPos = tokens.getPos();
+
+    auto id = tokens.getId();
+
+    if (!startClause(context, "import")) {
+        tokens.setPos(startPos);
+        return nullptr;
+    }
+
+    auto& msgs = context.msgs();
+    auto result = context.makeTreeNode<EventImport>();
+
+    context.addEvent(result);
+    result->number = context.nextEventCount();
+
+    if (auto value = tokens.getString()) {
+        result->setModuleName(*value);
+    } else {
+        msgs.expected(tokens.peekToken(), "module name");
+    }
+
+    if (auto value = tokens.getString()) {
+        result->setName(*value);
+        result->setId(id ? *id : *value);
+    } else {
+        msgs.expected(tokens.peekToken(), "name");
+    }
+
+    if (!context.addEventId(result->getId(), result->number)) {
+        context.msgs().error(tokens.peekToken(-1), "Duplicate event id '", result->getId(), "'.");
+    }
+
+    if (!requiredParenthesis(context, ')')) {
+        tokens.recover();
+        return result;
+    }
+
+    if (auto index = parseTypeIndex(context)) {
+        result->setIndex(*index);
+    } else {
+        context.msgs().error(tokens.peekToken(), "Missing or invalid Type index.");
+    }
+
+    if (!requiredParenthesis(context, ')')) {
+        tokens.recover();
+        return result;
+    }
+
+    return result;
+}
+
 ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -1753,6 +1891,10 @@ ImportDeclaration* ImportDeclaration::parse(SourceContext& context)
         return result;
     }
 
+    if (auto* result = parseEventImport(context); result != nullptr) {
+        return result;
+    }
+
     if (auto* result = parseGlobalImport(context); result != nullptr) {
         return result;
     }
@@ -1786,6 +1928,8 @@ ImportDeclaration* ImportDeclaration::parse(SourceContext& context)
     } else if (auto entry = TableImport::parse(context, name); entry) {
         result = entry;
     } else if (auto entry = MemoryImport::parse(context, name); entry) {
+        result = entry;
+    } else if (auto entry = EventImport::parse(context, name); entry) {
         result = entry;
     } else if (auto entry = GlobalImport::parse(context, name); entry) {
         result = entry;
@@ -1841,13 +1985,14 @@ ImportSection* ImportSection::read(BinaryContext& context)
         auto name = readByteArray(context);
 
         ImportDeclaration* import = nullptr;
-        auto kind = readExternalKind(context);
+        auto kind = readExternalType(context);
 
         switch (uint8_t(kind)) {
-            case ExternalKind::function: import = FunctionImport::read(context, name); break;
-            case ExternalKind::table:    import = TableImport::read(context, name); break;
-            case ExternalKind::memory:   import = MemoryImport::read(context, name); break;
-            case ExternalKind::global:   import = GlobalImport::read(context, name); break;
+            case ExternalType::function: import = FunctionImport::read(context, name); break;
+            case ExternalType::table:    import = TableImport::read(context, name); break;
+            case ExternalType::memory:   import = MemoryImport::read(context, name); break;
+            case ExternalType::event:   import = EventImport::read(context, name); break;
+            case ExternalType::global:   import = GlobalImport::read(context, name); break;
             default:
                 context.msgs().error("Invalid import declaration ", uint8_t(kind));
                 break;
@@ -1928,7 +2073,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
     while (startClause(context, "export")) {
         auto* _export = context.makeTreeNode<ExportDeclaration>();
 
-        _export->setKind(ExternalKind::function);
+        _export->setKind(ExternalType::function);
         _export->setNumber(context.nextExportCount());
         _export->setName(requiredString(context));
         _export->setIndex(result->number);
@@ -2060,7 +2205,7 @@ void FunctionSection::show(std::ostream& os, Context& context, unsigned flags)
 
 void TableDeclaration::write(BinaryContext& context) const
 {
-    writeElementType(context, type);
+    writeValueType(context, type);
     writeLimits(context, limits);
 }
 
@@ -2601,10 +2746,10 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
         return result;
     }
 
-    if (auto kind = parseExternalKind(context)) {
+    if (auto kind = parseExternalType(context)) {
         result->kind = *kind;
         switch(uint8_t(*kind)) {
-            case ExternalKind::function:
+            case ExternalType::function:
                 if (auto index = parseFunctionIndex(context)) {
                     result->index = *index;
                 } else {
@@ -2613,7 +2758,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
 
                 break;
 
-            case ExternalKind::table:
+            case ExternalType::table:
                 if (auto index = parseTableIndex(context)) {
                     result->index = *index;
                 } else {
@@ -2622,7 +2767,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
 
                 break;
 
-            case ExternalKind::memory:
+            case ExternalType::memory:
                 if (auto index = parseMemoryIndex(context)) {
                     result->index = *index;
                 } else {
@@ -2631,7 +2776,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
 
                 break;
 
-            case ExternalKind::global:
+            case ExternalType::global:
                 if (auto index = parseGlobalIndex(context)) {
                     result->index = *index;
                 } else {
@@ -2667,7 +2812,7 @@ ExportDeclaration* ExportDeclaration::read(BinaryContext& context)
     auto result = context.makeTreeNode<ExportDeclaration>();
 
     result->name = readByteArray(context);
-    result->kind = readExternalKind(context);
+    result->kind = readExternalType(context);
     result->index = data.getU32leb();
     result->number = context.nextExportCount();
 
@@ -2687,19 +2832,19 @@ void ExportDeclaration::check(CheckContext& context)
     context.checkExternalType(this, uint8_t(kind));
 
     switch(uint8_t(kind)) {
-        case ExternalKind::function:
+        case ExternalType::function:
             context.checkFunctionIndex(this, index);
             break;
 
-        case ExternalKind::table:
+        case ExternalType::table:
             context.checkTableIndex(this, index);
             break;
 
-        case ExternalKind::memory:
+        case ExternalType::memory:
             context.checkMemoryIndex(this, index);
             break;
 
-        case ExternalKind::global:
+        case ExternalType::global:
             context.checkGlobalIndex(this, index);
             break;
 
@@ -3658,5 +3803,153 @@ void DataCountSection::write(BinaryContext& context) const
 
     data.putU32leb(uint32_t(text.size()));
     data.append(text);
+}
+
+void EventDeclaration::write(BinaryContext& context) const
+{
+    auto& data = context.data();
+
+    data.putU8(uint8_t(attribute));
+    data.putU32leb(typeIndex);
+}
+
+EventDeclaration* EventDeclaration::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (!startClause(context, "event")) {
+        return nullptr;
+    }
+
+    auto result = context.makeTreeNode<EventDeclaration>();
+    result->number = context.nextEventCount();
+    context.addEvent(result);
+
+    if (auto id = tokens.getId()) {
+        result->id = *id;
+        if (!context.addEventId(*id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
+        }
+
+    }
+
+    result->attribute = EventType(requiredU32(context));
+
+    if (auto index = parseTypeIndex(context)) {
+        result->setIndex(*index);
+    } else {
+        context.msgs().error(tokens.peekToken(), "Missing or invalid Type index.");
+    }
+
+    if (!requiredParenthesis(context, ')')) {
+        tokens.recover();
+        return result;
+    }
+
+    return result;
+}
+ 
+EventDeclaration* EventDeclaration::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<EventDeclaration>();
+
+    result->attribute = EventType(data.getU8());
+    result->typeIndex = data.getU32leb();
+    result->number = context.nextEventCount();
+
+    return result;
+}
+
+void EventDeclaration::show(std::ostream& os, Context& context)
+{
+    os << "  event ";
+    shsowFunctionIndex(os, number, context);
+
+    os << ':';
+    os << " type attribute=\"" << attribute << "\" ";
+    os << ",  type index=\"" << typeIndex << "\" ";
+    os << '\n';
+}
+
+void EventDeclaration::check(CheckContext& context)
+{
+    context.checkEventType(this, attribute);
+    context.checkTypeIndex(this, typeIndex);
+}
+
+void EventDeclaration::generate(std::ostream& os, Context& context)
+{
+    os << "\n (event (;" << number << ";) " << attribute << ' ' << typeIndex;
+
+    os << ')';
+}
+
+void EventSection::write(BinaryContext& context) const
+{
+    auto& data = context.data();
+
+    data.putU8(SectionType::event);
+    data.push();
+    data.putU32leb(uint32_t(events.size()));
+
+    for (auto& event : events) {
+        event->write(context);
+    }
+
+    auto text = data.pop();
+
+    data.putU32leb(uint32_t(text.size()));
+    data.append(text);
+}
+
+EventSection* EventSection::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<EventSection>();
+    auto size = data.getU32leb();
+    auto startPos = data.getPos();
+
+    context.msgs().setSectionName("Event");
+
+    result->setOffsets(startPos, startPos + size);
+
+    for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
+        context.msgs().setEntryNumber(i);
+        result->events.emplace_back(EventDeclaration::read(context));
+    }
+
+    if (data.getPos() != startPos + size) { 
+        context.msgs().error(" event section not fully read");
+        data.setPos(startPos + size);
+    }
+
+    context.msgs().resetInfo();
+    return result;
+}
+
+void EventSection::check(CheckContext& context)
+{
+    for (auto& event : events) {
+        event->check(context);
+    }
+}
+
+void EventSection::generate(std::ostream& os, Context& context)
+{
+    for (auto& event : events) {
+        event->generate(os, context);
+    }
+}
+
+void EventSection::show(std::ostream& os, Context& context, unsigned flags)
+{
+    os << "Event section:\n";
+
+    for (auto& event : events) {
+        event->show(os, context);
+    }
+
+    os << '\n';
 }
 

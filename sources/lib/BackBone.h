@@ -818,7 +818,7 @@ class TypeSection : public Section
 class ImportDeclaration : public TreeNode
 {
     public:
-        ImportDeclaration(ExternalKind k)
+        ImportDeclaration(ExternalType k)
           : kind(k)
         {
         }
@@ -874,19 +874,20 @@ class ImportDeclaration : public TreeNode
         static ImportDeclaration* parseTableImport(SourceContext& context);
         static ImportDeclaration* parseMemoryImport(SourceContext& context);
         static ImportDeclaration* parseGlobalImport(SourceContext& context);
+        static ImportDeclaration* parseEventImport(SourceContext& context);
 
     protected:
         std::string moduleName;
         std::string name;
         uint32_t number = 0;
-        ExternalKind kind;
+        ExternalType kind;
 };
 
 class FunctionImport : public TypeUse, public ImportDeclaration
 {
     public:
         FunctionImport()
-          : ImportDeclaration(ExternalKind::function)
+          : ImportDeclaration(ExternalType::function)
         {
         }
 
@@ -927,7 +928,7 @@ class Table
             return type;
         }
 
-        void setType(ElementType value)
+        void setType(ValueType value)
         {
             type = value;
         }
@@ -943,7 +944,7 @@ class Table
         }
 
     protected:
-        ElementType type = 0;
+        ValueType type = 0;
         Limits limits;
         std::string id;
 };
@@ -952,7 +953,7 @@ class TableImport : public Table, public ImportDeclaration
 {
     public:
         TableImport()
-          : ImportDeclaration(ExternalKind::table)
+          : ImportDeclaration(ExternalType::table)
         {
         }
 
@@ -997,7 +998,7 @@ class MemoryImport : public Memory, public ImportDeclaration
 {
     public:
         MemoryImport()
-          : ImportDeclaration(ExternalKind::memory)
+          : ImportDeclaration(ExternalType::memory)
         {
         }
 
@@ -1008,6 +1009,62 @@ class MemoryImport : public Memory, public ImportDeclaration
 
         static MemoryImport* parse(SourceContext& context, const std::string_view name);
         static MemoryImport* read(BinaryContext& context, const std::string_view name);
+};
+
+class Event
+{
+    public:
+        std::string_view getId() const
+        {
+            return id;
+        }
+
+        void setId(std::string_view value)
+        {
+            id = value;
+        }
+
+        auto& getAttribute()
+        {
+            return attribute;
+        }
+
+        void setAttribute(EventType attr)
+        {
+            attribute = attr;
+        }
+
+        auto& getIndex()
+        {
+            return typeIndex;
+        }
+
+        void setIndex(const uint32_t index)
+        {
+            typeIndex = index;
+        }
+
+    protected:
+        EventType attribute;
+        uint32_t typeIndex;
+        std::string id;
+};
+
+class EventImport : public Event, public ImportDeclaration
+{
+    public:
+        EventImport()
+          : ImportDeclaration(ExternalType::event)
+        {
+        }
+
+        virtual void show(std::ostream& os, Context& context) override;
+        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
+        virtual void write(BinaryContext& context) const override;
+
+        static EventImport* parse(SourceContext& context, const std::string_view name);
+        static EventImport* read(BinaryContext& context, const std::string_view name);
 };
 
 class Global
@@ -1053,7 +1110,7 @@ class GlobalImport : public Global, public ImportDeclaration
 {
     public:
         GlobalImport()
-          : ImportDeclaration(ExternalKind::global)
+          : ImportDeclaration(ExternalType::global)
         {
         }
 
@@ -1257,6 +1314,60 @@ class MemorySection : public Section
         std::vector<std::unique_ptr<MemoryDeclaration>> memories;
 };
 
+class EventDeclaration : public Event, public TreeNode
+{
+    public:
+        auto getNumber() const
+        {
+            return number;
+        }
+
+        void setNumber(uint32_t i)
+        {
+            number = i;
+        }
+
+        void show(std::ostream& os, Context& context);
+        void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
+        void write(BinaryContext& context) const;
+
+        static EventDeclaration* parse(SourceContext& context);
+        static EventDeclaration* read(BinaryContext& context);
+
+    private:
+        uint32_t number = 0;
+};
+
+class EventSection : public Section
+{
+    public:
+        EventSection()
+          : Section(SectionType::event)
+        {
+        }
+
+        void addEvent(EventDeclaration* event)
+        {
+            events.emplace_back(event);
+        }
+
+        auto& getMemories()
+        {
+            return events;
+        }
+
+        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void check(CheckContext& context) override;
+        virtual void write(BinaryContext& context) const override;
+
+        static EventSection* read(BinaryContext& context);
+
+    private:
+        std::vector<std::unique_ptr<EventDeclaration>> events;
+};
+
 class GlobalDeclaration : public Global, public TreeNode
 {
     public:
@@ -1350,7 +1461,7 @@ class ExportDeclaration : public TreeNode
             return kind;
         }
 
-        void setKind(ExternalKind k)
+        void setKind(ExternalType k)
         {
             kind = k;
         }
@@ -1365,7 +1476,7 @@ class ExportDeclaration : public TreeNode
 
     private:
         std::string name;
-        ExternalKind kind;
+        ExternalType kind;
         uint32_t index = invalidIndex;
         uint32_t number = 0;
 };

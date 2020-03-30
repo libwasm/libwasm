@@ -2,14 +2,16 @@
 
 #include "parser.h"
 
-std::optional<ElementType> parseElementType(SourceContext& context)
+std::optional<ValueType> parseElementType(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto pos = tokens.getPos();
 
     if (auto value = tokens.getKeyword()) {
-        if (auto encoding = ElementType::getEncoding(*value)) {
-            return encoding;
+        if (auto encoding = ValueType::getEncoding(*value)) {
+            if (*encoding == ValueType::funcref) {
+                return encoding;
+            }
         }
     }
 
@@ -53,6 +55,27 @@ std::optional<uint32_t> parseTableIndex(SourceContext& context)
     return{};
 }
 
+std::optional<uint32_t> parseTypeIndex(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU32()) {
+        if (*value >= context.getTypeCount()) {
+            return {};
+        }
+
+        return *value;
+    }
+
+    if (auto id = tokens.getId()) {
+        if (auto index = context.getTypeIndex(*id); index != invalidIndex) {
+            return index;
+        }
+    }
+
+    return{};
+}
+
 std::optional<uint32_t> parseFunctionIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -88,6 +111,27 @@ std::optional<uint32_t> parseMemoryIndex(SourceContext& context)
 
     if (auto id = tokens.getId()) {
         if (auto index = context.getMemoryIndex(*id); index != invalidIndex) {
+            return index;
+        }
+    }
+
+    return{};
+}
+
+std::optional<uint32_t> parseEventIndex(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU32()) {
+        if (*value >= context.getEventCount()) {
+            return {};
+        }
+
+        return *value;
+    }
+
+    if (auto id = tokens.getId()) {
+        if (auto index = context.getEventIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -158,13 +202,13 @@ std::optional<uint32_t> parseLabelIndex(SourceContext& context)
     return{};
 }
 
-std::optional<ExternalKind> parseExternalKind(SourceContext& context)
+std::optional<ExternalType> parseExternalType(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto pos = tokens.getPos();
 
     if (auto value = tokens.getKeyword()) {
-        if (auto kind = ExternalKind::getEncoding(*value)) {
+        if (auto kind = ExternalType::getEncoding(*value)) {
             return kind;
         }
     }

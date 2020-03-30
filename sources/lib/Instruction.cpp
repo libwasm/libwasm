@@ -6,6 +6,20 @@
 #include "TokenBuffer.h"
 #include "parser.h"
 
+void Instruction::writeOpcode(BinaryContext& context) const
+{
+    auto& data = context.data();
+    auto prefix = OpcodePrefix(opcode.getPrefix());
+    auto code = opcode.getCode();
+
+    if (prefix.isValid()) {
+        data.putU8(uint8_t(prefix));
+        data.putU32leb(code);
+    } else {
+        data.putU8(uint8_t(code));
+    }
+}
+
 InstructionNone* InstructionNone::parse(SourceContext& context, Opcode opcode)
 {
     auto& tokens = context.tokens();
@@ -35,9 +49,7 @@ InstructionNone* InstructionNone::read(BinaryContext& context)
 
 void InstructionNone::write(BinaryContext& context)
 {
-    auto& data = context.data();
-
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
 }
 
 void InstructionNone::check(CheckContext& context)
@@ -75,7 +87,7 @@ void InstructionI32::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putI32leb(imm);
 }
 
@@ -111,7 +123,7 @@ void InstructionI64::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putI64leb(imm);
 }
 
@@ -147,7 +159,7 @@ void InstructionF32::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putF(imm);
 }
 
@@ -186,7 +198,7 @@ void InstructionF64::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putD(imm);
 }
 
@@ -248,7 +260,7 @@ void InstructionBlock::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putI32leb(int32_t(imm));
 }
 
@@ -290,7 +302,7 @@ void InstructionIdx::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putU32leb(imm);
 }
 
@@ -425,7 +437,7 @@ void InstructionTable::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putU32leb(uint32_t(labels.size()));
 
     for (auto label : labels) {
@@ -461,23 +473,24 @@ InstructionMemory* InstructionMemory::parse(SourceContext& context, Opcode opcod
         result->offset = requiredU32(context);
     }
 
+    uint32_t align = opcode.getAlign();
+
     if (tokens.getKeyword("align=")) {
-        uint32_t align = requiredU32(context);
-        uint32_t power = 0;
+        align = requiredU32(context);
+    }
 
-        if (align != 0) {
-            while ((align & 1) == 0) {
-                power++;
-                align >>= 1;
-            }
+    uint32_t power = 0;
 
-            context.msgs().errorWhen(align != 1, tokens.peekToken(-1), "Alignment must be a power of 2.");
+    if (align != 0) {
+        while ((align & 1) == 0) {
+            power++;
+            align >>= 1;
         }
 
-        result->alignPower = power;
-    } else {
-        result->alignPower = opcode.getAlign();
+        context.msgs().errorWhen(align != 1, tokens.peekToken(-1), "Alignment must be a power of 2.");
     }
+
+    result->alignPower = power;
 
     return result;
 }
@@ -497,7 +510,7 @@ void InstructionMemory::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putU32leb(alignPower);
     data.putU32leb(offset);
 }
@@ -515,8 +528,10 @@ void InstructionMemory::generate(std::ostream& os, InstructionContext& context)
         os << " offset=" << offset;
     }
 
-    if (alignPower != opcode.getAlign()) {
-        os << " align=" << (1 << alignPower);
+    auto align = 1u << alignPower;
+
+    if (align != opcode.getAlign()) {
+        os << " align=" << align;
     }
 }
 
@@ -561,7 +576,7 @@ void InstructionIndirect::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putU32leb(typeIndex);
     data.putU32leb(dummy);
 }
@@ -580,7 +595,7 @@ void InstructionMemory0::write(BinaryContext& context)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(opcode));
+    writeOpcode(context);
     data.putU8(0);
 }
 
@@ -720,7 +735,14 @@ Instruction* Instruction::read(BinaryContext& context)
     auto& data = context.data();
     auto result = context.makeTreeNode<Instruction>();
 
-    Opcode opcode(data.getU8());
+    Opcode opcode;
+
+    if (OpcodePrefix prefix = OpcodePrefix(data.getU8()); prefix.isValid()) {
+        opcode = Opcode((uint8_t(prefix) << 24) | data.getU32leb());
+    } else {
+        opcode = Opcode(uint8_t(prefix));
+    }
+
     auto encoding = opcode.getParameterEncoding();
 
     switch(encoding) {

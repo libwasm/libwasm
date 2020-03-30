@@ -4,440 +4,538 @@
 
 #include <algorithm>
 
-Opcode::Entry Opcode::map[] =
+std::vector<Opcode::Entry> Opcode::map;
+
+static const uint32_t simd = OpcodePrefix::simd << 24;
+static const uint32_t thread = OpcodePrefix::thread << 24;
+
+Opcode::Info Opcode::info[] =
 {
-    { "block", 0x02 },
-    { "br", 0x0c },
-    { "br_if", 0x0d },
-    { "br_table", 0x0e },
-    { "call", 0x10 },
-    { "call_indirect", 0x11 },
-    { "drop", 0x1a },
-    { "else", 0x05 },
-    { "end", 0x0b },
-    { "f32.abs", 0x8b },
-    { "f32.add", 0x92 },
-    { "f32.ceil", 0x8d },
-    { "f32.const", 0x43 },
-    { "f32.convert_i32_s", 0xb2 },
-    { "f32.convert_i32_u", 0xb3 },
-    { "f32.convert_i64_s", 0xb4 },
-    { "f32.convert_i64_u", 0xb5 },
-    { "f32.copysign", 0x98 },
-    { "f32.demote_f64", 0xb6 },
-    { "f32.div", 0x95 },
-    { "f32.eq", 0x5b },
-    { "f32.floor", 0x8e },
-    { "f32.ge", 0x60 },
-    { "f32.gt", 0x5e },
-    { "f32.le", 0x5f },
-    { "f32.load", 0x2a },
-    { "f32.lt", 0x5d },
-    { "f32.max", 0x97 },
-    { "f32.min", 0x96 },
-    { "f32.mul", 0x94 },
-    { "f32.ne", 0x5c },
-    { "f32.nearest", 0x90 },
-    { "f32.neg", 0x8c },
-    { "f32.reinterpret_i32", 0xbe },
-    { "f32.sqrt", 0x91 },
-    { "f32.store", 0x38 },
-    { "f32.sub", 0x93 },
-    { "f32.trunc", 0x8f },
-    { "f64.abs", 0x99 },
-    { "f64.add", 0xa0 },
-    { "f64.ceil", 0x9b },
-    { "f64.const", 0x44 },
-    { "f64.convert_i32_s", 0xb7 },
-    { "f64.convert_i32_u", 0xb8 },
-    { "f64.convert_i64_s", 0xb9 },
-    { "f64.convert_i64_u", 0xba },
-    { "f64.copysign", 0xa6 },
-    { "f64.div", 0xa3 },
-    { "f64.eq", 0x61 },
-    { "f64.floor", 0x9c },
-    { "f64.ge", 0x66 },
-    { "f64.gt", 0x64 },
-    { "f64.le", 0x65 },
-    { "f64.load", 0x2b },
-    { "f64.lt", 0x63 },
-    { "f64.max", 0xa5 },
-    { "f64.min", 0xa4 },
-    { "f64.mul", 0xa2 },
-    { "f64.ne", 0x62 },
-    { "f64.nearest", 0x9e },
-    { "f64.neg", 0x9a },
-    { "f64.promote_f32", 0xbb },
-    { "f64.reinterpret_i64", 0xbf },
-    { "f64.sqrt", 0x9f },
-    { "f64.store", 0x39 },
-    { "f64.sub", 0xa1 },
-    { "f64.trunc", 0x9d },
-    { "global.get", 0x23 },
-    { "global.set", 0x24 },
-    { "i32.add", 0x6a },
-    { "i32.and", 0x71 },
-    { "i32.clz", 0x67 },
-    { "i32.const", 0x41 },
-    { "i32.ctz", 0x68 },
-    { "i32.div_s", 0x6d },
-    { "i32.div_u", 0x6e },
-    { "i32.eq", 0x46 },
-    { "i32.eqz", 0x45 },
-    { "i32.ge_s", 0x4e },
-    { "i32.ge_u", 0x4f },
-    { "i32.gt_s", 0x4a },
-    { "i32.gt_u", 0x4b },
-    { "i32.le_s", 0x4c },
-    { "i32.le_u", 0x4d },
-    { "i32.load", 0x28 },
-    { "i32.load16_s", 0x2e },
-    { "i32.load16_u", 0x2f },
-    { "i32.load8_s", 0x2c },
-    { "i32.load8_u", 0x2d },
-    { "i32.lt_s", 0x48 },
-    { "i32.lt_u", 0x49 },
-    { "i32.mul", 0x6c },
-    { "i32.ne", 0x47 },
-    { "i32.or", 0x72 },
-    { "i32.popcnt", 0x69 },
-    { "i32.reinterpret_f32", 0xbc },
-    { "i32.rem_s", 0x6f },
-    { "i32.rem_u", 0x70 },
-    { "i32.rotl", 0x77 },
-    { "i32.rotr", 0x78 },
-    { "i32.shl", 0x74 },
-    { "i32.shr_s", 0x75 },
-    { "i32.shr_u", 0x76 },
-    { "i32.store", 0x36 },
-    { "i32.store16", 0x3b },
-    { "i32.store8", 0x3a },
-    { "i32.sub", 0x6b },
-    { "i32.trunc_f32_s", 0xa8 },
-    { "i32.trunc_f32_u", 0xa9 },
-    { "i32.trunc_f64_s", 0xaa },
-    { "i32.trunc_f64_u", 0xab },
-    { "i32.wrap_i64", 0xa7 },
-    { "i32.xor", 0x73 },
-    { "i64.", 0x54 },
-    { "i64.add", 0x7c },
-    { "i64.and", 0x83 },
-    { "i64.clz", 0x79 },
-    { "i64.const", 0x42 },
-    { "i64.ctz", 0x7a },
-    { "i64.div_s", 0x7f },
-    { "i64.div_u", 0x80 },
-    { "i64.eq", 0x51 },
-    { "i64.eqz", 0x50 },
-    { "i64.extend_i32_s", 0xac },
-    { "i64.extend_i32_u", 0xad },
-    { "i64.ge_s", 0x59 },
-    { "i64.ge_u", 0x5a },
-    { "i64.gt_s", 0x55 },
-    { "i64.gt_u", 0x56 },
-    { "i64.le_s", 0x57 },
-    { "i64.le_u", 0x58 },
-    { "i64.load", 0x29 },
-    { "i64.load16_s", 0x32 },
-    { "i64.load16_u", 0x33 },
-    { "i64.load32_s", 0x34 },
-    { "i64.load32_u", 0x35 },
-    { "i64.load8_s", 0x30 },
-    { "i64.load8_u", 0x31 },
-    { "i64.lt_s", 0x53 },
-    { "i64.mul", 0x7e },
-    { "i64.ne", 0x52 },
-    { "i64.or", 0x84 },
-    { "i64.popcnt", 0x7b },
-    { "i64.reinterpret_f64", 0xbd },
-    { "i64.rem_s", 0x81 },
-    { "i64.rem_u", 0x82 },
-    { "i64.rotl", 0x89 },
-    { "i64.rotr", 0x8a },
-    { "i64.shl", 0x86 },
-    { "i64.shr_s", 0x87 },
-    { "i64.shr_u", 0x88 },
-    { "i64.store", 0x37 },
-    { "i64.store16", 0x3d },
-    { "i64.store32", 0x3e },
-    { "i64.store8", 0x3c },
-    { "i64.sub", 0x7d },
-    { "i64.trunc_f32_s", 0xae },
-    { "i64.trunc_f32_u", 0xaf },
-    { "i64.trunc_f64_s", 0xb0 },
-    { "i64.trunc_f64_u", 0xb1 },
-    { "i64.xor", 0x85 },
-    { "if", 0x04 },
-    { "local.get", 0x20 },
-    { "local.set", 0x21 },
-    { "local.tee", 0x22 },
-    { "loop", 0x03 },
-    { "memory.grow", 0x40 },
-    { "memory.size", 0x3f },
-    { "nop", 0x01 },
-    { "return", 0x0f },
-    { "select", 0x1b },
-    { "unreachable", 0x00 }
+    { Opcode::unreachable, ParameterEncoding::none, SignatureCode::void_, "unreachable", 0 },
+    { Opcode::nop, ParameterEncoding::none, SignatureCode::void_, "nop", 0 },
+    { Opcode::block, ParameterEncoding::block, SignatureCode::void_, "block", 0 },
+    { Opcode::loop, ParameterEncoding::block, SignatureCode::void_, "loop", 0 },
+    { Opcode::if_, ParameterEncoding::block, SignatureCode::void_, "if", 0 },
+    { Opcode::else_, ParameterEncoding::none, SignatureCode::void_, "else", 0 },
+    { Opcode::try_, ParameterEncoding::none, SignatureCode::void_, "try", 0 },
+    { Opcode::catch_, ParameterEncoding::none, SignatureCode::void_, "catch", 0 },
+    { Opcode::throw_, ParameterEncoding::none, SignatureCode::void_, "throw", 0 },
+    { Opcode::rethrow_, ParameterEncoding::none, SignatureCode::void_, "rethrow", 0 },
+    { Opcode::br_on_exn, ParameterEncoding::none, SignatureCode::void_, "br_on_exn", 0 },
+    { Opcode::end, ParameterEncoding::none, SignatureCode::void_, "end", 0 },
+    { Opcode::br, ParameterEncoding::labelIdx, SignatureCode::void_, "br", 0 },
+    { Opcode::br_if, ParameterEncoding::labelIdx, SignatureCode::void_, "br_if", 0 },
+    { Opcode::br_table, ParameterEncoding::table, SignatureCode::void_, "br_table", 0 },
+    { Opcode::return_, ParameterEncoding::none, SignatureCode::void_, "return", 0 },
+    { Opcode::call, ParameterEncoding::functionIdx, SignatureCode::void_, "call", 0 },
+    { Opcode::call_indirect, ParameterEncoding::indirect, SignatureCode::void_, "call_indirect", 0 },
+    { Opcode::return_call, ParameterEncoding::none, SignatureCode::void_, "return_call", 0 },
+    { Opcode::return_call_indirect, ParameterEncoding::none, SignatureCode::void_, "return_call_indirect", 0 },
+    { Opcode::drop, ParameterEncoding::none, SignatureCode::void_, "drop", 0 },
+    { Opcode::select, ParameterEncoding::none, SignatureCode::void_, "select", 0 },
+    { Opcode::local__get, ParameterEncoding::localIdx, SignatureCode::void_, "local.get", 0 },
+    { Opcode::local__set, ParameterEncoding::localIdx, SignatureCode::void_, "local.set", 0 },
+    { Opcode::local__tee, ParameterEncoding::localIdx, SignatureCode::void_, "local.tee", 0 },
+    { Opcode::global__get, ParameterEncoding::globalIdx, SignatureCode::void_, "global.get", 0 },
+    { Opcode::global__set, ParameterEncoding::globalIdx, SignatureCode::void_, "global.set", 0 },
+    { Opcode::i32__load, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.load", 4 },
+    { Opcode::i64__load, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.load", 8 },
+    { Opcode::f32__load, ParameterEncoding::memory, SignatureCode::f32__i32, "f32.load", 4 },
+    { Opcode::f64__load, ParameterEncoding::memory, SignatureCode::f64__i32, "f64.load", 8 },
+    { Opcode::i32__load8_s, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.load8_s", 1 },
+    { Opcode::i32__load8_u, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.load8_u", 1 },
+    { Opcode::i32__load16_s, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.load16_s", 2 },
+    { Opcode::i32__load16_u, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.load16_u", 2 },
+    { Opcode::i64__load8_s, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.load8_s", 1 },
+    { Opcode::i64__load8_u, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.load8_u", 1 },
+    { Opcode::i64__load16_s, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.load16_s", 2 },
+    { Opcode::i64__load16_u, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.load16_u", 2 },
+    { Opcode::i64__load32_s, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.load32_s", 4 },
+    { Opcode::i64__load32_u, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.load32_u", 4 },
+    { Opcode::i32__store, ParameterEncoding::memory, SignatureCode::void__i32_i32, "i32.store", 4 },
+    { Opcode::i64__store, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.store", 8 },
+    { Opcode::f32__store, ParameterEncoding::memory, SignatureCode::void__i32_f32, "f32.store", 4 },
+    { Opcode::f64__store, ParameterEncoding::memory, SignatureCode::void__i32_f64, "f64.store", 8 },
+    { Opcode::i32__store8, ParameterEncoding::memory, SignatureCode::void__i32_i32, "i32.store8", 1 },
+    { Opcode::i32__store16, ParameterEncoding::memory, SignatureCode::void__i32_i32, "i32.store16", 2 },
+    { Opcode::i64__store8, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.store8", 1 },
+    { Opcode::i64__store16, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.store16", 2 },
+    { Opcode::i64__store32, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.store32", 4 },
+    { Opcode::memory__size, ParameterEncoding::memory0, SignatureCode::i32_, "memory.size", 0 },
+    { Opcode::memory__grow, ParameterEncoding::memory0, SignatureCode::i32__i32, "memory.grow", 0 },
+    { Opcode::i32__const, ParameterEncoding::i32, SignatureCode::i32_, "i32.const", 0 },
+    { Opcode::i64__const, ParameterEncoding::i64, SignatureCode::i64_, "i64.const", 0 },
+    { Opcode::f32__const, ParameterEncoding::f32, SignatureCode::f32_, "f32.const", 0 },
+    { Opcode::f64__const, ParameterEncoding::f64, SignatureCode::f64_, "f64.const", 0 },
+    { Opcode::i32__eqz, ParameterEncoding::none, SignatureCode::i32__i32, "i32.eqz", 0 },
+    { Opcode::i32__eq, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.eq", 0 },
+    { Opcode::i32__ne, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.ne", 0 },
+    { Opcode::i32__lt_s, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.lt_s", 0 },
+    { Opcode::i32__lt_u, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.lt_u", 0 },
+    { Opcode::i32__gt_s, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.gt_s", 0 },
+    { Opcode::i32__gt_u, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.gt_u", 0 },
+    { Opcode::i32__le_s, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.le_s", 0 },
+    { Opcode::i32__le_u, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.le_u", 0 },
+    { Opcode::i32__ge_s, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.ge_s", 0 },
+    { Opcode::i32__ge_u, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.ge_u", 0 },
+    { Opcode::i64__eqz, ParameterEncoding::none, SignatureCode::i32__i64, "i64.eqz", 0 },
+    { Opcode::i64__eq, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.eq", 0 },
+    { Opcode::i64__ne, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.ne", 0 },
+    { Opcode::i64__lt_s, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.lt_s", 0 },
+    { Opcode::i64__lt_u, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.lt_u", 0 },
+    { Opcode::i64__gt_s, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.gt_s", 0 },
+    { Opcode::i64__gt_u, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.gt_u", 0 },
+    { Opcode::i64__le_s, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.le_s", 0 },
+    { Opcode::i64__le_u, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.le_u", 0 },
+    { Opcode::i64__ge_s, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.ge_s", 0 },
+    { Opcode::i64__ge_u, ParameterEncoding::none, SignatureCode::i32__i64_i64, "i64.ge_u", 0 },
+    { Opcode::f32__eq, ParameterEncoding::none, SignatureCode::i32__f32_f32, "f32.eq", 0 },
+    { Opcode::f32__ne, ParameterEncoding::none, SignatureCode::i32__f32_f32, "f32.ne", 0 },
+    { Opcode::f32__lt, ParameterEncoding::none, SignatureCode::i32__f32_f32, "f32.lt", 0 },
+    { Opcode::f32__gt, ParameterEncoding::none, SignatureCode::i32__f32_f32, "f32.gt", 0 },
+    { Opcode::f32__le, ParameterEncoding::none, SignatureCode::i32__f32_f32, "f32.le", 0 },
+    { Opcode::f32__ge, ParameterEncoding::none, SignatureCode::i32__f32_f32, "f32.ge", 0 },
+    { Opcode::f64__eq, ParameterEncoding::none, SignatureCode::i32__f64_f64, "f64.eq", 0 },
+    { Opcode::f64__ne, ParameterEncoding::none, SignatureCode::i32__f64_f64, "f64.ne", 0 },
+    { Opcode::f64__lt, ParameterEncoding::none, SignatureCode::i32__f64_f64, "f64.lt", 0 },
+    { Opcode::f64__gt, ParameterEncoding::none, SignatureCode::i32__f64_f64, "f64.gt", 0 },
+    { Opcode::f64__le, ParameterEncoding::none, SignatureCode::i32__f64_f64, "f64.le", 0 },
+    { Opcode::f64__ge, ParameterEncoding::none, SignatureCode::i32__f64_f64, "f64.ge", 0 },
+    { Opcode::i32__clz, ParameterEncoding::none, SignatureCode::i32__i32, "i32.clz", 0 },
+    { Opcode::i32__ctz, ParameterEncoding::none, SignatureCode::i32__i32, "i32.ctz", 0 },
+    { Opcode::i32__popcnt, ParameterEncoding::none, SignatureCode::i32__i32, "i32.popcnt", 0 },
+    { Opcode::i32__add, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.add", 0 },
+    { Opcode::i32__sub, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.sub", 0 },
+    { Opcode::i32__mul, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.mul", 0 },
+    { Opcode::i32__div_s, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.div_s", 0 },
+    { Opcode::i32__div_u, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.div_u", 0 },
+    { Opcode::i32__rem_s, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.rem_s", 0 },
+    { Opcode::i32__rem_u, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.rem_u", 0 },
+    { Opcode::i32__and, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.and", 0 },
+    { Opcode::i32__or, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.or", 0 },
+    { Opcode::i32__xor, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.xor", 0 },
+    { Opcode::i32__shl, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.shl", 0 },
+    { Opcode::i32__shr_s, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.shr_s", 0 },
+    { Opcode::i32__shr_u, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.shr_u", 0 },
+    { Opcode::i32__rotl, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.rotl", 0 },
+    { Opcode::i32__rotr, ParameterEncoding::none, SignatureCode::i32__i32_i32, "i32.rotr", 0 },
+    { Opcode::i64__clz, ParameterEncoding::none, SignatureCode::i64__i64, "i64.clz", 0 },
+    { Opcode::i64__ctz, ParameterEncoding::none, SignatureCode::i64__i64, "i64.ctz", 0 },
+    { Opcode::i64__popcnt, ParameterEncoding::none, SignatureCode::i64__i64, "i64.popcnt", 0 },
+    { Opcode::i64__add, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.add", 0 },
+    { Opcode::i64__sub, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.sub", 0 },
+    { Opcode::i64__mul, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.mul", 0 },
+    { Opcode::i64__div_s, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.div_s", 0 },
+    { Opcode::i64__div_u, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.div_u", 0 },
+    { Opcode::i64__rem_s, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.rem_s", 0 },
+    { Opcode::i64__rem_u, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.rem_u", 0 },
+    { Opcode::i64__and, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.and", 0 },
+    { Opcode::i64__or, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.or", 0 },
+    { Opcode::i64__xor, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.xor", 0 },
+    { Opcode::i64__shl, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.shl", 0 },
+    { Opcode::i64__shr_s, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.shr_s", 0 },
+    { Opcode::i64__shr_u, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.shr_u", 0 },
+    { Opcode::i64__rotl, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.rotl", 0 },
+    { Opcode::i64__rotr, ParameterEncoding::none, SignatureCode::i64__i64_i64, "i64.rotr", 0 },
+    { Opcode::f32__abs, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.abs", 0 },
+    { Opcode::f32__neg, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.neg", 0 },
+    { Opcode::f32__ceil, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.ceil", 0 },
+    { Opcode::f32__floor, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.floor", 0 },
+    { Opcode::f32__trunc, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.trunc", 0 },
+    { Opcode::f32__nearest, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.nearest", 0 },
+    { Opcode::f32__sqrt, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.sqrt", 0 },
+    { Opcode::f32__add, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.add", 0 },
+    { Opcode::f32__sub, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.sub", 0 },
+    { Opcode::f32__mul, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.mul", 0 },
+    { Opcode::f32__div, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.div", 0 },
+    { Opcode::f32__min, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.min", 0 },
+    { Opcode::f32__max, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.max", 0 },
+    { Opcode::f32__copysign, ParameterEncoding::none, SignatureCode::f32__f32_f32, "f32.copysign", 0 },
+    { Opcode::f64__abs, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.abs", 0 },
+    { Opcode::f64__neg, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.neg", 0 },
+    { Opcode::f64__ceil, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.ceil", 0 },
+    { Opcode::f64__floor, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.floor", 0 },
+    { Opcode::f64__trunc, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.trunc", 0 },
+    { Opcode::f64__nearest, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.nearest", 0 },
+    { Opcode::f64__sqrt, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.sqrt", 0 },
+    { Opcode::f64__add, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.add", 0 },
+    { Opcode::f64__sub, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.sub", 0 },
+    { Opcode::f64__mul, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.mul", 0 },
+    { Opcode::f64__div, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.div", 0 },
+    { Opcode::f64__min, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.min", 0 },
+    { Opcode::f64__max, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.max", 0 },
+    { Opcode::f64__copysign, ParameterEncoding::none, SignatureCode::f64__f64_f64, "f64.copysign", 0 },
+    { Opcode::i32__wrap_i64, ParameterEncoding::none, SignatureCode::i32__i64, "i32.wrap_i64", 0 },
+    { Opcode::i32__trunc_f32_s, ParameterEncoding::none, SignatureCode::i32__f32, "i32.trunc_f32_s", 0 },
+    { Opcode::i32__trunc_f32_u, ParameterEncoding::none, SignatureCode::i32__f32, "i32.trunc_f32_u", 0 },
+    { Opcode::i32__trunc_f64_s, ParameterEncoding::none, SignatureCode::i32__f64, "i32.trunc_f64_s", 0 },
+    { Opcode::i32__trunc_f64_u, ParameterEncoding::none, SignatureCode::i32__f64, "i32.trunc_f64_u", 0 },
+    { Opcode::i64__extend_i32_s, ParameterEncoding::none, SignatureCode::i64__i32, "i64.extend_i32_s", 0 },
+    { Opcode::i64__extend_i32_u, ParameterEncoding::none, SignatureCode::i64__i32, "i64.extend_i32_u", 0 },
+    { Opcode::i64__trunc_f32_s, ParameterEncoding::none, SignatureCode::i64__f32, "i64.trunc_f32_s", 0 },
+    { Opcode::i64__trunc_f32_u, ParameterEncoding::none, SignatureCode::i64__f32, "i64.trunc_f32_u", 0 },
+    { Opcode::i64__trunc_f64_s, ParameterEncoding::none, SignatureCode::i64__f64, "i64.trunc_f64_s", 0 },
+    { Opcode::i64__trunc_f64_u, ParameterEncoding::none, SignatureCode::i64__f64, "i64.trunc_f64_u", 0 },
+    { Opcode::f32__convert_i32_s, ParameterEncoding::none, SignatureCode::f32__i32, "f32.convert_i32_s", 0 },
+    { Opcode::f32__convert_i32_u, ParameterEncoding::none, SignatureCode::f32__i32, "f32.convert_i32_u", 0 },
+    { Opcode::f32__convert_i64_s, ParameterEncoding::none, SignatureCode::f32__i64, "f32.convert_i64_s", 0 },
+    { Opcode::f32__convert_i64_u, ParameterEncoding::none, SignatureCode::f32__i64, "f32.convert_i64_u", 0 },
+    { Opcode::f32__demote_f64, ParameterEncoding::none, SignatureCode::f32__f64, "f32.demote_f64", 0 },
+    { Opcode::f64__convert_i32_s, ParameterEncoding::none, SignatureCode::f64__i32, "f64.convert_i32_s", 0 },
+    { Opcode::f64__convert_i32_u, ParameterEncoding::none, SignatureCode::f64__i32, "f64.convert_i32_u", 0 },
+    { Opcode::f64__convert_i64_s, ParameterEncoding::none, SignatureCode::f64__i64, "f64.convert_i64_s", 0 },
+    { Opcode::f64__convert_i64_u, ParameterEncoding::none, SignatureCode::f64__i64, "f64.convert_i64_u", 0 },
+    { Opcode::f64__promote_f32, ParameterEncoding::none, SignatureCode::f64__f32, "f64.promote_f32", 0 },
+    { Opcode::i32__reinterpret_f32, ParameterEncoding::none, SignatureCode::i32__f32, "i32.reinterpret_f32", 0 },
+    { Opcode::i64__reinterpret_f64, ParameterEncoding::none, SignatureCode::i64__f64, "i64.reinterpret_f64", 0 },
+    { Opcode::f32__reinterpret_i32, ParameterEncoding::none, SignatureCode::f32__i32, "f32.reinterpret_i32", 0 },
+    { Opcode::f64__reinterpret_i64, ParameterEncoding::none, SignatureCode::f64__i64, "f64.reinterpret_i64", 0 },
+    { Opcode::i32__extend8_s, ParameterEncoding::none, SignatureCode::i32__i32, "i32.extend8_s", 0 },
+    { Opcode::i32__extend16_s, ParameterEncoding::none, SignatureCode::i32__i32, "i32.extend16_s", 0 },
+    { Opcode::i64__extend8_s, ParameterEncoding::none, SignatureCode::i64__i64, "i64.extend8_s", 0 },
+    { Opcode::i64__extend16_s, ParameterEncoding::none, SignatureCode::i64__i64, "i64.extend16_s", 0 },
+    { Opcode::i64__extend32_s, ParameterEncoding::none, SignatureCode::i64__i64, "i64.extend32_s", 0 },
+    { Opcode::alloca, ParameterEncoding::none, SignatureCode::void_, "alloca", 0 },
+    { Opcode::br_unless, ParameterEncoding::none, SignatureCode::void_, "br_unless", 0 },
+    { Opcode::call_host, ParameterEncoding::none, SignatureCode::void_, "call_host", 0 },
+    { Opcode::data, ParameterEncoding::none, SignatureCode::void_, "data", 0 },
+    { Opcode::drop_keep, ParameterEncoding::none, SignatureCode::void_, "drop_keep", 0 },
+    { Opcode::i32__trunc_sat_f32_s, ParameterEncoding::none, SignatureCode::i32__f32, "i32.trunc_sat_f32_s", 0 },
+    { Opcode::i32__trunc_sat_f32_u, ParameterEncoding::none, SignatureCode::i32__f32, "i32.trunc_sat_f32_u", 0 },
+    { Opcode::i32__trunc_sat_f64_s, ParameterEncoding::none, SignatureCode::i32__f64, "i32.trunc_sat_f64_s", 0 },
+    { Opcode::i32__trunc_sat_f64_u, ParameterEncoding::none, SignatureCode::i32__f64, "i32.trunc_sat_f64_u", 0 },
+    { Opcode::i64__trunc_sat_f32_s, ParameterEncoding::none, SignatureCode::i64__f32, "i64.trunc_sat_f32_s", 0 },
+    { Opcode::i64__trunc_sat_f32_u, ParameterEncoding::none, SignatureCode::i64__f32, "i64.trunc_sat_f32_u", 0 },
+    { Opcode::i64__trunc_sat_f64_s, ParameterEncoding::none, SignatureCode::i64__f64, "i64.trunc_sat_f64_s", 0 },
+    { Opcode::i64__trunc_sat_f64_u, ParameterEncoding::none, SignatureCode::i64__f64, "i64.trunc_sat_f64_u", 0 },
+    { Opcode::memory__init, ParameterEncoding::none, SignatureCode::void__i32_i32_i32, "memory.init", 0 },
+    { Opcode::data__drop, ParameterEncoding::none, SignatureCode::void_, "data.drop", 0 },
+    { Opcode::memory__copy, ParameterEncoding::none, SignatureCode::void__i32_i32_i32, "memory.copy", 0 },
+    { Opcode::memory__fill, ParameterEncoding::none, SignatureCode::void__i32_i32_i32, "memory.fill", 0 },
+    { Opcode::table__init, ParameterEncoding::none, SignatureCode::void__i32_i32_i32, "table.init", 0 },
+    { Opcode::elem__drop, ParameterEncoding::none, SignatureCode::void_, "elem.drop", 0 },
+    { Opcode::table__copy, ParameterEncoding::none, SignatureCode::void__i32_i32_i32, "table.copy", 0 },
+    { Opcode::table__get, ParameterEncoding::none, SignatureCode::void_, "table.get", 0 },
+    { Opcode::table__set, ParameterEncoding::none, SignatureCode::void_, "table.set", 0 },
+    { Opcode::table__grow, ParameterEncoding::none, SignatureCode::void_, "table.grow", 0 },
+    { Opcode::table__size, ParameterEncoding::none, SignatureCode::void_, "table.size", 0 },
+    { Opcode::table__fill, ParameterEncoding::none, SignatureCode::void_, "table.fill", 0 },
+    { Opcode::ref__null, ParameterEncoding::none, SignatureCode::void_, "ref.null", 0 },
+    { Opcode::ref__is_null, ParameterEncoding::none, SignatureCode::void_, "ref.is_null", 0 },
+    { Opcode::ref__func, ParameterEncoding::none, SignatureCode::void_, "ref.func", 0 },
+
+    // SIMD
+    { simd | Opcode::v128__load, ParameterEncoding::memory, SignatureCode::v128__i32, "v128.load", 16 },
+    { simd | Opcode::v128__store, ParameterEncoding::memory, SignatureCode::void__i32_v128, "v128.store", 16 },
+    { simd | Opcode::v128__const, ParameterEncoding::v128, SignatureCode::v128_, "v128.const", 0 },
+    { simd | Opcode::i8x16__splat, ParameterEncoding::none, SignatureCode::v128__i32, "i8x16.splat", 0 },
+    { simd | Opcode::i8x16__extract_lane_s, ParameterEncoding::laneIdx16, SignatureCode::i32__v128, "i8x16.extract_lane_s", 0 },
+    { simd | Opcode::i8x16__extract_lane_u, ParameterEncoding::laneIdx16, SignatureCode::i32__v128, "i8x16.extract_lane_u", 0 },
+    { simd | Opcode::i8x16__replace_lane, ParameterEncoding::laneIdx16, SignatureCode::v128__v128_i32, "i8x16.replace_lane", 0 },
+    { simd | Opcode::i16x8__splat, ParameterEncoding::none, SignatureCode::v128__i32, "i16x8.splat", 0 },
+    { simd | Opcode::i16x8__extract_lane_s, ParameterEncoding::laneIdx8, SignatureCode::i32__v128, "i16x8.extract_lane_s", 0 },
+    { simd | Opcode::i16x8__extract_lane_u, ParameterEncoding::laneIdx8, SignatureCode::i32__v128, "i16x8.extract_lane_u", 0 },
+    { simd | Opcode::i16x8__replace_lane, ParameterEncoding::laneIdx8, SignatureCode::v128__v128_i32, "i16x8.replace_lane", 0 },
+    { simd | Opcode::i32x4__splat, ParameterEncoding::none, SignatureCode::v128__i32, "i32x4.splat", 0 },
+    { simd | Opcode::i32x4__extract_lane, ParameterEncoding::laneIdx4, SignatureCode::i32__v128, "i32x4.extract_lane", 0 },
+    { simd | Opcode::i32x4__replace_lane, ParameterEncoding::laneIdx4, SignatureCode::v128__v128_i32, "i32x4.replace_lane", 0 },
+    { simd | Opcode::i64x2__splat, ParameterEncoding::none, SignatureCode::v128__i64, "i64x2.splat", 0 },
+    { simd | Opcode::i64x2__extract_lane, ParameterEncoding::laneIdx2, SignatureCode::i64__v128, "i64x2.extract_lane", 0 },
+    { simd | Opcode::i64x2__replace_lane, ParameterEncoding::laneIdx2, SignatureCode::v128__v128_i64, "i64x2.replace_lane", 0 },
+    { simd | Opcode::f32x4__splat, ParameterEncoding::none, SignatureCode::v128__f32, "f32x4.splat", 0 },
+    { simd | Opcode::f32x4__extract_lane, ParameterEncoding::laneIdx4, SignatureCode::f32__v128, "f32x4.extract_lane", 0 },
+    { simd | Opcode::f32x4__replace_lane, ParameterEncoding::laneIdx4, SignatureCode::v128__v128_f32, "f32x4.replace_lane", 0 },
+    { simd | Opcode::f64x2__splat, ParameterEncoding::none, SignatureCode::v128__f64, "f64x2.splat", 0 },
+    { simd | Opcode::f64x2__extract_lane, ParameterEncoding::laneIdx2, SignatureCode::f64__v128, "f64x2.extract_lane", 0 },
+    { simd | Opcode::f64x2__replace_lane, ParameterEncoding::laneIdx2, SignatureCode::v128__v128_f64, "f64x2.replace_lane", 0 },
+    { simd | Opcode::i8x16__eq, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.eq", 0 },
+    { simd | Opcode::i8x16__ne, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.ne", 0 },
+    { simd | Opcode::i8x16__lt_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.lt_s", 0 },
+    { simd | Opcode::i8x16__lt_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.lt_u", 0 },
+    { simd | Opcode::i8x16__gt_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.gt_s", 0 },
+    { simd | Opcode::i8x16__gt_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.gt_u", 0 },
+    { simd | Opcode::i8x16__le_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.le_s", 0 },
+    { simd | Opcode::i8x16__le_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.le_u", 0 },
+    { simd | Opcode::i8x16__ge_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.ge_s", 0 },
+    { simd | Opcode::i8x16__ge_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.ge_u", 0 },
+    { simd | Opcode::i16x8__eq, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.eq", 0 },
+    { simd | Opcode::i16x8__ne, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.ne", 0 },
+    { simd | Opcode::i16x8__lt_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.lt_s", 0 },
+    { simd | Opcode::i16x8__lt_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.lt_u", 0 },
+    { simd | Opcode::i16x8__gt_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.gt_s", 0 },
+    { simd | Opcode::i16x8__gt_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.gt_u", 0 },
+    { simd | Opcode::i16x8__le_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.le_s", 0 },
+    { simd | Opcode::i16x8__le_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.le_u", 0 },
+    { simd | Opcode::i16x8__ge_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.ge_s", 0 },
+    { simd | Opcode::i16x8__ge_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.ge_u", 0 },
+    { simd | Opcode::i32x4__eq, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.eq", 0 },
+    { simd | Opcode::i32x4__ne, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.ne", 0 },
+    { simd | Opcode::i32x4__lt_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.lt_s", 0 },
+    { simd | Opcode::i32x4__lt_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.lt_u", 0 },
+    { simd | Opcode::i32x4__gt_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.gt_s", 0 },
+    { simd | Opcode::i32x4__gt_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.gt_u", 0 },
+    { simd | Opcode::i32x4__le_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.le_s", 0 },
+    { simd | Opcode::i32x4__le_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.le_u", 0 },
+    { simd | Opcode::i32x4__ge_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.ge_s", 0 },
+    { simd | Opcode::i32x4__ge_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.ge_u", 0 },
+    { simd | Opcode::f32x4__eq, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.eq", 0 },
+    { simd | Opcode::f32x4__ne, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.ne", 0 },
+    { simd | Opcode::f32x4__lt, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.lt", 0 },
+    { simd | Opcode::f32x4__gt, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.gt", 0 },
+    { simd | Opcode::f32x4__le, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.le", 0 },
+    { simd | Opcode::f32x4__ge, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.ge", 0 },
+    { simd | Opcode::f64x2__eq, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.eq", 0 },
+    { simd | Opcode::f64x2__ne, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.ne", 0 },
+    { simd | Opcode::f64x2__lt, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.lt", 0 },
+    { simd | Opcode::f64x2__gt, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.gt", 0 },
+    { simd | Opcode::f64x2__le, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.le", 0 },
+    { simd | Opcode::f64x2__ge, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.ge", 0 },
+    { simd | Opcode::v128__not, ParameterEncoding::none, SignatureCode::v128__v128, "v128.not", 0 },
+    { simd | Opcode::v128__and, ParameterEncoding::none, SignatureCode::v128__v128_v128, "v128.and", 0 },
+    { simd | Opcode::v128__or, ParameterEncoding::none, SignatureCode::v128__v128_v128, "v128.or", 0 },
+    { simd | Opcode::v128__xor, ParameterEncoding::none, SignatureCode::v128__v128_v128, "v128.xor", 0 },
+    { simd | Opcode::v128__bitselect, ParameterEncoding::none, SignatureCode::v128__v128_v128_v128, "v128.bitselect", 0 },
+    { simd | Opcode::i8x16__neg, ParameterEncoding::none, SignatureCode::v128__v128, "i8x16.neg", 0 },
+    { simd | Opcode::i8x16__any_true, ParameterEncoding::none, SignatureCode::i32__v128, "i8x16.any_true", 0 },
+    { simd | Opcode::i8x16__all_true, ParameterEncoding::none, SignatureCode::i32__v128, "i8x16.all_true", 0 },
+    { simd | Opcode::i8x16__shl, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i8x16.shl", 0 },
+    { simd | Opcode::i8x16__shr_s, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i8x16.shr_s", 0 },
+    { simd | Opcode::i8x16__shr_u, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i8x16.shr_u", 0 },
+    { simd | Opcode::i8x16__add, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.add", 0 },
+    { simd | Opcode::i8x16__add_saturate_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.add_saturate_s", 0 },
+    { simd | Opcode::i8x16__add_saturate_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.add_saturate_u", 0 },
+    { simd | Opcode::i8x16__sub, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.sub", 0 },
+    { simd | Opcode::i8x16__sub_saturate_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.sub_saturate_s", 0 },
+    { simd | Opcode::i8x16__sub_saturate_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.sub_saturate_u", 0 },
+    { simd | Opcode::i8x16__mul, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.mul", 0 },
+    { simd | Opcode::i16x8__neg, ParameterEncoding::none, SignatureCode::v128__v128, "i16x8.neg", 0 },
+    { simd | Opcode::i16x8__any_true, ParameterEncoding::none, SignatureCode::i32__v128, "i16x8.any_true", 0 },
+    { simd | Opcode::i16x8__all_true, ParameterEncoding::none, SignatureCode::i32__v128, "i16x8.all_true", 0 },
+    { simd | Opcode::i16x8__shl, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i16x8.shl", 0 },
+    { simd | Opcode::i16x8__shr_s, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i16x8.shr_s", 0 },
+    { simd | Opcode::i16x8__shr_u, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i16x8.shr_u", 0 },
+    { simd | Opcode::i16x8__add, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.add", 0 },
+    { simd | Opcode::i16x8__add_saturate_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.add_saturate_s", 0 },
+    { simd | Opcode::i16x8__add_saturate_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.add_saturate_u", 0 },
+    { simd | Opcode::i16x8__sub, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.sub", 0 },
+    { simd | Opcode::i16x8__sub_saturate_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.sub_saturate_s", 0 },
+    { simd | Opcode::i16x8__sub_saturate_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.sub_saturate_u", 0 },
+    { simd | Opcode::i16x8__mul, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.mul", 0 },
+    { simd | Opcode::i32x4__neg, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.neg", 0 },
+    { simd | Opcode::i32x4__any_true, ParameterEncoding::none, SignatureCode::i32__v128, "i32x4.any_true", 0 },
+    { simd | Opcode::i32x4__all_true, ParameterEncoding::none, SignatureCode::i32__v128, "i32x4.all_true", 0 },
+    { simd | Opcode::i32x4__shl, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i32x4.shl", 0 },
+    { simd | Opcode::i32x4__shr_s, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i32x4.shr_s", 0 },
+    { simd | Opcode::i32x4__shr_u, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i32x4.shr_u", 0 },
+    { simd | Opcode::i32x4__add, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.add", 0 },
+    { simd | Opcode::i32x4__sub, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.sub", 0 },
+    { simd | Opcode::i32x4__mul, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i32x4.mul", 0 },
+    { simd | Opcode::i64x2__neg, ParameterEncoding::none, SignatureCode::v128__v128, "i64x2.neg", 0 },
+    { simd | Opcode::i64x2__any_true, ParameterEncoding::none, SignatureCode::i32__v128, "i64x2.any_true", 0 },
+    { simd | Opcode::i64x2__all_true, ParameterEncoding::none, SignatureCode::i32__v128, "i64x2.all_true", 0 },
+    { simd | Opcode::i64x2__shl, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i64x2.shl", 0 },
+    { simd | Opcode::i64x2__shr_s, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i64x2.shr_s", 0 },
+    { simd | Opcode::i64x2__shr_u, ParameterEncoding::none, SignatureCode::v128__v128_i32, "i64x2.shr_u", 0 },
+    { simd | Opcode::i64x2__add, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i64x2.add", 0 },
+    { simd | Opcode::i64x2__sub, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i64x2.sub", 0 },
+    { simd | Opcode::f32x4__abs, ParameterEncoding::none, SignatureCode::v128__v128, "f32x4.abs", 0 },
+    { simd | Opcode::f32x4__neg, ParameterEncoding::none, SignatureCode::v128__v128, "f32x4.neg", 0 },
+    { simd | Opcode::f32x4__sqrt, ParameterEncoding::none, SignatureCode::v128__v128, "f32x4.sqrt", 0 },
+    { simd | Opcode::f32x4__add, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.add", 0 },
+    { simd | Opcode::f32x4__sub, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.sub", 0 },
+    { simd | Opcode::f32x4__mul, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.mul", 0 },
+    { simd | Opcode::f32x4__div, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.div", 0 },
+    { simd | Opcode::f32x4__min, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.min", 0 },
+    { simd | Opcode::f32x4__max, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f32x4.max", 0 },
+    { simd | Opcode::f64x2__abs, ParameterEncoding::none, SignatureCode::v128__v128, "f64x2.abs", 0 },
+    { simd | Opcode::f64x2__neg, ParameterEncoding::none, SignatureCode::v128__v128, "f64x2.neg", 0 },
+    { simd | Opcode::f64x2__sqrt, ParameterEncoding::none, SignatureCode::v128__v128, "f64x2.sqrt", 0 },
+    { simd | Opcode::f64x2__add, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.add", 0 },
+    { simd | Opcode::f64x2__sub, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.sub", 0 },
+    { simd | Opcode::f64x2__mul, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.mul", 0 },
+    { simd | Opcode::f64x2__div, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.div", 0 },
+    { simd | Opcode::f64x2__min, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.min", 0 },
+    { simd | Opcode::f64x2__max, ParameterEncoding::none, SignatureCode::v128__v128_v128, "f64x2.max", 0 },
+    { simd | Opcode::i32x4__trunc_sat_f32x4_s, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.trunc_sat_f32x4_s", 0 },
+    { simd | Opcode::i32x4__trunc_sat_f32x4_u, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.trunc_sat_f32x4_u", 0 },
+    { simd | Opcode::i64x2__trunc_sat_f64x2_s, ParameterEncoding::none, SignatureCode::v128__v128, "i64x2.trunc_sat_f64x2_s", 0 },
+    { simd | Opcode::i64x2__trunc_sat_f64x2_u, ParameterEncoding::none, SignatureCode::v128__v128, "i64x2.trunc_sat_f64x2_u", 0 },
+    { simd | Opcode::f32x4__convert_i32x4_s, ParameterEncoding::none, SignatureCode::v128__v128, "f32x4.convert_i32x4_s", 0 },
+    { simd | Opcode::f32x4__convert_i32x4_u, ParameterEncoding::none, SignatureCode::v128__v128, "f32x4.convert_i32x4_u", 0 },
+    { simd | Opcode::f64x2__convert_i64x2_s, ParameterEncoding::none, SignatureCode::v128__v128, "f64x2.convert_i64x2_s", 0 },
+    { simd | Opcode::f64x2__convert_i64x2_u, ParameterEncoding::none, SignatureCode::v128__v128, "f64x2.convert_i64x2_u", 0 },
+    { simd | Opcode::v8x16__swizzle, ParameterEncoding::none, SignatureCode::v128__v128_v128, "v8x16.swizzle", 0 },
+    { simd | Opcode::v8x16__shuffle, ParameterEncoding::shuffle, SignatureCode::v128__v128_v128, "v8x16.shuffle", 0 },
+    { simd | Opcode::i8x16__load_splat, ParameterEncoding::none, SignatureCode::v128__i32, "i8x16.load_splat", 1 },
+    { simd | Opcode::i16x8__load_splat, ParameterEncoding::none, SignatureCode::v128__i32, "i16x8.load_splat", 2 },
+    { simd | Opcode::i32x4__load_splat, ParameterEncoding::none, SignatureCode::v128__i32, "i32x4.load_splat", 4 },
+    { simd | Opcode::i64x2__load_splat, ParameterEncoding::none, SignatureCode::v128__i32, "i64x2.load_splat", 8 },
+    { simd | Opcode::i8x16__narrow_i16x8_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.narrow_i16x8_s", 0 },
+    { simd | Opcode::i8x16__narrow_i16x8_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.narrow_i16x8_u", 0 },
+    { simd | Opcode::i16x8__narrow_i32x4_s, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.narrow_i32x4_s", 0 },
+    { simd | Opcode::i16x8__narrow_i32x4_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.narrow_i32x4_u", 0 },
+    { simd | Opcode::i16x8__widen_low_i8x16_s, ParameterEncoding::none, SignatureCode::v128__v128, "i16x8.widen_low_i8x16_s", 0 },
+    { simd | Opcode::i16x8__widen_high_i8x16_s, ParameterEncoding::none, SignatureCode::v128__v128, "i16x8.widen_high_i8x16_s", 0 },
+    { simd | Opcode::i16x8__widen_low_i8x16_u, ParameterEncoding::none, SignatureCode::v128__v128, "i16x8.widen_low_i8x16_u", 0 },
+    { simd | Opcode::i16x8__widen_high_i8x16_u, ParameterEncoding::none, SignatureCode::v128__v128, "i16x8.widen_high_i8x16_u", 0 },
+    { simd | Opcode::i32x4__widen_low_i16x8_s, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.widen_low_i16x8_s", 0 },
+    { simd | Opcode::i32x4__widen_high_i16x8_s, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.widen_high_i16x8_s", 0 },
+    { simd | Opcode::i32x4__widen_low_i16x8_u, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.widen_low_i16x8_u", 0 },
+    { simd | Opcode::i32x4__widen_high_i16x8_u, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.widen_high_i16x8_u", 0 },
+    { simd | Opcode::i16x8__load8x8_s, ParameterEncoding::memory, SignatureCode::v128_, "i16x8.load8x8_s", 2 },
+    { simd | Opcode::i16x8__load8x8_u, ParameterEncoding::memory, SignatureCode::v128_, "i16x8.load8x8_u", 2 },
+    { simd | Opcode::i32x4__load16x4_s, ParameterEncoding::memory, SignatureCode::v128_, "i32x4.load16x4_s", 4 },
+    { simd | Opcode::i32x4__load16x4_u, ParameterEncoding::memory, SignatureCode::v128_, "i32x4.load16x4_u", 4 },
+    { simd | Opcode::i64x2__load32x2_s, ParameterEncoding::memory, SignatureCode::v128_, "i64x2.load32x2_s", 8 },
+    { simd | Opcode::i64x2__load32x2_u, ParameterEncoding::memory, SignatureCode::v128_, "i64x2.load32x2_u", 8 },
+    { simd | Opcode::v128__andnot, ParameterEncoding::none, SignatureCode::v128__v128_v128, "v128.andnot", 0 },
+    { simd | Opcode::i8x16__avgr_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i8x16.avgr_u", 0 },
+    { simd | Opcode::i16x8__avgr_u, ParameterEncoding::none, SignatureCode::v128__v128_v128, "i16x8.avgr_u", 0 },
+    { simd | Opcode::i8x16__abs, ParameterEncoding::none, SignatureCode::v128__v128, "i8x16.abs", 0 },
+    { simd | Opcode::i16x8__abs, ParameterEncoding::none, SignatureCode::v128__v128, "i16x8.abs", 0 },
+    { simd | Opcode::i32x4__abs, ParameterEncoding::none, SignatureCode::v128__v128, "i32x4.abs", 0 },
+
+    // THREAD
+    { thread | Opcode::atomic__notify, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "atomic.notify", 4 },
+    { thread | Opcode::i32__atomic__wait, ParameterEncoding::memory, SignatureCode::i32__i32_i32_i64, "i32.atomic.wait", 4 },
+    { thread | Opcode::i64__atomic__wait, ParameterEncoding::memory, SignatureCode::i32__i32_i64_i64, "i64.atomic.wait", 8 },
+    { thread | Opcode::i32__atomic__load, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.atomic.load", 4 },
+    { thread | Opcode::i64__atomic__load, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.atomic.load", 8 },
+    { thread | Opcode::i32__atomic__load8_u, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.atomic.load8_u", 1 },
+    { thread | Opcode::i32__atomic__load16_u, ParameterEncoding::memory, SignatureCode::i32__i32, "i32.atomic.load16_u", 2 },
+    { thread | Opcode::i64__atomic__load8_u, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.atomic.load8_u", 1 },
+    { thread | Opcode::i64__atomic__load16_u, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.atomic.load16_u", 2 },
+    { thread | Opcode::i64__atomic__load32_u, ParameterEncoding::memory, SignatureCode::i64__i32, "i64.atomic.load32_u", 4 },
+    { thread | Opcode::i32__atomic__store, ParameterEncoding::memory, SignatureCode::void__i32_i32, "i32.atomic.store", 4 },
+    { thread | Opcode::i64__atomic__store, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.atomic.store", 8 },
+    { thread | Opcode::i32__atomic__store8, ParameterEncoding::memory, SignatureCode::void__i32_i32, "i32.atomic.store8", 1 },
+    { thread | Opcode::i32__atomic__store16, ParameterEncoding::memory, SignatureCode::void__i32_i32, "i32.atomic.store16", 2 },
+    { thread | Opcode::i64__atomic__store8, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.atomic.store8", 1 },
+    { thread | Opcode::i64__atomic__store16, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.atomic.store16", 2 },
+    { thread | Opcode::i64__atomic__store32, ParameterEncoding::memory, SignatureCode::void__i32_i64, "i64.atomic.store32", 4 },
+    { thread | Opcode::i32__atomic__rmw__add, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw.add", 4 },
+    { thread | Opcode::i64__atomic__rmw__add, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw.add", 8 },
+    { thread | Opcode::i32__atomic__rmw8__add_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw8.add_u", 1 },
+    { thread | Opcode::i32__atomic__rmw16__add_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw16.add_u", 2 },
+    { thread | Opcode::i64__atomic__rmw8__add_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw8.add_u", 1 },
+    { thread | Opcode::i64__atomic__rmw16__add_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw16.add_u", 2 },
+    { thread | Opcode::i64__atomic__rmw32__add_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw32.add_u", 4 },
+    { thread | Opcode::i32__atomic__rmw__sub, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw.sub", 4 },
+    { thread | Opcode::i64__atomic__rmw__sub, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw.sub", 8 },
+    { thread | Opcode::i32__atomic__rmw8__sub_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw8.sub_u", 1 },
+    { thread | Opcode::i32__atomic__rmw16__sub_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw16.sub_u", 2 },
+    { thread | Opcode::i64__atomic__rmw8__sub_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw8.sub_u", 1 },
+    { thread | Opcode::i64__atomic__rmw16__sub_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw16.sub_u", 2 },
+    { thread | Opcode::i64__atomic__rmw32__sub_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw32.sub_u", 4 },
+    { thread | Opcode::i32__atomic__rmw__and, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw.and", 4 },
+    { thread | Opcode::i64__atomic__rmw__and, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw.and", 8 },
+    { thread | Opcode::i32__atomic__rmw8__and_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw8.and_u", 1 },
+    { thread | Opcode::i32__atomic__rmw16__and_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw16.and_u", 2 },
+    { thread | Opcode::i64__atomic__rmw8__and_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw8.and_u", 1 },
+    { thread | Opcode::i64__atomic__rmw16__and_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw16.and_u", 2 },
+    { thread | Opcode::i64__atomic__rmw32__and_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw32.and_u", 4 },
+    { thread | Opcode::i32__atomic__rmw__or, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw.or", 4 },
+    { thread | Opcode::i64__atomic__rmw__or, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw.or", 8 },
+    { thread | Opcode::i32__atomic__rmw8__or_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw8.or_u", 1 },
+    { thread | Opcode::i32__atomic__rmw16__or_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw16.or_u", 2 },
+    { thread | Opcode::i64__atomic__rmw8__or_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw8.or_u", 1 },
+    { thread | Opcode::i64__atomic__rmw16__or_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw16.or_u", 2 },
+    { thread | Opcode::i64__atomic__rmw32__or_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw32.or_u", 4 },
+    { thread | Opcode::i32__atomic__rmw__xor, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw.xor", 4 },
+    { thread | Opcode::i64__atomic__rmw__xor, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw.xor", 8 },
+    { thread | Opcode::i32__atomic__rmw8__xor_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw8.xor_u", 1 },
+    { thread | Opcode::i32__atomic__rmw16__xor_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw16.xor_u", 2 },
+    { thread | Opcode::i64__atomic__rmw8__xor_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw8.xor_u", 1 },
+    { thread | Opcode::i64__atomic__rmw16__xor_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw16.xor_u", 2 },
+    { thread | Opcode::i64__atomic__rmw32__xor_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw32.xor_u", 4 },
+    { thread | Opcode::i32__atomic__rmw__xchg, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw.xchg", 4 },
+    { thread | Opcode::i64__atomic__rmw__xchg, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw.xchg", 8 },
+    { thread | Opcode::i32__atomic__rmw8__xchg_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw8.xchg_u", 1 },
+    { thread | Opcode::i32__atomic__rmw16__xchg_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32, "i32.atomic.rmw16.xchg_u", 2 },
+    { thread | Opcode::i64__atomic__rmw8__xchg_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw8.xchg_u", 1 },
+    { thread | Opcode::i64__atomic__rmw16__xchg_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw16.xchg_u", 2 },
+    { thread | Opcode::i64__atomic__rmw32__xchg_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64, "i64.atomic.rmw32.xchg_u", 4 },
+    { thread | Opcode::i32__atomic__rmw__cmpxchg, ParameterEncoding::memory, SignatureCode::i32__i32_i32_i32, "i32.atomic.rmw.cmpxchg", 4 },
+    { thread | Opcode::i64__atomic__rmw__cmpxchg, ParameterEncoding::memory, SignatureCode::i64__i32_i64_i64, "i64.atomic.rmw.cmpxchg", 8 },
+    { thread | Opcode::i32__atomic__rmw8__cmpxchg_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32_i32, "i32.atomic.rmw8.cmpxchg_u", 1 },
+    { thread | Opcode::i32__atomic__rmw16__cmpxchg_u, ParameterEncoding::memory, SignatureCode::i32__i32_i32_i32, "i32.atomic.rmw16.cmpxchg_u", 2 },
+    { thread | Opcode::i64__atomic__rmw8__cmpxchg_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64_i64, "i64.atomic.rmw8.cmpxchg_u", 1 },
+    { thread | Opcode::i64__atomic__rmw16__cmpxchg_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64_i64, "i64.atomic.rmw16.cmpxchg_u", 2 },
+    { thread | Opcode::i64__atomic__rmw32__cmpxchg_u, ParameterEncoding::memory, SignatureCode::i64__i32_i64_i64, "i64.atomic.rmw32.cmpxchg_u", 4 },
 };
 
-Opcode::Info Opcode::info[size_t(Opcode::max) + 1] =
+void Opcode::buildMap()
 {
-    { ParameterEncoding::none, "unreachable" },                      // 0x00
-    { ParameterEncoding::none, "nop" },                              // 0x01
-    { ParameterEncoding::block, "block" },                           // 0x02
-    { ParameterEncoding::block, "loop" },                            // 0x03
-    { ParameterEncoding::block, "if" },                              // 0x04
-    { ParameterEncoding::none, "else" },                             // 0x05
-    { ParameterEncoding::none },                                     // 0x06
-    { ParameterEncoding::none },                                     // 0x07
-    { ParameterEncoding::none },                                     // 0x08
-    { ParameterEncoding::none },                                     // 0x09
-    { ParameterEncoding::none },                                     // 0x0A
-    { ParameterEncoding::none, "end" },                              // 0x0B
-    { ParameterEncoding::labelIdx, "br" },                           // 0x0C
-    { ParameterEncoding::labelIdx, "br_if" },                        // 0x0D
-    { ParameterEncoding::table, "br_table" },                        // 0x0E
-    { ParameterEncoding::none, "return" },                           // 0x0F
+    uint32_t count = 0;
 
-    { ParameterEncoding::functionIdx, "call" },                      // 0x10
-    { ParameterEncoding::indirect, "call_indirect" },                // 0x11
-    { ParameterEncoding::none },                                     // 0x12
-    { ParameterEncoding::none },                                     // 0x13
-    { ParameterEncoding::none },                                     // 0x14
-    { ParameterEncoding::none },                                     // 0x15
-    { ParameterEncoding::none },                                     // 0x16
-    { ParameterEncoding::none },                                     // 0x17
-    { ParameterEncoding::none },                                     // 0x18
-    { ParameterEncoding::none },                                     // 0x19
-    { ParameterEncoding::none, "drop" },                             // 0x1A
-    { ParameterEncoding::none, "select" },                           // 0x1B
-    { ParameterEncoding::none },                                     // 0x1C
-    { ParameterEncoding::none },                                     // 0x1D
-    { ParameterEncoding::none },                                     // 0x1E
-    { ParameterEncoding::none },                                     // 0x1F
+    for (const auto& entry : info) {
+        map.emplace_back(entry.name, count++);
+    }
 
-    { ParameterEncoding::localIdx, "local.get" },                    // 0x20
-    { ParameterEncoding::localIdx, "local.set" },                    // 0x21
-    { ParameterEncoding::localIdx, "local.tee" },                    // 0x22
-    { ParameterEncoding::globalIdx, "global.get" },                  // 0x23
-    { ParameterEncoding::globalIdx, "global.set" },                  // 0x24
-    { ParameterEncoding::none },                                     // 0x25
-    { ParameterEncoding::none },                                     // 0x26
-    { ParameterEncoding::none },                                     // 0x27
-    { ParameterEncoding::memory, "i32.load", 2 },                    // 0x28
-    { ParameterEncoding::memory, "i64.load", 3 },                    // 0x29
-    { ParameterEncoding::memory, "f32.load", 2, true },              // 0x2A
-    { ParameterEncoding::memory, "f64.load", 3, true },              // 0x2B
-    { ParameterEncoding::memory, "i32.load8_s", 0 },                 // 0x2C
-    { ParameterEncoding::memory, "i32.load8_u", 0 },                 // 0x2D
-    { ParameterEncoding::memory, "i32.load16_s", 1 },                // 0x2E
-    { ParameterEncoding::memory, "i32.load16_u", 1 },                // 0x2F
-
-    { ParameterEncoding::memory, "i64.load8_s", 0 },                 // 0x30
-    { ParameterEncoding::memory, "i64.load8_u", 0 },                 // 0x31
-    { ParameterEncoding::memory, "i64.load16_s", 1 },                // 0x32
-    { ParameterEncoding::memory, "i64.load16_u", 1 },                // 0x33
-    { ParameterEncoding::memory, "i64.load32_s", 2 },                // 0x34
-    { ParameterEncoding::memory, "i64.load32_u", 2 },                // 0x35
-    { ParameterEncoding::memory, "i32.store", 2 },                   // 0x36
-    { ParameterEncoding::memory, "i64.store", 3 },                   // 0x37
-    { ParameterEncoding::memory, "f32.store", 2, true },             // 0x38
-    { ParameterEncoding::memory, "f64.store", 3, true },             // 0x39
-    { ParameterEncoding::memory, "i32.store8", 0 },                  // 0x3A
-    { ParameterEncoding::memory, "i32.store16", 1 },                 // 0x3B
-    { ParameterEncoding::memory, "i64.store8", 0 },                  // 0x3C
-    { ParameterEncoding::memory, "i64.store16", 1 },                 // 0x3D
-    { ParameterEncoding::memory, "i64.store32", 2 },                 // 0x3E
-    { ParameterEncoding::memory0, "memory.size" },                   // 0x3F
-
-    { ParameterEncoding::memory0, "memory.grow" },                   // 0x40
-    { ParameterEncoding::i32, "i32.const", 2 },                      // 0x41
-    { ParameterEncoding::i64, "i64.const", 3 },                      // 0x42
-    { ParameterEncoding::f32, "f32.const", 2, true },                // 0x43
-    { ParameterEncoding::f64, "f64.const", 3, true },                // 0x44
-    { ParameterEncoding::none, "i32.eqz", 2 },                       // 0x45
-    { ParameterEncoding::none, "i32.eq", 2 },                        // 0x46
-    { ParameterEncoding::none, "i32.ne", 2 },                        // 0x47
-    { ParameterEncoding::none, "i32.lt_s", 2 },                      // 0x48
-    { ParameterEncoding::none, "i32.lt_u", 2 },                      // 0x49
-    { ParameterEncoding::none, "i32.gt_s", 2 },                      // 0x4A
-    { ParameterEncoding::none, "i32.gt_u", 2 },                      // 0x4B
-    { ParameterEncoding::none, "i32.le_s", 2 },                      // 0x4C
-    { ParameterEncoding::none, "i32.le_u", 2 },                      // 0x4D
-    { ParameterEncoding::none, "i32.ge_s", 2 },                      // 0x4E
-    { ParameterEncoding::none, "i32.ge_u", 2 },                      // 0x4F
-
-    { ParameterEncoding::none, "i64.eqz", 3 },                       // 0x50
-    { ParameterEncoding::none, "i64.eq", 3 },                        // 0x51
-    { ParameterEncoding::none, "i64.ne", 3 },                        // 0x52
-    { ParameterEncoding::none, "i64.lt_s", 3 },                      // 0x53
-    { ParameterEncoding::none, "i64.", 3 },                          // 0x54
-    { ParameterEncoding::none, "i64.gt_s", 3 },                      // 0x55
-    { ParameterEncoding::none, "i64.gt_u", 3 },                      // 0x56
-    { ParameterEncoding::none, "i64.le_s", 3 },                      // 0x57
-    { ParameterEncoding::none, "i64.le_u", 3 },                      // 0x58
-    { ParameterEncoding::none, "i64.ge_s", 3 },                      // 0x59
-    { ParameterEncoding::none, "i64.ge_u", 3 },                      // 0x5A
-    { ParameterEncoding::none, "f32.eq", 2, true },                  // 0x5B
-    { ParameterEncoding::none, "f32.ne", 2, true },                  // 0x5C
-    { ParameterEncoding::none, "f32.lt", 2, true },                  // 0x5D
-    { ParameterEncoding::none, "f32.gt", 2, true },                  // 0x5E
-    { ParameterEncoding::none, "f32.le", 2, true },                  // 0x5F
-
-    { ParameterEncoding::none, "f32.ge", 2, true },                  // 0x60
-    { ParameterEncoding::none, "f64.eq", 3, true },                  // 0x61
-    { ParameterEncoding::none, "f64.ne", 3, true },                  // 0x62
-    { ParameterEncoding::none, "f64.lt", 3, true },                  // 0x63
-    { ParameterEncoding::none, "f64.gt", 3, true },                  // 0x64
-    { ParameterEncoding::none, "f64.le", 3, true },                  // 0x65
-    { ParameterEncoding::none, "f64.ge", 3, true },                  // 0x66
-    { ParameterEncoding::none, "i32.clz", 2 },                       // 0x67
-    { ParameterEncoding::none, "i32.ctz", 2 },                       // 0x68
-    { ParameterEncoding::none, "i32.popcnt", 2 },                    // 0x69
-    { ParameterEncoding::none, "i32.add", 2 },                       // 0x6A
-    { ParameterEncoding::none, "i32.sub", 2 },                       // 0x6B
-    { ParameterEncoding::none, "i32.mul", 2 },                       // 0x6C
-    { ParameterEncoding::none, "i32.div_s", 2 },                     // 0x6D
-    { ParameterEncoding::none, "i32.div_u", 2 },                     // 0x6E
-    { ParameterEncoding::none, "i32.rem_s", 2 },                     // 0x6F
-
-    { ParameterEncoding::none, "i32.rem_u", 2 },                     // 0x70
-    { ParameterEncoding::none, "i32.and", 2 },                       // 0x71
-    { ParameterEncoding::none, "i32.or", 2 },                        // 0x72
-    { ParameterEncoding::none, "i32.xor", 2 },                       // 0x73
-    { ParameterEncoding::none, "i32.shl", 2 },                       // 0x74
-    { ParameterEncoding::none, "i32.shr_s", 2 },                     // 0x75
-    { ParameterEncoding::none, "i32.shr_u", 2 },                     // 0x76
-    { ParameterEncoding::none, "i32.rotl", 2 },                      // 0x77
-    { ParameterEncoding::none, "i32.rotr", 2 },                      // 0x78
-    { ParameterEncoding::none, "i64.clz", 3 },                       // 0x79
-    { ParameterEncoding::none, "i64.ctz", 3 },                       // 0x7A
-    { ParameterEncoding::none, "i64.popcnt", 3 },                    // 0x7B
-    { ParameterEncoding::none, "i64.add", 3 },                       // 0x7C
-    { ParameterEncoding::none, "i64.sub", 3 },                       // 0x7D
-    { ParameterEncoding::none, "i64.mul", 3 },                       // 0x7E
-    { ParameterEncoding::none, "i64.div_s", 3 },                     // 0x7F
-
-    { ParameterEncoding::none, "i64.div_u", 3 },                     // 0x80
-    { ParameterEncoding::none, "i64.rem_s", 3 },                     // 0x81
-    { ParameterEncoding::none, "i64.rem_u", 3 },                     // 0x82
-    { ParameterEncoding::none, "i64.and", 3 },                       // 0x83
-    { ParameterEncoding::none, "i64.or", 3 },                        // 0x84
-    { ParameterEncoding::none, "i64.xor", 3 },                       // 0x85
-    { ParameterEncoding::none, "i64.shl", 3 },                       // 0x86
-    { ParameterEncoding::none, "i64.shr_s", 3 },                     // 0x87
-    { ParameterEncoding::none, "i64.shr_u", 3 },                     // 0x88
-    { ParameterEncoding::none, "i64.rotl", 3 },                      // 0x89
-    { ParameterEncoding::none, "i64.rotr", 3 },                      // 0x8A
-    { ParameterEncoding::none, "f32.abs", 2, true },                 // 0x8B
-    { ParameterEncoding::none, "f32.neg", 2, true },                 // 0x8C
-    { ParameterEncoding::none, "f32.ceil", 2, true },                // 0x8D
-    { ParameterEncoding::none, "f32.floor", 2, true },               // 0x8E
-    { ParameterEncoding::none, "f32.trunc", 2, true },               // 0x8F
-
-    { ParameterEncoding::none, "f32.nearest", 2, true },             // 0x90
-    { ParameterEncoding::none, "f32.sqrt", 2, true },                // 0x91
-    { ParameterEncoding::none, "f32.add", 2, true },                 // 0x92
-    { ParameterEncoding::none, "f32.sub", 2, true },                 // 0x93
-    { ParameterEncoding::none, "f32.mul", 2, true },                 // 0x94
-    { ParameterEncoding::none, "f32.div", 2, true },                 // 0x95
-    { ParameterEncoding::none, "f32.min", 2, true },                 // 0x96
-    { ParameterEncoding::none, "f32.max", 2, true },                 // 0x97
-    { ParameterEncoding::none, "f32.copysign", 2, true },            // 0x98
-    { ParameterEncoding::none, "f64.abs", 3, true },                 // 0x99
-    { ParameterEncoding::none, "f64.neg", 3, true },                 // 0x9A
-    { ParameterEncoding::none, "f64.ceil", 3, true },                // 0x9B
-    { ParameterEncoding::none, "f64.floor", 3, true },               // 0x9C
-    { ParameterEncoding::none, "f64.trunc", 3, true },               // 0x9D
-    { ParameterEncoding::none, "f64.nearest", 3, true },             // 0x9E
-    { ParameterEncoding::none, "f64.sqrt", 3, true },                // 0x9F
-
-    { ParameterEncoding::none, "f64.add", 3, true },                 // 0xA0
-    { ParameterEncoding::none, "f64.sub", 3, true },                 // 0xA1
-    { ParameterEncoding::none, "f64.mul", 3, true },                 // 0xA2
-    { ParameterEncoding::none, "f64.div", 3, true },                 // 0xA3
-    { ParameterEncoding::none, "f64.min", 3, true },                 // 0xA4
-    { ParameterEncoding::none, "f64.max", 3, true },                 // 0xA5
-    { ParameterEncoding::none, "f64.copysign", 3, true },            // 0xA6
-    { ParameterEncoding::none, "i32.wrap_i64", 2 },                  // 0xA7
-    { ParameterEncoding::none, "i32.trunc_f32_s", 2 },               // 0xA8
-    { ParameterEncoding::none, "i32.trunc_f32_u", 2 },               // 0xA9
-    { ParameterEncoding::none, "i32.trunc_f64_s", 2 },               // 0xAA
-    { ParameterEncoding::none, "i32.trunc_f64_u", 2 },               // 0xAB
-    { ParameterEncoding::none, "i64.extend_i32_s", 3 },              // 0xAC
-    { ParameterEncoding::none, "i64.extend_i32_u", 3 },              // 0xAD
-    { ParameterEncoding::none, "i64.trunc_f32_s", 3 },               // 0xAE
-    { ParameterEncoding::none, "i64.trunc_f32_u", 3 },               // 0xAF
-
-    { ParameterEncoding::none, "i64.trunc_f64_s", 3 },               // 0xB0
-    { ParameterEncoding::none, "i64.trunc_f64_u", 3 },               // 0xB1
-    { ParameterEncoding::none, "f32.convert_i32_s", 2, true },       // 0xB2
-    { ParameterEncoding::none, "f32.convert_i32_u", 2, true },       // 0xB3
-    { ParameterEncoding::none, "f32.convert_i64_s", 2, true },       // 0xB4
-    { ParameterEncoding::none, "f32.convert_i64_u", 2, true },       // 0xB5
-    { ParameterEncoding::none, "f32.demote_f64", 2, true },          // 0xB6
-    { ParameterEncoding::none, "f64.convert_i32_s", 3, true },       // 0xB7
-    { ParameterEncoding::none, "f64.convert_i32_u", 3, true },       // 0xB8
-    { ParameterEncoding::none, "f64.convert_i64_s", 3, true },       // 0xB9
-    { ParameterEncoding::none, "f64.convert_i64_u", 3, true },       // 0xBA
-    { ParameterEncoding::none, "f64.promote_f32", 3, true },         // 0xBB
-    { ParameterEncoding::none, "i32.reinterpret_f32", 2 },           // 0xBC
-    { ParameterEncoding::none, "i64.reinterpret_f64", 3 },           // 0xBD
-    { ParameterEncoding::none, "f32.reinterpret_i32", 2, true },     // 0xBE
-    { ParameterEncoding::none, "f64.reinterpret_i64", 3, true },     // 0xBF
-};
+    std::sort(map.begin(), map.end(),
+             [](const Entry& x, const Entry& y) { return x.name < y.name; });
+}
 
 std::optional<Opcode> Opcode::fromString(std::string_view name)
 {
-    auto it = std::lower_bound(std::begin(map), std::end(map), Entry{name, 0},
+    if (map.empty()) {
+        buildMap();
+    }
+
+    auto it = std::lower_bound(map.begin(), map.end(), Entry{name, 0},
             [](const Entry& x, const Entry& y) { return x.name < y.name; });
 
     if (it != std::end(map) && it->name == name) {
-        return Opcode(it->opcode);
+        return Opcode(info[it->index].opcode);
     }
 
     return {};
 }
 
-std::string_view Opcode::getName() const
+Opcode::Info* Opcode::getInfo() const
 {
-    if (!isValid()) {
-        return "<unknown>";
+    auto it = std::lower_bound(std::begin(info), std::end(info), Info{value},
+            [](const Info& x, const Info& y) { return x.opcode < y.opcode; });
+
+    if (it != std::end(info) && it->opcode == value) {
+        return &*it;
     }
 
-    return info[uint8_t(value)].name;
+    return nullptr;
+}
+
+std::string_view Opcode::getName() const
+{
+    if (auto* info = getInfo(); info == nullptr) {
+        return "<unknown>";
+    } else {
+        return info->name;
+    }
 }
 
 bool Opcode::isValid() const
 {
-    return (value <= max && !info[value].name.empty());
+    return getInfo() != nullptr;
 }
 
 ParameterEncoding Opcode::getParameterEncoding() const
 {
-    if (!isValid()) {
+    if (auto* info = getInfo(); info == nullptr) {
         return ParameterEncoding::none;
+    } else {
+        return info->encoding;
     }
-
-    return info[value].encoding;
 }
 
 uint32_t Opcode::getAlign() const
 {
-    if (!isValid()) {
+    if (auto* info = getInfo(); info == nullptr) {
         return 0;
+    } else {
+        return info->align;
     }
 
     return info[value].align;
-}
-
-bool Opcode::isfloat() const
-{
-    if (!isValid()) {
-        return false;
-    }
-
-    return info[value].mFloat;
 }
 
 bool SectionType::isValid() const
@@ -474,9 +572,10 @@ bool ValueType::isValid() const
         case f32:
         case f64:
         case v128:
-        // case anyref:
-        // case exnref:
-        // case func:
+        case anyref:
+        case exnref:
+        case func:
+        case funcref:
         case void_:
             return true;
     }
@@ -492,9 +591,9 @@ std::string_view ValueType::getName() const
         case f32:          return "f32";
         case f64:          return "f64";
         case v128:         return "v128";
-        // case anyref:       return "anyref";
-        // case exnref:       return "exnref";
-        // case func:         return "func";
+        case anyref:       return "anyref";
+        case exnref:       return "exnref";
+        case func:         return "func";
         case void_:        return "void";
     }
 
@@ -508,34 +607,17 @@ struct ValueTypeEntry
 };
 
 ValueTypeEntry valueTypeMap[] = {
-    // { "anyref", ValueType::anyref },
-    // { "exnref", ValueType::exnref },
+    { "anyref", ValueType::anyref },
+    { "exnref", ValueType::exnref },
     { "f32", ValueType::f32 },
     { "f64", ValueType:: f64},
-    // { "func", ValueType::func },
+    { "func", ValueType::func },
+    { "funcref", ValueType::funcref },
     { "i32", ValueType::i32 },
     { "i64", ValueType::i64 },
     { "v128", ValueType::v128 },
     { "void", ValueType::void_ }
 };
-
-std::optional<ElementType> ElementType::getEncoding(std::string_view name)
-{
-    if (name == "funcref") {
-        return funcref;
-    }
-
-    return {};
-}
-
-std::string_view ElementType::getName() const
-{
-    switch (value) {
-        case funcref:  return "funcref";
-    }
-
-    return std::string_view();
-}
 
 std::optional<ValueType> ValueType::getEncoding(std::string_view n)
 {
@@ -550,7 +632,16 @@ std::optional<ValueType> ValueType::getEncoding(std::string_view n)
     return {};
 }
 
-std::string_view ExternalKind::getName() const
+std::string_view EventType::getName() const
+{
+    switch (value) {
+        case exception: return "exception";
+    }
+
+    return std::string_view();
+}
+
+std::string_view ExternalType::getName() const
 {
     switch (value) {
         case function:  return "func";
@@ -563,7 +654,7 @@ std::string_view ExternalKind::getName() const
     return std::string_view();
 }
 
-bool ExternalKind::isValid() const
+bool ExternalType::isValid() const
 {
     switch (value) {
         case function:
@@ -577,7 +668,7 @@ bool ExternalKind::isValid() const
     return false;
 }
 
-std::optional<ExternalKind> ExternalKind::getEncoding(std::string_view name)
+std::optional<ExternalType> ExternalType::getEncoding(std::string_view name)
 {
     if (name == "func") {
         return function;

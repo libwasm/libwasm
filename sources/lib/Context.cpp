@@ -509,15 +509,21 @@ void CheckContext::checkValueType(TreeNode* node, const ValueType& type)
             "Invalid valuetype ", int32_t(type));
 }
 
-void CheckContext::checkElementType(TreeNode* node, const ElementType& type)
+void CheckContext::checkElementType(TreeNode* node, const ValueType& type)
 {
-    errorHandler.errorWhen((!type.isValid()), node,
-            "Invalid element ", int32_t(type));
+    errorHandler.errorWhen(type != ValueType::funcref, node,
+            "Invalid element type ", int32_t(type));
 }
 
-void CheckContext::checkExternalType(TreeNode* node, const ExternalKind& type)
+void CheckContext::checkExternalType(TreeNode* node, const ExternalType& type)
 {
-    errorHandler.errorWhen((!ExternalKind(type).isValid()), node,
+    errorHandler.errorWhen((!ExternalType(type).isValid()), node,
+            "Invalid external type ", uint32_t(uint8_t(type)));
+}
+
+void CheckContext::checkEventType(TreeNode* node, const EventType& type)
+{
+    errorHandler.errorWhen((!EventType(type).isValid()), node,
             "Invalid external type ", uint32_t(uint8_t(type)));
 }
 

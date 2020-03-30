@@ -8,14 +8,15 @@
 #include "TokenBuffer.h"
 
 std::optional<ValueType> parseValueType(SourceContext& context);
-std::optional<ElementType> parseElementType(SourceContext& context);
+std::optional<ValueType> parseElementType(SourceContext& context);
 std::optional<uint32_t> parseTableIndex(SourceContext& context);
+std::optional<uint32_t> parseTypeIndex(SourceContext& context);
 std::optional<uint32_t> parseFunctionIndex(SourceContext& context);
 std::optional<uint32_t> parseMemoryIndex(SourceContext& context);
 std::optional<uint32_t> parseGlobalIndex(SourceContext& context);
 std::optional<uint32_t> parseLocalIndex(SourceContext& context);
 std::optional<uint32_t> parseLabelIndex(SourceContext& context);
-std::optional<ExternalKind> parseExternalKind(SourceContext& context);
+std::optional<ExternalType> parseExternalType(SourceContext& context);
 
 bool startClause(SourceContext& context, std::string_view name);
 

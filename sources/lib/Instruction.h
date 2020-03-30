@@ -66,6 +66,8 @@ class Instruction : public TreeNode
             return opcode.getParameterEncoding();
         }
 
+        void writeOpcode(BinaryContext& context) const;
+
         virtual void write(BinaryContext& context)
         {
         }

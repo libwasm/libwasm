@@ -22,6 +22,8 @@ class DataCountSection;
 class DataSection;
 class ElementDeclaration;
 class ElementSection;
+class Event;
+class EventSection;
 class ExportDeclaration;
 class ExportSection;
 class FunctionSection;
@@ -201,6 +203,36 @@ class Context
             return memoryMap.getIndex(id);
         }
 
+        auto nextEventCount()
+        {
+            return eventCount++;
+        }
+
+        auto getEventCount() const
+        {
+            return eventCount;
+        }
+
+        void addEvent(Event* mwmory)
+        {
+            eventTable.push_back(mwmory);
+        }
+
+        bool addEventId(std::string_view id, uint32_t index)
+        {
+            return eventMap.add(id, index);
+        }
+
+        Event* getEvent(uint32_t index) const
+        {
+            return eventTable[index];
+        }
+
+        uint32_t getEventIndex(std::string_view id)
+        {
+            return eventMap.getIndex(id);
+        }
+
         auto nextGlobalCount()
         {
             return globalCount++;
@@ -239,16 +271,6 @@ class Context
         ImportDeclaration* getImport(uint32_t index) const
         {
             return importTable[index];
-        }
-
-        auto nextEventCount()
-        {
-            return eventCount++;
-        }
-
-        auto getEventCount() const
-        {
-            return eventCount;
         }
 
         auto nextExportCount()
@@ -439,6 +461,7 @@ class Context
         size_t dataSectionIndex = invalidSection;
         size_t elementSectionIndex = invalidSection;
         size_t exportSectionIndex = invalidSection;
+        size_t eventSectionIndex = invalidSection;
         size_t functionSectionIndex = invalidSection;
         size_t globalSectionIndex = invalidSection;
         size_t importSectionIndex = invalidSection;
@@ -450,6 +473,7 @@ class Context
         std::vector<Global*> globalTable;
         std::vector<ImportDeclaration*> importTable;
         std::vector<Memory*> memoryTable;
+        std::vector<Event*> eventTable;
         std::vector<SymbolTableInfo*> symbolTable;
         std::vector<Table*> tableTable;
         std::vector<TypeUse*> functionTable;
@@ -463,6 +487,7 @@ class Context
         IndexMap globalMap;
         IndexMap localMap;
         IndexMap memoryMap;
+        IndexMap eventMap;
         IndexMap tableMap;
         IndexMap typeMap;
 
@@ -584,8 +609,9 @@ class CheckContext : public Context
         void checkTableIndex(TreeNode* node, uint32_t index);
         void checkGlobalIndex(TreeNode* node, uint32_t index);
         void checkValueType(TreeNode* node, const ValueType& type);
-        void checkElementType(TreeNode* node, const ElementType& type);
-        void checkExternalType(TreeNode* node, const ExternalKind& type);
+        void checkElementType(TreeNode* node, const ValueType& type);
+        void checkExternalType(TreeNode* node, const ExternalType& type);
+        void checkEventType(TreeNode* node, const EventType& type);
         void checkLimits(TreeNode* node, const Limits& limits);
         void checkMut(TreeNode* node, Mut& mut);
 

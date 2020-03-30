@@ -113,6 +113,9 @@ int main(int argc, char*argv[])
         }
     }
 
+    unsigned errors = 0;
+    unsigned warnings = 0;
+
     if (inputFiles.empty()) {
         std::cout << "Error: no input files specified!\n";
         usage(argv[0]);
@@ -190,14 +193,38 @@ int main(int argc, char*argv[])
                     }
                 }
             }
+
+            errors = disassembler.getErrorCount();
+            warnings = disassembler.getWarningCount();
         } else {
             std::cerr << "Error: Failed to process input file " << inputFile << '\n';
+            errors = 1;
         }
     }
+
+    if (errors == 0) {
+        std::cout << "NO ERRORS; ";
+    } else if (errors == 1) {
+        std::cout << "1 ERROR; ";
+    } else {
+        std::cout << errors << " ERRORS; ";
+    }
+
+    if (warnings == 0) {
+        std::cout << "NO WARNINGS; ";
+    } else if (warnings == 1) {
+        std::cout << "1 WARNING; ";
+    } else {
+        std::cout << warnings << " WARNINGS; ";
+    }
+
+    std::cout << '\n';
 
     if (wantStatistics) {
         std::cout << "CPU time = " << std::setw(4) << std::setprecision(2) << std::fixed <<
             double(clock() / double(CLOCKS_PER_SEC)) << "\n";
     }
+
+    return (errors == 0) ? 0 : -1;
 }
 
