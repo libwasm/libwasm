@@ -204,7 +204,7 @@ int64_t toI64(std::string_view chars)
 
     auto string = removeUnderscores(chars);
 
-    return strtol(string.data(), nullptr, 0);
+    return strtoll(string.data(), nullptr, 0);
 }
 
 int32_t toI32(std::string_view chars)
@@ -216,6 +216,16 @@ int32_t toI32(std::string_view chars)
     auto string = removeUnderscores(chars);
 
     return int32_t(strtol(string.data(), nullptr, 0));
+}
+
+int16_t toI16(std::string_view chars)
+{
+    return int16_t(toI32(chars));
+}
+
+int8_t toI8(std::string_view chars)
+{
+    return int8_t(toI32(chars));
 }
 
 double toF64(std::string_view chars)

@@ -202,6 +202,71 @@ std::optional<uint32_t> parseLabelIndex(SourceContext& context)
     return{};
 }
 
+std::optional<uint32_t> parseLane2Index(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU32()) {
+        if (*value < 2) {
+            return *value;
+        }
+    }
+
+    return{};
+}
+
+std::optional<uint32_t> parseLane4Index(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU32()) {
+        if (*value < 4) {
+            return *value;
+        }
+    }
+
+    return{};
+}
+
+std::optional<uint32_t> parseLane8Index(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU32()) {
+        if (*value < 8) {
+            return *value;
+        }
+    }
+
+    return{};
+}
+
+std::optional<uint32_t> parseLane16Index(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU32()) {
+        if (*value < 16) {
+            return *value;
+        }
+    }
+
+    return{};
+}
+
+std::optional<uint32_t> parseLane32Index(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU32()) {
+        if (*value < 32) {
+            return *value;
+        }
+    }
+
+    return{};
+}
+
 std::optional<ExternalType> parseExternalType(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -215,6 +280,103 @@ std::optional<ExternalType> parseExternalType(SourceContext& context)
 
     tokens.setPos(pos);
     return {};
+}
+
+std::optional<v128_t> parseV128(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
+    union
+    {
+        int8_t a8[16];
+        int16_t a16[8];
+        int32_t a32[4];
+        int64_t a64[2];
+        float aF[4];
+        double aD[2];
+        v128_t result;
+    };
+
+    if (auto id = tokens.getKeyword()) {
+        bool ok = true;
+
+        if (*id == "i8x16") {
+            for (int i = 0; i < 16; ++i) {
+                if (auto v  = tokens.getI8()) {
+                    a8[i] = *v;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+        } else if (*id == "i16x8") {
+            for (int i = 0; i < 8; ++i) {
+                if (auto v  = tokens.getI16()) {
+                    a16[i] = *v;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+        } else if (*id == "i32x4") {
+            for (int i = 0; i < 4; ++i) {
+                if (auto v  = tokens.getI32()) {
+                    a32[i] = *v;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+        } else if (*id == "i64x2") {
+            for (int i = 0; i < 2; ++i) {
+                if (auto v  = tokens.getI64()) {
+                    a64[i] = *v;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+        } else if (*id == "f32x4") {
+            for (int i = 0; i < 4; ++i) {
+                if (auto v  = tokens.getF32()) {
+                    aF[i] = *v;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+        } else if (*id == "f64x2") {
+            for (int i = 0; i < 2; ++i) {
+                if (auto v  = tokens.getF64()) {
+                    aD[i] = *v;
+                } else {
+                    ok = false;
+                    break;
+                }
+            }
+        } else {
+            ok =false;
+        }
+
+        if (ok) {
+            return result;
+        }
+    }
+
+    tokens.setPos(pos);
+    return {};
+}
+
+int8_t requiredI8(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getI8()) {
+        return *value;
+    }
+
+    context.msgs().expected(tokens.peekToken(), "8-bit signed integer");
+    return 0;
 }
 
 uint32_t requiredU32(SourceContext& context)

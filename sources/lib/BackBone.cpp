@@ -3444,7 +3444,7 @@ void CodeEntry::generate(std::ostream& os, Context& context)
     auto* function = context.getFunction(number);
     auto signatureIndex = function->getSignatureIndex();
 
-    os << "\n  (func (;" << number << ";) (type " << signatureIndex << ") ";
+    os << "\n  (func (;" << number << ";) (type " << signatureIndex << ')';
 
     function->getSignature()->generate(os, context);
 

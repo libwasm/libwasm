@@ -8,6 +8,7 @@
 #include "Encodings.h"
 #include "TreeNode.h"
 
+#include <array>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -188,6 +189,25 @@ class InstructionF64 : public Instruction
         double imm = 0;
 };
 
+class InstructionV128 : public Instruction
+{
+    public:
+        InstructionV128()
+          : Instruction(ParameterEncoding::f64)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionV128* parse(SourceContext& context, Opcode opcode);
+        static InstructionV128* read(BinaryContext& context);
+
+    protected:
+        v128_t imm = { 0 };
+};
+
 class InstructionBlock : public Instruction
 {
     public:
@@ -286,6 +306,85 @@ class InstructionLabelIdx : public InstructionIdx
 
         static InstructionLabelIdx* parse(SourceContext& context, Opcode opcode);
         static InstructionLabelIdx* read(BinaryContext& context);
+};
+
+class InstructionLane2Idx : public InstructionIdx
+{
+    public:
+        InstructionLane2Idx()
+          : InstructionIdx(ParameterEncoding::labelIdx)
+        {
+        }
+
+        static InstructionLane2Idx* parse(SourceContext& context, Opcode opcode);
+        static InstructionLane2Idx* read(BinaryContext& context);
+};
+
+class InstructionLane4Idx : public InstructionIdx
+{
+    public:
+        InstructionLane4Idx()
+          : InstructionIdx(ParameterEncoding::labelIdx)
+        {
+        }
+
+        static InstructionLane4Idx* parse(SourceContext& context, Opcode opcode);
+        static InstructionLane4Idx* read(BinaryContext& context);
+};
+
+class InstructionLane8Idx : public InstructionIdx
+{
+    public:
+        InstructionLane8Idx()
+          : InstructionIdx(ParameterEncoding::labelIdx)
+        {
+        }
+
+        static InstructionLane8Idx* parse(SourceContext& context, Opcode opcode);
+        static InstructionLane8Idx* read(BinaryContext& context);
+};
+
+class InstructionLane16Idx : public InstructionIdx
+{
+    public:
+        InstructionLane16Idx()
+          : InstructionIdx(ParameterEncoding::labelIdx)
+        {
+        }
+
+        static InstructionLane16Idx* parse(SourceContext& context, Opcode opcode);
+        static InstructionLane16Idx* read(BinaryContext& context);
+};
+
+class InstructionLane32Idx : public InstructionIdx
+{
+    public:
+        InstructionLane32Idx()
+          : InstructionIdx(ParameterEncoding::labelIdx)
+        {
+        }
+
+        static InstructionLane32Idx* parse(SourceContext& context, Opcode opcode);
+        static InstructionLane32Idx* read(BinaryContext& context);
+};
+
+class InstructionShuffle : public Instruction
+{
+    public:
+        InstructionShuffle()
+          : Instruction(ParameterEncoding::shuffle)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionShuffle* parse(SourceContext& context, Opcode opcode);
+        static InstructionShuffle* read(BinaryContext& context);
+
+    protected:
+        std::array<int8_t, 16> imm;
 };
 
 class InstructionTable : public Instruction

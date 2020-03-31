@@ -4,6 +4,28 @@
 
 #include <cassert>
 
+std::optional<int8_t> TokenBuffer::peekI8(unsigned index)
+{
+    auto& token = peekToken(index);
+
+    if (token.getKind() == Token::integer) {
+        return int8_t(toI32(token.getValue()));
+    }
+
+    return {};
+}
+
+std::optional<int16_t> TokenBuffer::peekI16(unsigned index)
+{
+    auto& token = peekToken(index);
+
+    if (token.getKind() == Token::integer) {
+        return int16_t(toI32(token.getValue()));
+    }
+
+    return {};
+}
+
 std::optional<uint32_t> TokenBuffer::peekU32(unsigned index)
 {
     auto& token = peekToken(index);
@@ -142,6 +164,32 @@ std::optional<std::string_view> TokenBuffer::peekString()
 
     if (token.getKind() == Token::string) {
         return token.getValue();
+    }
+
+    return {};
+}
+
+std::optional<int8_t> TokenBuffer::getI8()
+{
+    assert(!atEnd());
+    auto& token = container[pos];
+
+    if (token.getKind() == Token::integer) {
+        pos++;
+        return int8_t(toI32(token.getValue()));
+    }
+
+    return {};
+}
+
+std::optional<int16_t> TokenBuffer::getI16()
+{
+    assert(!atEnd());
+    auto& token = container[pos];
+
+    if (token.getKind() == Token::integer) {
+        pos++;
+        return int16_t(toI32(token.getValue()));
     }
 
     return {};

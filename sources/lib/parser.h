@@ -16,10 +16,17 @@ std::optional<uint32_t> parseMemoryIndex(SourceContext& context);
 std::optional<uint32_t> parseGlobalIndex(SourceContext& context);
 std::optional<uint32_t> parseLocalIndex(SourceContext& context);
 std::optional<uint32_t> parseLabelIndex(SourceContext& context);
+std::optional<uint32_t> parseLane2Index(SourceContext& context);
+std::optional<uint32_t> parseLane4Index(SourceContext& context);
+std::optional<uint32_t> parseLane8Index(SourceContext& context);
+std::optional<uint32_t> parseLane16Index(SourceContext& context);
+std::optional<uint32_t> parseLane32Index(SourceContext& context);
+std::optional<v128_t> parseV128(SourceContext& context);
 std::optional<ExternalType> parseExternalType(SourceContext& context);
 
 bool startClause(SourceContext& context, std::string_view name);
 
+int8_t requiredI8(SourceContext& context);
 uint32_t requiredU32(SourceContext& context);
 int32_t requiredI32(SourceContext& context);
 int64_t requiredI64(SourceContext& context);

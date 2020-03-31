@@ -6,6 +6,8 @@
 #include "TokenBuffer.h"
 #include "parser.h"
 
+#include <iomanip>
+
 void Instruction::writeOpcode(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -215,6 +217,63 @@ void InstructionF64::generate(std::ostream& os, InstructionContext& context)
     os.flags(flags);
 }
 
+InstructionV128* InstructionV128::parse(SourceContext& context, Opcode opcode)
+{
+    auto& tokens = context.tokens();
+    auto result = context.makeTreeNode<InstructionV128>();
+
+    if (auto v128 = parseV128(context)) {
+        result->imm = std::move(*v128);
+    } else {
+        context.msgs().error(tokens.peekToken(), "Missing or invalid v128 value.");
+    }
+
+    return result;
+}
+
+InstructionV128* InstructionV128::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<InstructionV128>();
+
+    result->imm = data.getV128();
+
+    return result;
+}
+
+void InstructionV128::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putV128(imm);
+}
+
+void InstructionV128::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionV128::generate(std::ostream& os, InstructionContext& context)
+{
+    auto flags = os.flags();
+    union
+    {
+        int32_t a32[4];
+        v128_t v128;
+    };
+
+    os << opcode << " 32x4";
+
+    v128 = imm;
+
+    for (int i = 0; i < 4; ++i) {
+        os << " 0x" << std::hex << std::setw(8) << std::setfill('0') << a32[i];
+    }
+
+    os.flags(flags);
+}
+
 InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
 {
     auto& tokens = context.tokens();
@@ -398,6 +457,166 @@ InstructionLabelIdx* InstructionLabelIdx::read(BinaryContext& context)
     result->imm = context.data().getU32leb();
 
     return result;
+}
+
+InstructionLane2Idx* InstructionLane2Idx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionLane2Idx>();
+
+    if (auto index = parseLane2Index(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
+    }
+
+    return result;
+}
+
+InstructionLane2Idx* InstructionLane2Idx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionLane2Idx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionLane4Idx* InstructionLane4Idx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionLane4Idx>();
+
+    if (auto index = parseLane4Index(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
+    }
+
+    return result;
+}
+
+InstructionLane4Idx* InstructionLane4Idx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionLane4Idx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionLane8Idx* InstructionLane8Idx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionLane8Idx>();
+
+    if (auto index = parseLane8Index(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
+    }
+
+    return result;
+}
+
+InstructionLane8Idx* InstructionLane8Idx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionLane8Idx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionLane16Idx* InstructionLane16Idx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionLane16Idx>();
+
+    if (auto index = parseLane16Index(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
+    }
+
+    return result;
+}
+
+InstructionLane16Idx* InstructionLane16Idx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionLane16Idx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionLane32Idx* InstructionLane32Idx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionLane32Idx>();
+
+    if (auto index = parseLane32Index(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
+    }
+
+    return result;
+}
+
+InstructionLane32Idx* InstructionLane32Idx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionLane32Idx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionShuffle* InstructionShuffle::parse(SourceContext& context, Opcode opcode)
+{
+    auto& tokens = context.tokens();
+
+    auto result = context.makeTreeNode<InstructionShuffle>();
+
+    for (int i = 0; i < 16; ++i) {
+        result->imm[i] = requiredI8(context);
+    }
+
+    return result;
+}
+
+InstructionShuffle* InstructionShuffle::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<InstructionShuffle>();
+
+    for (int i = 0; i < 16; ++i) {
+        result->imm[i] = data.getI8();
+    }
+
+    return result;
+}
+
+void InstructionShuffle::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+
+    for (int i = 0; i < 16; ++i) {
+        data.putI8(imm[i]);
+    }
+}
+
+void InstructionShuffle::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionShuffle::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode;
+
+    for (int i = 0; i < 16; ++i) {
+        os << "  " << int32_t(imm[i]);
+    }
 }
 
 InstructionTable* InstructionTable::parse(SourceContext& context, Opcode opcode)
@@ -636,12 +855,19 @@ Instruction* Instruction::parse(SourceContext& context)
         case ParameterEncoding::i64:           result = InstructionI64::parse(context, *opcode); break;
         case ParameterEncoding::f32:           result = InstructionF32::parse(context, *opcode); break;
         case ParameterEncoding::f64:           result = InstructionF64::parse(context, *opcode); break;
+        case ParameterEncoding::v128:          result = InstructionV128::parse(context, *opcode); break;
         case ParameterEncoding::block:         result = InstructionBlock::parse(context, *opcode); break;
         case ParameterEncoding::idx:           result = InstructionIdx::parse(context, *opcode); break;
         case ParameterEncoding::localIdx:      result = InstructionLocalIdx::parse(context, *opcode); break;
         case ParameterEncoding::globalIdx:     result = InstructionGlobalIdx::parse(context, *opcode); break;
         case ParameterEncoding::functionIdx:   result = InstructionFunctionIdx::parse(context, *opcode); break;
         case ParameterEncoding::labelIdx:      result = InstructionLabelIdx::parse(context, *opcode); break;
+        case ParameterEncoding::lane2Idx:      result = InstructionLane2Idx::parse(context, *opcode); break;
+        case ParameterEncoding::lane4Idx:      result = InstructionLane4Idx::parse(context, *opcode); break;
+        case ParameterEncoding::lane8Idx:      result = InstructionLane8Idx::parse(context, *opcode); break;
+        case ParameterEncoding::lane16Idx:     result = InstructionLane16Idx::parse(context, *opcode); break;
+        case ParameterEncoding::lane32Idx:     result = InstructionLane32Idx::parse(context, *opcode); break;
+        case ParameterEncoding::shuffle:       result = InstructionShuffle::parse(context, *opcode); break;
         case ParameterEncoding::table:         result = InstructionTable::parse(context, *opcode); break;
         case ParameterEncoding::memory:        result = InstructionMemory::parse(context, *opcode); break;
         case ParameterEncoding::memory0:       result = InstructionMemory0::parse(context, *opcode); break;
@@ -751,12 +977,19 @@ Instruction* Instruction::read(BinaryContext& context)
         case ParameterEncoding::i64:           result = InstructionI64::read(context); break;
         case ParameterEncoding::f32:           result = InstructionF32::read(context); break;
         case ParameterEncoding::f64:           result = InstructionF64::read(context); break;
+        case ParameterEncoding::v128:          result = InstructionV128::read(context); break;
         case ParameterEncoding::block:         result = InstructionBlock::read(context); break;
         case ParameterEncoding::idx:           result = InstructionIdx::read(context); break;
         case ParameterEncoding::localIdx:      result = InstructionLocalIdx::read(context); break;
         case ParameterEncoding::globalIdx:     result = InstructionGlobalIdx::read(context); break;
         case ParameterEncoding::functionIdx:   result = InstructionFunctionIdx::read(context); break;
         case ParameterEncoding::labelIdx:      result = InstructionLabelIdx::read(context); break;
+        case ParameterEncoding::lane2Idx:      result = InstructionLane2Idx::read(context); break;
+        case ParameterEncoding::lane4Idx:      result = InstructionLane4Idx::read(context); break;
+        case ParameterEncoding::lane8Idx:      result = InstructionLane8Idx::read(context); break;
+        case ParameterEncoding::lane16Idx:     result = InstructionLane16Idx::read(context); break;
+        case ParameterEncoding::lane32Idx:     result = InstructionLane32Idx::read(context); break;
+        case ParameterEncoding::shuffle:       result = InstructionShuffle::read(context); break;
         case ParameterEncoding::table:         result = InstructionTable::read(context); break;
         case ParameterEncoding::memory:        result = InstructionMemory::read(context); break;
         case ParameterEncoding::memory0:       result = InstructionMemory0::read(context); break;

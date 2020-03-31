@@ -3,6 +3,8 @@
 #ifndef DATABUFFER_H
 #define DATABUFFER_H
 
+#include "common.h"
+
 #include <cassert>
 #include <cstdint>
 #include <string>
@@ -87,6 +89,17 @@ class DataBuffer
             container->push_back(value);
         }
 
+        int8_t getI8()
+        {
+            assert(!atEnd());
+            return containers.back()[pos++];
+        }
+
+        void putI8(int8_t value)
+        {
+            container->push_back(value);
+        }
+
         uint16_t getU16()
         {
             return uint16_t(uint16_t(getU8()) | uint16_t(getU8()) << 8);
@@ -140,6 +153,24 @@ class DataBuffer
         void putI64(uint32_t value)
         {
             putU64(value);
+        }
+
+        v128_t getV128()
+        {
+            v128_t result;
+
+            for (int i = 0; i < 16; ++i) {
+                result[i] = getU8();
+            }
+
+            return result;
+        }
+
+        void putV128(const v128_t& value)
+        {
+            for (int i = 0; i < 16; ++i) {
+                putU8(value[i]);
+            }
         }
 
         float getF();

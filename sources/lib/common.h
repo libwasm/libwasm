@@ -3,9 +3,12 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <string_view>
+
+using v128_t = std::array<uint8_t, 16>;
 
 const uint32_t wasmMagic = 0x6d736100;
 const uint32_t wasmVersion = 1;
@@ -48,6 +51,8 @@ std::pair<std::string, std::string> unEscape(std::string_view chars);
 void generateChars(std::ostream& os, std::string_view chars);
 bool validUtf8(std::string_view string);
 
+int8_t toI8(std::string_view chars);
+int16_t toI16(std::string_view chars);
 int32_t toI32(std::string_view chars);
 int64_t toI64(std::string_view chars);
 float toF32(std::string_view chars);

@@ -68,6 +68,8 @@ class TokenBuffer
             pos += count;
         }
 
+        std::optional<int8_t> getI8();
+        std::optional<int16_t> getI16();
         std::optional<uint32_t> getU32();
         std::optional<int32_t> getI32();
         std::optional<uint64_t> getU64();
@@ -81,6 +83,8 @@ class TokenBuffer
         bool getParenthesis(char v);
         std::optional<std::string_view> getString();
 
+        std::optional<int8_t> peekI8(unsigned index = 0);
+        std::optional<int16_t> peekI16(unsigned index = 0);
         std::optional<uint32_t> peekU32(unsigned index = 0);
         std::optional<int32_t> peekI32(unsigned index = 0);
         std::optional<uint64_t> peekU64(unsigned index = 0);
