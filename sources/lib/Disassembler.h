@@ -8,6 +8,7 @@
 #include "DataBuffer.h"
 #include "Encodings.h"
 #include "Instruction.h"
+#include "Module.h"
 #include "common.h"
 
 #include <cstdint>
@@ -21,7 +22,7 @@ class Disassembler
 {
     public:
         Disassembler(std::istream& stream)
-          : context(msgs), data(context.data()), sections(context.getSections())
+          : context(msgs), data(context.data()), module(context.getModule())
         {
             good = readWasm(stream);
         }
@@ -40,12 +41,12 @@ class Disassembler
 
         void show(std::ostream& os, unsigned flags)
         {
-            context.show(os, flags);
+            module->show(os, flags);
         }
 
         void generate(std::ostream& os)
         {
-            context.generate(os);
+            module->generate(os);
         }
 
         void write(std::ostream& os)
@@ -82,7 +83,7 @@ class Disassembler
 
         BinaryContext context;
         DataBuffer& data;
-        std::vector<std::shared_ptr<Section>>& sections;
+        Module* module = 0;
 };
 
 

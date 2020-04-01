@@ -32,106 +32,103 @@ bool Disassembler::checkHeader()
 
 bool Disassembler::readSections()
 {
+    auto* module = context.getModule();
+    auto& mags = context.msgs();
+
     while (!data.atEnd()) {
         auto c = data.getU8();
 
         switch (c) {
             case SectionType::custom:
-                {
-                    context.customSectionIndexes.push_back(sections.size());
-                    sections.emplace_back(CustomSection::read(context));
-                    break;
-                }
+                module->addCustomSection(CustomSection::read(context));
+                break;
 
             case SectionType::type:
-                {
-                    auto* section = new TypeSection;
-
-                    context.typeSectionIndex = sections.size();
-                    sections.emplace_back(section);
-                    TypeSection::read(context, section);
-                    break;
+                if (!module->setTypeSection(TypeSection::read(context))) {
+                    msgs.error("More than 1 type section is given.");
                 }
+
+                break;
 
             case SectionType::import:
-                {
-                    context.importSectionIndex = sections.size();
-                    sections.emplace_back(ImportSection::read(context));
-                    break;
+                if (!module->setImportSection(ImportSection::read(context))) {
+                    msgs.error("More than 1 import section is given.");
                 }
+
+                break;
 
             case SectionType::function:
-                {
-                    context.functionSectionIndex = sections.size();
-                    sections.emplace_back(FunctionSection::read(context));
-                    break;
+                if (!module->setFunctionSection(FunctionSection::read(context))) {
+                    msgs.error("More than 1 function section is given.");
                 }
+
+                break;
 
             case SectionType::table:
-                {
-                    context.tableSectionIndex = sections.size();
-                    sections.emplace_back(TableSection::read(context));
-                    break;
+                if (!module->setTableSection(TableSection::read(context))) {
+                    msgs.error("More than 1 table section is given.");
                 }
+
+                break;
 
             case SectionType::memory:
-                {
-                    context.memorySectionIndex = sections.size();
-                    sections.emplace_back(MemorySection::read(context));
-                    break;
+                if (!module->setMemorySection(MemorySection::read(context))) {
+                    msgs.error("More than 1 memory section is given.");
                 }
+
+                break;
 
             case SectionType::global:
-                {
-                    context.globalSectionIndex = sections.size();
-                    sections.emplace_back(GlobalSection::read(context));
-                    break;
+                if (!module->setGlobalSection(GlobalSection::read(context))) {
+                    msgs.error("More than 1 global section is given.");
                 }
+
+                break;
 
             case SectionType::export_:
-                {
-                    context.exportSectionIndex = sections.size();
-                    sections.emplace_back(ExportSection::read(context));
-                    break;
+                if (!module->setExportSection(ExportSection::read(context))) {
+                    msgs.error("More than 1 ecport section is given.");
                 }
+
+                break;
 
             case SectionType::start:
-                {
-                    context.startSectionIndex = sections.size();
-                    sections.emplace_back(StartSection::read(context));
-                    break;
+                if (!module->setStartSection(StartSection::read(context))) {
+                    msgs.error("More than 1 start section is given.");
                 }
+
+                break;
 
             case SectionType::element:
-                {
-                    context.elementSectionIndex = sections.size();
-                    sections.emplace_back(ElementSection::read(context));
-                    break;
+                if (!module->setElementSection(ElementSection::read(context))) {
+                    msgs.error("More than 1 element section is given.");
                 }
+
+                break;
 
             case SectionType::code:
-                {
-                    context.codeSectionIndex = sections.size();
-                    sections.emplace_back(CodeSection::read(context));
-                    break;
+                if (!module->setCodeSection(CodeSection::read(context))) {
+                    msgs.error("More than 1 code section is given.");
                 }
+
+                break;
 
             case SectionType::data:
-                {
-                    context.dataSectionIndex = sections.size();
-                    sections.emplace_back(DataSection::read(context));
-                    break;
+                if (!module->setDataSection(DataSection::read(context))) {
+                    msgs.error("More than 1 data section is given.");
                 }
+
+                break;
 
             case SectionType::dataCount:
-                {
-                    context.dataCountSectionIndex = sections.size();
-                    sections.emplace_back(DataCountSection::read(context));
-                    break;
+                if (!module->setDataCountSection(DataCountSection::read(context))) {
+                    msgs.error("More than 1 data count section is given.");
                 }
 
+                break;
+
             default:
-                context.msgs().error("Invalid section opcode ", unsigned(c));
+                msgs.error("Invalid section opcode ", unsigned(c));
                 return false;
         }
     }
@@ -141,7 +138,7 @@ bool Disassembler::readSections()
 
 bool Disassembler::checkSemantics()
 {
-    context.makeDataCountSection();
+    context.getModule()->makeDataCountSection();
 
     CheckErrorHandler error;
     CheckContext checkContext(context, error);

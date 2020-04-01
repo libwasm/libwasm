@@ -3,6 +3,7 @@
 #include "Instruction.h"
 
 #include "BackBone.h"
+#include "Module.h"
 #include "TokenBuffer.h"
 #include "parser.h"
 
@@ -24,11 +25,12 @@ void Instruction::writeOpcode(BinaryContext& context) const
 
 InstructionNone* InstructionNone::parse(SourceContext& context, Opcode opcode)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (opcode == Opcode::end || opcode == Opcode::else_) {
         if (auto id = tokens.getId()) {
-            auto index = context.getLabelIndex(*id);
+            auto index = module->getLabelIndex(*id);
 
             context.msgs().errorWhen(index != 0, tokens.peekToken(-1),
                     "Id must be equal to the label of the innermost block.");
@@ -36,7 +38,7 @@ InstructionNone* InstructionNone::parse(SourceContext& context, Opcode opcode)
     }
 
     if (opcode == Opcode::end) {
-        context.popLabel();
+        module->popLabel();
     }
 
     return context.makeTreeNode<InstructionNone>();
@@ -276,15 +278,16 @@ void InstructionV128::generate(std::ostream& os, InstructionContext& context)
 
 InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     auto result = context.makeTreeNode<InstructionBlock>();
 
     if (auto id = tokens.getId()) {
         result->label = *id;
-        context.pushLabel(*id);
+        module->pushLabel(*id);
     } else {
-        context.pushLabel({});
+        module->pushLabel({});
     }
 
     if (startClause(context, "result")) {

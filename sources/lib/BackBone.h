@@ -14,6 +14,8 @@
 #include <memory>
 #include <vector>
 
+class Module;
+
 class Expression : public TreeNode
 {
     public:
@@ -31,8 +33,8 @@ class Expression : public TreeNode
             return instructions;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -76,8 +78,8 @@ class Section : public TreeNode
 
         void dump(std::ostream& os, BinaryContext& context);
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) = 0;
-        virtual void generate(std::ostream& os, Context& context) = 0;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) = 0;
+        virtual void generate(std::ostream& os, Module* context) = 0;
         virtual void check(CheckContext& context) = 0;
         virtual void write(BinaryContext& context) const = 0;
 
@@ -109,8 +111,8 @@ class CustomSection : public Section
         {
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
 
         static CustomSection* read(BinaryContext& context);
@@ -122,7 +124,7 @@ class CustomSection : public Section
 class RelocationEntry : public TreeNode
 {
     public:
-        void show(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
 
         auto getType() const
         {
@@ -196,8 +198,8 @@ class RelocationSection : public CustomSection
             return relocations;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override
         {
@@ -223,7 +225,7 @@ class LinkingSubsection : public TreeNode
             type = value;
         }
 
-        virtual void show(std::ostream& os, Context& context);
+        virtual void show(std::ostream& os, Module* context);
 
         static LinkingSubsection* read(BinaryContext& context);
 
@@ -264,7 +266,7 @@ class LinkingSegmentInfo : public TreeNode
             flags = value;
         }
 
-        void show(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
 
         static LinkingSegmentInfo* read(BinaryContext& context);
 
@@ -282,7 +284,7 @@ class LinkingSegmentSubsection : public LinkingSubsection
             return infos;
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
 
         static LinkingSegmentSubsection* read(BinaryContext& context);
 
@@ -313,7 +315,7 @@ class LinkingInitFunc : public TreeNode
             functionIndex = value;
         }
 
-        void show(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
 
         static LinkingInitFunc* read(BinaryContext& context);
 
@@ -330,7 +332,7 @@ class LinkingInitFuncSubsection : public LinkingSubsection
             return inits;
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
 
         static LinkingInitFuncSubsection* read(BinaryContext& context);
 
@@ -351,7 +353,7 @@ class ComdatSym : public TreeNode
             index = value;
         }
 
-        void show(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
 
         static ComdatSym* read(BinaryContext& context);
 
@@ -388,7 +390,7 @@ class LinkingComdat : public TreeNode
             return syms;
         }
 
-        void show(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
 
         static LinkingComdat* read(BinaryContext& context);
 
@@ -406,7 +408,7 @@ class LinkingComdatSubsection : public LinkingSubsection
             return comdats;
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
 
         static LinkingComdatSubsection* read(BinaryContext& context);
 
@@ -417,7 +419,7 @@ class LinkingComdatSubsection : public LinkingSubsection
 class SymbolTableInfo : public TreeNode
 {
     public:
-        virtual void show(std::ostream& os, Context& context);
+        virtual void show(std::ostream& os, Module* context);
 
         virtual std::string_view getName() const
         {
@@ -441,7 +443,7 @@ class SymbolTableInfo : public TreeNode
 class SymbolTableFGETInfo : public SymbolTableInfo
 {
     public:
-        virtual void show(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
 
         virtual std::string_view getName() const override
         {
@@ -473,7 +475,7 @@ class SymbolTableFGETInfo : public SymbolTableInfo
 class SymbolTableDataInfo : public SymbolTableInfo
 {
     public:
-        virtual void show(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
 
         virtual std::string_view getName() const override
         {
@@ -537,7 +539,7 @@ class SymbolTableSectionInfo : public SymbolTableInfo
             tableIndex = value;
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
 
         static SymbolTableSectionInfo* read(BinaryContext& context, SymbolFlags flags);
 
@@ -553,7 +555,7 @@ class LinkingSymbolTableSubSectionn : public LinkingSubsection
             return infos;
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
 
         static LinkingSymbolTableSubSectionn* read(BinaryContext& context);
 
@@ -579,8 +581,8 @@ class LinkingSection : public CustomSection
             return subSections;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override
         {
@@ -632,8 +634,8 @@ class Local : public TreeNode
             return number;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
 
         static Local* parse(SourceContext& context);
@@ -670,8 +672,8 @@ class Signature : public TreeNode
             return results;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -724,8 +726,8 @@ class TypeUse
 
         void checkSignature(SourceContext& context);
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void write(BinaryContext& context) const;
 
         static void parse(SourceContext& context, TypeUse* result);
@@ -771,8 +773,8 @@ class TypeDeclaration : public TreeNode
             number = n;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -804,12 +806,12 @@ class TypeSection : public Section
             return types;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
-        static void read(BinaryContext& context, TypeSection* result);
+        static TypeSection* read(BinaryContext& context);
 
     private:
         std::vector<std::unique_ptr<TypeDeclaration>> types;
@@ -864,8 +866,8 @@ class ImportDeclaration : public TreeNode
         }
 
         void generateNames(std::ostream& os);
-        virtual void show(std::ostream& os, Context& context) = 0;
-        virtual void generate(std::ostream& os, Context& context) = 0;
+        virtual void show(std::ostream& os, Module* context) = 0;
+        virtual void generate(std::ostream& os, Module* context) = 0;
         virtual void check(CheckContext& context) = 0;
         virtual void write(BinaryContext& context) const = 0;
 
@@ -901,8 +903,8 @@ class FunctionImport : public TypeUse, public ImportDeclaration
             id = value;
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -957,8 +959,8 @@ class TableImport : public Table, public ImportDeclaration
         {
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1002,8 +1004,8 @@ class MemoryImport : public Memory, public ImportDeclaration
         {
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1058,8 +1060,8 @@ class EventImport : public Event, public ImportDeclaration
         {
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1114,8 +1116,8 @@ class GlobalImport : public Global, public ImportDeclaration
         {
         }
 
-        virtual void show(std::ostream& os, Context& context) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1131,8 +1133,8 @@ class ImportSection : public Section
         {
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1165,8 +1167,8 @@ class FunctionDeclaration : public TypeUse, public TreeNode
             number = i;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1195,8 +1197,8 @@ class FunctionSection : public Section
             functions.emplace_back(function);
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1219,8 +1221,8 @@ class TableDeclaration : public Table, public TreeNode
             number = i;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1249,8 +1251,8 @@ class TableSection : public Section
             return tables;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1273,8 +1275,8 @@ class MemoryDeclaration : public Memory, public TreeNode
             number = i;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1303,8 +1305,8 @@ class MemorySection : public Section
             return memories;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1327,8 +1329,8 @@ class EventDeclaration : public Event, public TreeNode
             number = i;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1357,8 +1359,8 @@ class EventSection : public Section
             return events;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1381,8 +1383,8 @@ class GlobalDeclaration : public Global, public TreeNode
             number = i;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1412,8 +1414,8 @@ class GlobalSection : public Section
             return globals;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1466,8 +1468,8 @@ class ExportDeclaration : public TreeNode
             kind = k;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1499,8 +1501,8 @@ class ExportSection : public Section
             return exports;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1528,8 +1530,8 @@ class StartSection : public Section
             functionIndex = value;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1583,8 +1585,8 @@ class ElementDeclaration : public TreeNode
             expression.reset(value);
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1616,8 +1618,8 @@ class ElementSection : public Section
             elements.emplace_back(element);
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1645,8 +1647,8 @@ class CodeEntry : public TreeNode
             return locals;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1677,8 +1679,8 @@ class CodeSection : public Section
             return codes;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1721,8 +1723,8 @@ class DataSegment : public TreeNode
             init = value;
         }
 
-        void show(std::ostream& os, Context& context);
-        void generate(std::ostream& os, Context& context);
+        void show(std::ostream& os, Module* context);
+        void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1761,8 +1763,8 @@ class DataSection : public Section
 
         static DataSection* read(BinaryContext& context);
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1788,8 +1790,8 @@ class DataCountSection : public Section
             dataCount = value;
         }
 
-        virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
-        virtual void generate(std::ostream& os, Context& context) override;
+        virtual void show(std::ostream& os, Module* context, unsigned flags = 0) override;
+        virtual void generate(std::ostream& os, Module* context) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 

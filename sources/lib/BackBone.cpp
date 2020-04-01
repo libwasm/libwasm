@@ -3,6 +3,7 @@
 #include "BackBone.h"
 
 #include "Instruction.h"
+#include "Module.h"
 #include "common.h"
 #include "parser.h"
 
@@ -94,11 +95,11 @@ static void writeByteArray(BinaryContext& context, std::string_view str)
     data.append(str);
 }
 
-static void shsowFunctionIndex(std::ostream& os, uint32_t index, Context& context)
+static void shsowFunctionIndex(std::ostream& os, uint32_t index, Module* module)
 {
     os << index;
 
-    auto id = context.getFunction(index)->getId();
+    auto id = module->getFunction(index)->getId();
 
     if (!id.empty()) {
         os << " \"" << id << "\"";
@@ -172,12 +173,12 @@ void CustomSection::check(CheckContext& context)
     // nothing to do
 }
 
-void CustomSection::generate(std::ostream& os, Context& context)
+void CustomSection::generate(std::ostream& os, Module* module)
 {
     // nothing to do
 }
 
-void CustomSection::show(std::ostream& os, Context& context, unsigned flags)
+void CustomSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Custom section " << name << ":\n";
 }
@@ -198,13 +199,13 @@ RelocationEntry* RelocationEntry::read(BinaryContext& context)
     return result;
 }
 
-void RelocationEntry::show(std::ostream& os, Context& context)
+void RelocationEntry::show(std::ostream& os, Module* module)
 {
     auto flags = os.flags();
 
     os << "  " << type << ", offset=0x" << std::hex << offset << std::dec << ", index=" << index;
 
-    auto* symbol = context.getSymbol(index);
+    auto* symbol = module->getSymbol(index);
     auto indexName { symbol->getName() };
 
     if (indexName.empty()) {
@@ -212,7 +213,7 @@ void RelocationEntry::show(std::ostream& os, Context& context)
             case RelocationType::functionIndexLeb:
             {
                 if (indexName.empty()) {
-                    indexName = context.getFunction(symbol->getIndex())->getId();
+                    indexName = module->getFunction(symbol->getIndex())->getId();
                 }
 
                 break;
@@ -254,18 +255,18 @@ void RelocationSection::check(CheckContext& context)
     // nothing to do
 }
 
-void RelocationSection::generate(std::ostream& os, Context& context)
+void RelocationSection::generate(std::ostream& os, Module* module)
 {
     // nothing to do
 }
 
-void RelocationSection::show(std::ostream& os, Context& context, unsigned flags)
+void RelocationSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Relocation section " << name << ":";
     os << " target section=" << targetSectionIndex << '\n';
 
     for (auto& relocation : relocations) {
-        relocation->show(os, context);
+        relocation->show(os, module);
     }
 
     os << '\n';
@@ -283,7 +284,7 @@ LinkingSegmentInfo* LinkingSegmentInfo::read(BinaryContext& context)
     return result;
 }
 
-void LinkingSegmentInfo::show(std::ostream& os, Context& context)
+void LinkingSegmentInfo::show(std::ostream& os, Module* module)
 {
     os << "    name=\"" << name << "\", align=" << align << ", flags=" << flags << '\n';
 }
@@ -300,12 +301,12 @@ LinkingSegmentSubsection* LinkingSegmentSubsection::read(BinaryContext& context)
     return result;
 }
 
-void LinkingSegmentSubsection::show(std::ostream& os, Context& context)
+void LinkingSegmentSubsection::show(std::ostream& os, Module* module)
 {
     os << "  segment info\n";
 
     for (auto& info : infos) {
-        info->show(os, context);
+        info->show(os, module);
     }
 }
 
@@ -320,7 +321,7 @@ LinkingInitFunc* LinkingInitFunc::read(BinaryContext& context)
     return result;
 }
 
-void LinkingInitFunc::show(std::ostream& os, Context& context)
+void LinkingInitFunc::show(std::ostream& os, Module* module)
 {
     os << "    function=" << functionIndex << ", priority=" << priority << '\n';
 }
@@ -337,12 +338,12 @@ LinkingInitFuncSubsection* LinkingInitFuncSubsection::read(BinaryContext& contex
     return result;
 }
 
-void LinkingInitFuncSubsection::show(std::ostream& os, Context& context)
+void LinkingInitFuncSubsection::show(std::ostream& os, Module* module)
 {
     os << "  init functions\n";
 
     for (auto& init : inits) {
-        init->show(os, context);
+        init->show(os, module);
     }
 }
 
@@ -357,7 +358,7 @@ ComdatSym* ComdatSym::read(BinaryContext& context)
     return result;
 }
 
-void ComdatSym::show(std::ostream& os, Context& context)
+void ComdatSym::show(std::ostream& os, Module* module)
 {
     os << "      " << kind << ", index=" << index << '\n';
 }
@@ -377,12 +378,12 @@ LinkingComdat* LinkingComdat::read(BinaryContext& context)
     return result;
 }
 
-void LinkingComdat::show(std::ostream& os, Context& context)
+void LinkingComdat::show(std::ostream& os, Module* module)
 {
     os << "    name =\"" << name << "\", flags=" << flags << "\n";
 
     for (auto& sym : syms) {
-        sym->show(os, context);
+        sym->show(os, module);
     }
 }
 
@@ -398,12 +399,12 @@ LinkingComdatSubsection* LinkingComdatSubsection::read(BinaryContext& context)
     return result;
 }
 
-void LinkingComdatSubsection::show(std::ostream& os, Context& context)
+void LinkingComdatSubsection::show(std::ostream& os, Module* module)
 {
     os << "  comdats\n";
 
     for (auto& comdat : comdats) {
-        comdat->show(os, context);
+        comdat->show(os, module);
     }
 }
 
@@ -421,7 +422,7 @@ SymbolTableFGETInfo* SymbolTableFGETInfo::read(BinaryContext& context,
 
         switch(kind) {
             case SymbolKind::function:
-                context.getFunction(result->index)->setId(result->name);
+                context.getModule()->getFunction(result->index)->setId(result->name);
                 break;
 
             default:
@@ -432,7 +433,7 @@ SymbolTableFGETInfo* SymbolTableFGETInfo::read(BinaryContext& context,
     return result;
 }
 
-void SymbolTableFGETInfo::show(std::ostream& os, Context& context)
+void SymbolTableFGETInfo::show(std::ostream& os, Module* module)
 {
     os << "    " << kind << ", index=" << index;
 
@@ -460,7 +461,7 @@ SymbolTableDataInfo* SymbolTableDataInfo::read(BinaryContext& context, SymbolFla
     return result;
 }
 
-void SymbolTableDataInfo::show(std::ostream& os, Context& context)
+void SymbolTableDataInfo::show(std::ostream& os, Module* module)
 {
     os << "    " << kind << ", name=\"" << name << '\"';
 
@@ -482,7 +483,7 @@ SymbolTableSectionInfo* SymbolTableSectionInfo::read(BinaryContext& context, Sym
     return result;
 }
 
-void SymbolTableSectionInfo::show(std::ostream& os, Context& context)
+void SymbolTableSectionInfo::show(std::ostream& os, Module* module)
 {
     os << "    " << kind << ", index=" << tableIndex;
     showFlags(os);
@@ -517,12 +518,12 @@ SymbolTableInfo* SymbolTableInfo::read(BinaryContext& context)
     result->kind = kind;
     result->flags = flags;
 
-    context.addSymbol(result);
+    context.getModule()->addSymbol(result);
 
     return result;
 }
 
-void SymbolTableInfo::show(std::ostream& os, Context& context)
+void SymbolTableInfo::show(std::ostream& os, Module* module)
 {
 }
 
@@ -571,12 +572,12 @@ LinkingSymbolTableSubSectionn* LinkingSymbolTableSubSectionn::read(BinaryContext
     return result;
 }
 
-void LinkingSymbolTableSubSectionn::show(std::ostream& os, Context& context)
+void LinkingSymbolTableSubSectionn::show(std::ostream& os, Module* module)
 {
     os << "  Symbol table\n";
 
     for (auto& info : infos) {
-        info->show(os, context);
+        info->show(os, module);
     }
 }
 
@@ -615,7 +616,7 @@ LinkingSubsection* LinkingSubsection::read(BinaryContext& context)
     return result;
 }
 
-void LinkingSubsection::show(std::ostream& os, Context& context)
+void LinkingSubsection::show(std::ostream& os, Module* module)
 {
 }
 
@@ -640,17 +641,17 @@ void LinkingSection::check(CheckContext& context)
     // nothing to do
 }
 
-void LinkingSection::generate(std::ostream& os, Context& context)
+void LinkingSection::generate(std::ostream& os, Module* module)
 {
     // nothing to do
 }
 
-void LinkingSection::show(std::ostream& os, Context& context, unsigned flags)
+void LinkingSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Linking section:\n";
 
     for (auto& subSection : subSections) {
-        subSection->show(os, context);
+        subSection->show(os, module);
     }
 
     os << '\n';
@@ -696,6 +697,7 @@ void Signature::write(BinaryContext& context) const
 
 Signature* Signature::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
     auto result = context.makeTreeNode<Signature>();
     bool found = false;
@@ -706,10 +708,10 @@ Signature* Signature::parse(SourceContext& context)
             if (auto value = parseValueType(context)) {
                 auto local = context.makeTreeNode<Local>(*id, *value);
 
-                local->setNumber(context.nextLocalCount());
+                local->setNumber(module->nextLocalCount());
 
                 result->params.emplace_back(local);
-                if (!context.addLocalId(*id, local->getNumber())) {
+                if (!module->addLocalId(*id, local->getNumber())) {
                     context.msgs().error(tokens.peekToken(-1), "Duplicate local id.");
                 }
             }
@@ -718,7 +720,7 @@ Signature* Signature::parse(SourceContext& context)
                 if (auto valueType = parseValueType(context)) {
                     auto local = context.makeTreeNode<Local>(*valueType);
 
-                    local->setNumber(context.nextLocalCount());
+                    local->setNumber(module->nextLocalCount());
 
                     result->params.emplace_back(local);
                 } else {
@@ -782,7 +784,7 @@ void Signature::check(CheckContext& context)
     }
 }
 
-void Signature::generate(std::ostream& os, Context& context)
+void Signature::generate(std::ostream& os, Module* module)
 {
     bool inParam = false;
 
@@ -819,7 +821,7 @@ void Signature::generate(std::ostream& os, Context& context)
     }
 }
 
-void Signature::show(std::ostream& os, Context& context)
+void Signature::show(std::ostream& os, Module* module)
 {
     const char* separator = "";
 
@@ -857,6 +859,7 @@ void TypeDeclaration::write(BinaryContext& context) const
 
 TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "type")) {
@@ -865,12 +868,12 @@ TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<TypeDeclaration>();
 
-    result->number = context.getTypeCount();
+    result->number = context.getModule()->getTypeCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
 
-        if (!context.addTypeId(*id, result->number)) {
+        if (!module->addTypeId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate type id.");
         }
     }
@@ -912,7 +915,7 @@ TypeDeclaration* TypeDeclaration::read(BinaryContext& context)
     }
 
     result->signature.reset(Signature::read(context));
-    result->number = context.getTypeCount();
+    result->number = context.getModule()->getTypeCount();
 
     return result;
 }
@@ -922,20 +925,20 @@ void TypeDeclaration::check(CheckContext& context)
     signature->check(context);
 }
 
-void TypeDeclaration::generate(std::ostream& os, Context& context)
+void TypeDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n  (type (;" << number << ";) (func";
 
-    signature->generate(os, context);
+    signature->generate(os, module);
 
     os << "))";
 }
 
-void TypeDeclaration::show(std::ostream& os, Context& context)
+void TypeDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  Type " << number << ": ";
 
-    signature->show(os, context);
+    signature->show(os, module);
     os << '\n';
 }
 
@@ -957,11 +960,12 @@ void TypeSection::write(BinaryContext& context) const
     data.append(text);
 }
 
-void TypeSection::read(BinaryContext& context, TypeSection* result)
+TypeSection* TypeSection::read(BinaryContext& context)
 {
     auto& data = context.data();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto* result = new TypeSection;
 
     context.msgs().setSectionName("Type");
 
@@ -969,7 +973,10 @@ void TypeSection::read(BinaryContext& context, TypeSection* result)
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         context.msgs().setEntryNumber(i);
-        result->types.emplace_back(TypeDeclaration::read(context));
+        auto* typeDeclaration = TypeDeclaration::read(context);
+
+        typeDeclaration->setNumber(i);
+        result->types.emplace_back(typeDeclaration);
     }
 
     if (data.getPos() != startPos + size) {
@@ -978,6 +985,7 @@ void TypeSection::read(BinaryContext& context, TypeSection* result)
     }
 
     context.msgs().resetInfo();
+    return result;
 }
 
 void TypeSection::check(CheckContext& context)
@@ -986,26 +994,26 @@ void TypeSection::check(CheckContext& context)
 
     for (auto& type : types) {
         context.msgs().errorWhen(type->getNumber() != count, type.get(),
-                "Invalid type number ", type->getNumber(), "; exported ", count);
+                "Invalid type number ", type->getNumber(), "; expected ", count);
         ++count;
 
         type->check(context);
     }
 }
 
-void TypeSection::generate(std::ostream& os, Context& context)
+void TypeSection::generate(std::ostream& os, Module* module)
 {
     for (auto& type : types) {
-        type->generate(os, context);
+        type->generate(os, module);
     }
 }
 
-void TypeSection::show(std::ostream& os, Context& context, unsigned flags)
+void TypeSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Type section:\n";
 
     for (auto& type : types) {
-        type->show(os, context);
+        type->show(os, module);
     }
 
     os << '\n';
@@ -1013,7 +1021,8 @@ void TypeSection::show(std::ostream& os, Context& context, unsigned flags)
 
 void TypeUse::checkSignature(SourceContext& context)
 {
-    auto* typeSection = context.getTypeSection();
+    auto* module = context.getModule();
+    auto* typeSection = module->getTypeSection();
 
     if (signatureIndex == invalidIndex) {
         if (!signature) {
@@ -1023,8 +1032,8 @@ void TypeUse::checkSignature(SourceContext& context)
         if (typeSection == 0) {
             typeSection = context.makeTreeNode<TypeSection>();
 
-            context.setTypeSectionIndex(context.getSections().size());
-            context.getSections().emplace_back(typeSection);
+            module->setTypeSectionIndex(module->getSections().size());
+            module->getSections().emplace_back(typeSection);
         }
 
         auto& types = typeSection->getTypes();
@@ -1038,12 +1047,12 @@ void TypeUse::checkSignature(SourceContext& context)
 
         auto* typeDeclaration = context.makeTreeNode<TypeDeclaration>(context.makeTreeNode<Signature>(*signature));
 
-        typeDeclaration->setNumber(context.getTypeCount());
+        typeDeclaration->setNumber(module->getTypeCount());
         typeSection->getTypes().emplace_back(typeDeclaration);
 
         signatureIndex = typeDeclaration->getNumber();
     } else {
-        auto* typeDeclaration = context.getType(signatureIndex);
+        auto* typeDeclaration = module->getType(signatureIndex);
 
         if (signature) {
             if (*signature != *typeDeclaration->getSignature()) {
@@ -1053,7 +1062,7 @@ void TypeUse::checkSignature(SourceContext& context)
             signature.reset(context.makeTreeNode<Signature>(*typeDeclaration->getSignature()));
 
             for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
-                context.nextLocalCount();
+                module->nextLocalCount();
             }
         }
     }
@@ -1068,17 +1077,18 @@ void TypeUse::write(BinaryContext& context) const
 
 void TypeUse::parse(SourceContext& context, TypeUse* result)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
     auto& msgs = context.msgs();
 
     if (startClause(context, "type")) {
         if (auto id = tokens.getId()) {
-            result->signatureIndex = context.getTypeIndex(*id);
+            result->signatureIndex = module->getTypeIndex(*id);
             msgs.errorWhen(result->signatureIndex == invalidIndex, tokens.peekToken(-1),
                     "Type with id '", *id, "' does not exist.");
         } else if (auto index = tokens.getU32()) {
             result->signatureIndex = *index;
-            msgs.errorWhen(*index >= context.getTypeCount(), tokens.peekToken(-1),
+            msgs.errorWhen(*index >= module->getTypeCount(), tokens.peekToken(-1),
                     "Type index ", *index, " out of bounds.");
         }
 
@@ -1101,20 +1111,20 @@ void TypeUse::read(BinaryContext& context, TypeUse* result)
 
     result->signatureIndex = data.getU32leb();
 
-    auto* typeDeclaration = context.getType(result->signatureIndex);
+    auto* typeDeclaration = context.getModule()->getType(result->signatureIndex);
 
     result->signature.reset(context.makeTreeNode<Signature>(*typeDeclaration->getSignature()));
 }
 
-void TypeUse::generate(std::ostream& os, Context& context)
+void TypeUse::generate(std::ostream& os, Module* module)
 {
     os << " (type " << signatureIndex << ')';
 }
 
-void TypeUse::show(std::ostream& os, Context& context)
+void TypeUse::show(std::ostream& os, Module* module)
 {
     os << " signature index=\"" << signatureIndex << "\" ";
-    signature->show(os, context);
+    signature->show(os, module);
 }
 
 void FunctionImport::write(BinaryContext& context) const
@@ -1130,6 +1140,7 @@ void FunctionImport::write(BinaryContext& context) const
 
 FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "func")) {
@@ -1138,9 +1149,9 @@ FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_
 
     auto result = context.makeTreeNode<FunctionImport>();
 
-    context.addFunction(result);
-    context.startFunction();
-    result->number = context.nextFunctionCount();
+    module->addFunction(result);
+    module->startFunction();
+    result->number = module->nextFunctionCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
@@ -1148,7 +1159,7 @@ FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_
         result->id = name;
     }
 
-    if (!context.addFunctionId(result->id, result->number)) {
+    if (!module->addFunctionId(result->id, result->number)) {
         context.msgs().error(tokens.peekToken(-1), "Duplicate function id '", result->id, "'.");
     }
 
@@ -1164,17 +1175,18 @@ FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_
  
 FunctionImport* FunctionImport::read(BinaryContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto result = context.makeTreeNode<FunctionImport>();
 
-    context.addFunction(result);
-    result->number = context.nextFunctionCount();
+    module->addFunction(result);
+    result->number = module->nextFunctionCount();
 
     TypeUse::read(context, result);
     if (result->id.empty()) {
         result->id = name;
     }
 
-    context.addFunctionId(name, result->number);
+    module->addFunctionId(name, result->number);
 
     return result;
 }
@@ -1185,21 +1197,21 @@ void FunctionImport::check(CheckContext& context)
     signature->check(context);
 }
 
-void FunctionImport::generate(std::ostream& os, Context& context)
+void FunctionImport::generate(std::ostream& os, Module* module)
 {
     os << "\n  (import";
     generateNames(os);
     os << " (func (;" << number << ";)";
-    static_cast<TypeUse*>(this)->generate(os, context);
+    static_cast<TypeUse*>(this)->generate(os, module);
     os << "))";
 }
 
-void FunctionImport::show(std::ostream& os, Context& context)
+void FunctionImport::show(std::ostream& os, Module* module)
 {
     os << "  func " << number << ':';
     generateNames(os);
     os << ", ";
-    static_cast<TypeUse*>(this)->show(os, context);
+    static_cast<TypeUse*>(this)->show(os, module);
     os << '\n';
 }
 
@@ -1216,6 +1228,7 @@ void MemoryImport::write(BinaryContext& context) const
 
 MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "memory")) {
@@ -1224,11 +1237,11 @@ MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view
 
     auto result = context.makeTreeNode<MemoryImport>();
 
-    result->number = context.nextMemoryCount();
+    result->number = module->nextMemoryCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addMemoryId(*id, result->number)) {
+        if (!module->addMemoryId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate memory id.");
         }
     }
@@ -1250,10 +1263,11 @@ MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view
  
 MemoryImport* MemoryImport::read(BinaryContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto result = context.makeTreeNode<MemoryImport>();
 
     result->limits = readLimits(context);
-    result->number = context.nextMemoryCount();
+    result->number = module->nextMemoryCount();
 
     return result;
 }
@@ -1263,7 +1277,7 @@ void MemoryImport::check(CheckContext& context)
     context.checkLimits(this, limits);
 }
 
-void MemoryImport::generate(std::ostream& os, Context& context)
+void MemoryImport::generate(std::ostream& os, Module* module)
 {
     os << "\n  (import";
     generateNames(os);
@@ -1272,7 +1286,7 @@ void MemoryImport::generate(std::ostream& os, Context& context)
     os << "))";
 }
 
-void MemoryImport::show(std::ostream& os, Context& context)
+void MemoryImport::show(std::ostream& os, Module* module)
 {
     os << "  memory " << number << ':';
     generateNames(os);
@@ -1295,6 +1309,7 @@ void EventImport::write(BinaryContext& context) const
 
 EventImport* EventImport::parse(SourceContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "event")) {
@@ -1303,11 +1318,11 @@ EventImport* EventImport::parse(SourceContext& context, const std::string_view n
 
     auto result = context.makeTreeNode<EventImport>();
 
-    result->number = context.nextEventCount();
+    result->number = module->nextEventCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addEventId(*id, result->number)) {
+        if (!module->addEventId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
         }
     }
@@ -1330,12 +1345,13 @@ EventImport* EventImport::parse(SourceContext& context, const std::string_view n
  
 EventImport* EventImport::read(BinaryContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<EventImport>();
 
     result->attribute = EventType(data.getU8());
     result->typeIndex = data.getU32leb();
-    result->number = context.nextEventCount();
+    result->number = module->nextEventCount();
 
     return result;
 }
@@ -1346,7 +1362,7 @@ void EventImport::check(CheckContext& context)
     context.checkTypeIndex(this, typeIndex);
 }
 
-void EventImport::generate(std::ostream& os, Context& context)
+void EventImport::generate(std::ostream& os, Module* module)
 {
     os << attribute << ' ' << typeIndex;
     os << "\n  (import";
@@ -1355,7 +1371,7 @@ void EventImport::generate(std::ostream& os, Context& context)
     os << "))";
 }
 
-void EventImport::show(std::ostream& os, Context& context)
+void EventImport::show(std::ostream& os, Module* module)
 {
     os << "  event " << number << ':';
     generateNames(os);
@@ -1378,6 +1394,7 @@ void TableImport::write(BinaryContext& context) const
 
 TableImport* TableImport::parse(SourceContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "table")) {
@@ -1386,12 +1403,12 @@ TableImport* TableImport::parse(SourceContext& context, const std::string_view n
 
     auto result = context.makeTreeNode<TableImport>();
 
-    context.addTable(result);
-    result->number = context.nextTableCount();
+    module->addTable(result);
+    result->number = module->nextTableCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addTableId(*id, result->number)) {
+        if (!module->addTableId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate table id.");
         }
     }
@@ -1419,12 +1436,13 @@ TableImport* TableImport::parse(SourceContext& context, const std::string_view n
  
 TableImport* TableImport::read(BinaryContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto result = context.makeTreeNode<TableImport>();
 
-    context.addTable(result);
+    module->addTable(result);
     result->type = readElementType(context);
     result->limits = readLimits(context);
-    result->number = context.nextTableCount();
+    result->number = module->nextTableCount();
 
     return result;
 }
@@ -1435,7 +1453,7 @@ void TableImport::check(CheckContext& context)
     context.checkLimits(this, limits);
 }
 
-void TableImport::generate(std::ostream& os, Context& context)
+void TableImport::generate(std::ostream& os, Module* module)
 {
     os << "\n  (import";
     generateNames(os);
@@ -1444,7 +1462,7 @@ void TableImport::generate(std::ostream& os, Context& context)
     os << ' ' << type << "))";
 }
 
-void TableImport::show(std::ostream& os, Context& context)
+void TableImport::show(std::ostream& os, Module* module)
 {
     os << "  table " << number << ':';
     generateNames(os);
@@ -1467,6 +1485,7 @@ void GlobalImport::write(BinaryContext& context) const
 
 GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
     auto& msgs = context.msgs();
 
@@ -1476,12 +1495,12 @@ GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view
 
     auto result = context.makeTreeNode<GlobalImport>();
 
-    result->number = context.nextGlobalCount();
-    context.addGlobal(result);
+    result->number = module->nextGlobalCount();
+    module->addGlobal(result);
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addGlobalId(*id, result->number)) {
+        if (!module->addGlobalId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate global id.");
         }
     }
@@ -1515,12 +1534,13 @@ GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view
  
 GlobalImport* GlobalImport::read(BinaryContext& context, const std::string_view name)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<GlobalImport>();
 
     result->type = readValueType(context);
     result->mut = Mut(data.getU8());
-    result->number = context.nextGlobalCount();
+    result->number = module->nextGlobalCount();
 
     return result;
 }
@@ -1531,7 +1551,7 @@ void GlobalImport::check(CheckContext& context)
     context.checkMut(this, mut);
 }
 
-void GlobalImport::generate(std::ostream& os, Context& context)
+void GlobalImport::generate(std::ostream& os, Module* module)
 {
     os << "\n  (import";
     generateNames(os);
@@ -1546,7 +1566,7 @@ void GlobalImport::generate(std::ostream& os, Context& context)
     os << "))";
 }
 
-void GlobalImport::show(std::ostream& os, Context& context)
+void GlobalImport::show(std::ostream& os, Module* module)
 {
     os << "  global " << number << ':';
     generateNames(os);
@@ -1565,6 +1585,7 @@ void ImportDeclaration::generateNames(std::ostream& os)
 
 ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "func")) {
@@ -1583,9 +1604,9 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<FunctionImport>();
 
-    context.addFunction(result);
-    context.startFunction();
-    result->number = context.nextFunctionCount();
+    module->addFunction(result);
+    module->startFunction();
+    result->number = module->nextFunctionCount();
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1600,7 +1621,7 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!context.addFunctionId(result->getId(), result->number)) {
+    if (!module->addFunctionId(result->getId(), result->number)) {
         context.msgs().error(tokens.peekToken(-1), "Duplicate function id '", result->getId(), "'.");
     }
 
@@ -1621,6 +1642,7 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
 
 ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "table")) {
@@ -1639,8 +1661,8 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<TableImport>();
 
-    context.addTable(result);
-    result->number = context.nextTableCount();
+    module->addTable(result);
+    result->number = module->nextTableCount();
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1655,7 +1677,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!context.addTableId(result->getId(), result->number)) {
+    if (!module->addTableId(result->getId(), result->number)) {
         context.msgs().error(tokens.peekToken(-1), "Duplicate table id '", result->getId(), "'.");
     }
 
@@ -1687,6 +1709,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
 
 ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "memory")) {
@@ -1705,8 +1728,8 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<MemoryImport>();
 
-    context.addMemory(result);
-    result->number = context.nextMemoryCount();
+    module->addMemory(result);
+    result->number = module->nextMemoryCount();
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1721,7 +1744,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!context.addMemoryId(result->getId(), result->number)) {
+    if (!module->addMemoryId(result->getId(), result->number)) {
         context.msgs().error(tokens.peekToken(-1), "Duplicate memory id '", result->getId(), "'.");
     }
 
@@ -1747,6 +1770,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
 
 ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "event")) {
@@ -1765,8 +1789,8 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<EventImport>();
 
-    context.addEvent(result);
-    result->number = context.nextEventCount();
+    module->addEvent(result);
+    result->number = module->nextEventCount();
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1781,7 +1805,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!context.addEventId(result->getId(), result->number)) {
+    if (!module->addEventId(result->getId(), result->number)) {
         context.msgs().error(tokens.peekToken(-1), "Duplicate event id '", result->getId(), "'.");
     }
 
@@ -1806,6 +1830,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
 
 ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "global")) {
@@ -1824,8 +1849,8 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<GlobalImport>();
 
-    context.addGlobal(result);
-    result->number = context.nextGlobalCount();
+    module->addGlobal(result);
+    result->number = module->nextGlobalCount();
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1840,7 +1865,7 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!context.addGlobalId(result->getId(), result->number)) {
+    if (!module->addGlobalId(result->getId(), result->number)) {
         context.msgs().error(tokens.peekToken(-1), "Duplicate global id '", result->getId(), "'.");
     }
 
@@ -2005,7 +2030,7 @@ ImportSection* ImportSection::read(BinaryContext& context)
         import->setModuleName(moduleName);
         import->setName(name);
 
-        context.addImport(import);
+        context.getModule()->addImport(import);
         result->imports.emplace_back(import);
     }
 
@@ -2025,19 +2050,19 @@ void ImportSection::check(CheckContext& context)
     }
 }
 
-void ImportSection::generate(std::ostream& os, Context& context)
+void ImportSection::generate(std::ostream& os, Module* module)
 {
     for (auto& import : imports) {
-        import->generate(os, context);
+        import->generate(os, module);
     }
 }
 
-void ImportSection::show(std::ostream& os, Context& context, unsigned flags)
+void ImportSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Import section:\n";
 
     for (auto& import : imports) {
-        import->show(os, context);
+        import->show(os, module);
     }
 
     os << '\n';
@@ -2050,6 +2075,7 @@ void FunctionDeclaration::write(BinaryContext& context) const
 
 FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "func")) {
@@ -2058,14 +2084,14 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<FunctionDeclaration>();
 
-    context.addFunction(result);
-    context.startFunction();
+    module->addFunction(result);
+    module->startFunction();
 
-    result->number = context.nextFunctionCount();
+    result->number = module->nextFunctionCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addFunctionId(result->id, result->number)) {
+        if (!module->addFunctionId(result->id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate function id.");
         }
     }
@@ -2074,11 +2100,11 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
         auto* _export = context.makeTreeNode<ExportDeclaration>();
 
         _export->setKind(ExternalType::function);
-        _export->setNumber(context.nextExportCount());
+        _export->setNumber(module->nextExportCount());
         _export->setName(requiredString(context));
         _export->setIndex(result->number);
 
-        context.addExport(_export);
+        module->addExportEntry(_export);
 
         if (!requiredParenthesis(context, ')')) {
             tokens.recover();
@@ -2087,7 +2113,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
     }
 
     TypeUse::parse(context, result);
-    context.endFunction();
+    module->endFunction();
 
     // no closing parenthesis because code entry follows.
     return result;
@@ -2095,12 +2121,13 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
  
 FunctionDeclaration* FunctionDeclaration::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto result = context.makeTreeNode<FunctionDeclaration>();
 
-    context.addFunction(result);
+    module->addFunction(result);
 
     TypeUse::read(context, result);
-    result->number = context.nextFunctionCount();
+    result->number = module->nextFunctionCount();
 
     return result;
 }
@@ -2111,12 +2138,12 @@ void FunctionDeclaration::check(CheckContext& context)
     signature->check(context);
 }
 
-void FunctionDeclaration::generate(std::ostream& os, Context& context)
+void FunctionDeclaration::generate(std::ostream& os, Module* module)
 {
     // nothing to do
 }
 
-void FunctionDeclaration::show(std::ostream& os, Context& context)
+void FunctionDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  func " << number;
 
@@ -2125,7 +2152,7 @@ void FunctionDeclaration::show(std::ostream& os, Context& context)
     }
 
     os << ": ";
-    static_cast<TypeUse*>(this)->show(os, context);
+    static_cast<TypeUse*>(this)->show(os, module);
     os << '\n';
 }
 
@@ -2149,6 +2176,7 @@ void FunctionSection::write(BinaryContext& context) const
 
 FunctionSection* FunctionSection::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<FunctionSection>();
     auto size = data.getU32leb();
@@ -2158,7 +2186,7 @@ FunctionSection* FunctionSection::read(BinaryContext& context)
 
     result->setOffsets(startPos, startPos + size);
 
-    context.startLocalFunctions();
+    module->startLocalFunctions();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         context.msgs().setEntryNumber(i);
@@ -2176,7 +2204,7 @@ FunctionSection* FunctionSection::read(BinaryContext& context)
 
 void FunctionSection::check(CheckContext& context)
 {
-    uint32_t count = context.getLocalFunctionStart();
+    uint32_t count = context.getModule()->getLocalFunctionStart();
 
     for (auto& function : functions) {
         context.msgs().errorWhen(function->getNumber() != count, function.get(),
@@ -2187,17 +2215,17 @@ void FunctionSection::check(CheckContext& context)
     }
 }
 
-void FunctionSection::generate(std::ostream& os, Context& context)
+void FunctionSection::generate(std::ostream& os, Module* module)
 {
     // nothing to do
 }
 
-void FunctionSection::show(std::ostream& os, Context& context, unsigned flags)
+void FunctionSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Function section:\n";
 
     for (auto& function : functions) {
-        function->show(os, context);
+        function->show(os, module);
     }
 
     os << '\n';
@@ -2211,6 +2239,7 @@ void TableDeclaration::write(BinaryContext& context) const
 
 TableDeclaration* TableDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "table")) {
@@ -2219,12 +2248,12 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<TableDeclaration>();
 
-    context.addTable(result);
-    result->number = context.nextTableCount();
+    module->addTable(result);
+    result->number = module->nextTableCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addTableId(*id, result->number)) {
+        if (!module->addTableId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate table id.");
         }
     }
@@ -2236,7 +2265,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
             auto element = context.makeTreeNode<ElementDeclaration>();
             uint32_t functionIndexCount = 0;
 
-            element->setNumber(context.nextElementCount());
+            element->setNumber(module->nextElementCount());
             element->setTableIndex(result->getNumber());
             while (auto index = parseFunctionIndex(context)) {
                 element->addFunctionIndex(*index);
@@ -2255,7 +2284,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
                 return result;
             }
 
-            context.addElement(element);
+            module->addElementEntry(element);
 
             result->limits.min = functionIndexCount;
             result->limits.max = functionIndexCount;
@@ -2288,21 +2317,22 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
  
 TableDeclaration* TableDeclaration::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto result = context.makeTreeNode<TableDeclaration>();
 
-    context.addTable(result);
+    module->addTable(result);
     result->type = readElementType(context);
 
     result->limits = readLimits(context);
-    result->number = context.nextTableCount();
+    result->number = module->nextTableCount();
 
     return result;
 }
 
-void TableDeclaration::show(std::ostream& os, Context& context)
+void TableDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  table ";
-    shsowFunctionIndex(os, number, context);
+    shsowFunctionIndex(os, number, module);
 
     os << ": type=" << type << ',';
     limits.show(os);
@@ -2315,7 +2345,7 @@ void TableDeclaration::check(CheckContext& context)
     context.checkLimits(this, limits);
 }
 
-void TableDeclaration::generate(std::ostream& os, Context& context)
+void TableDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n  (table (;" << number << ";)";
     limits.generate(os);
@@ -2374,19 +2404,19 @@ void TableSection::check(CheckContext& context)
     }
 }
 
-void TableSection::generate(std::ostream& os, Context& context)
+void TableSection::generate(std::ostream& os, Module* module)
 {
     for (auto& table : tables) {
-        table->generate(os, context);
+        table->generate(os, module);
     }
 }
 
-void TableSection::show(std::ostream& os, Context& context, unsigned flags)
+void TableSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Table section:\n";
 
     for (auto& table : tables) {
-        table->show(os, context);
+        table->show(os, module);
     }
 
     os << '\n';
@@ -2399,6 +2429,7 @@ void MemoryDeclaration::write(BinaryContext& context) const
 
 MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "memory")) {
@@ -2406,12 +2437,12 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
     }
 
     auto result = context.makeTreeNode<MemoryDeclaration>();
-    result->number = context.nextMemoryCount();
-    context.addMemory(result);
+    result->number = module->nextMemoryCount();
+    module->addMemory(result);
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addMemoryId(*id, result->number)) {
+        if (!module->addMemoryId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate memory id.");
         }
 
@@ -2434,18 +2465,19 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
  
 MemoryDeclaration* MemoryDeclaration::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto result = context.makeTreeNode<MemoryDeclaration>();
 
     result->limits = readLimits(context);
-    result->number = context.nextMemoryCount();
+    result->number = module->nextMemoryCount();
 
     return result;
 }
 
-void MemoryDeclaration::show(std::ostream& os, Context& context)
+void MemoryDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  memory ";
-    shsowFunctionIndex(os, number, context);
+    shsowFunctionIndex(os, number, module);
 
     os << ':';
     limits.show(os);
@@ -2457,7 +2489,7 @@ void MemoryDeclaration::check(CheckContext& context)
     context.checkLimits(this, limits);
 }
 
-void MemoryDeclaration::generate(std::ostream& os, Context& context)
+void MemoryDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n  (memory (;" << number << ";)";
     limits.generate(os);
@@ -2515,19 +2547,19 @@ void MemorySection::check(CheckContext& context)
     }
 }
 
-void MemorySection::generate(std::ostream& os, Context& context)
+void MemorySection::generate(std::ostream& os, Module* module)
 {
     for (auto& memory : memories) {
-        memory->generate(os, context);
+        memory->generate(os, module);
     }
 }
 
-void MemorySection::show(std::ostream& os, Context& context, unsigned flags)
+void MemorySection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Memory section:\n";
 
     for (auto& memory : memories) {
-        memory->show(os, context);
+        memory->show(os, module);
     }
 
     os << '\n';
@@ -2544,6 +2576,7 @@ void GlobalDeclaration::write(BinaryContext& context) const
 
 GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
     auto& msgs = context.msgs();
 
@@ -2553,12 +2586,12 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<GlobalDeclaration>();
 
-    result->number = context.nextGlobalCount();
-    context.addGlobal(result);
+    result->number = module->nextGlobalCount();
+    module->addGlobal(result);
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addGlobalId(*id, result->number)) {
+        if (!module->addGlobalId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate global id.");
         }
     }
@@ -2604,25 +2637,26 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
  
 GlobalDeclaration* GlobalDeclaration::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<GlobalDeclaration>();
 
     result->type = readValueType(context);
     result->mut = Mut(data.getU8());
-    result->number = context.nextGlobalCount();
+    result->number = module->nextGlobalCount();
     result->expression.reset(Expression::readInit(context));
 
     return result;
 }
 
-void GlobalDeclaration::show(std::ostream& os, Context& context)
+void GlobalDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  global " << number << ": ";
     if (mut == Mut::var) {
         os << "mut ";
     }
 
-    expression->show(os, context);
+    expression->show(os, module);
     os << '\n';
 
 }
@@ -2634,7 +2668,7 @@ void GlobalDeclaration::check(CheckContext& context)
     expression->check(context);
 }
 
-void GlobalDeclaration::generate(std::ostream& os, Context& context)
+void GlobalDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n  (global (;" << number << ";)";
 
@@ -2645,7 +2679,7 @@ void GlobalDeclaration::generate(std::ostream& os, Context& context)
     }
 
     os << " (";
-    expression->generate(os, context);
+    expression->generate(os, module);
     os << ')';
 
     os << ')';
@@ -2701,19 +2735,19 @@ void GlobalSection::check(CheckContext& context)
     }
 }
 
-void GlobalSection::generate(std::ostream& os, Context& context)
+void GlobalSection::generate(std::ostream& os, Module* module)
 {
     for (auto& global : globals) {
-        global->generate(os, context);
+        global->generate(os, module);
     }
 }
 
-void GlobalSection::show(std::ostream& os, Context& context, unsigned flags)
+void GlobalSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Global section:\n";
 
     for (auto& global : globals) {
-        global->show(os, context);
+        global->show(os, module);
     }
 
     os << '\n';
@@ -2730,6 +2764,7 @@ void ExportDeclaration::write(BinaryContext& context) const
 
 ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "export")) {
@@ -2738,7 +2773,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<ExportDeclaration>();
 
-    result->number = context.nextExportCount();
+    result->number = module->nextExportCount();
     result->name = requiredString(context);
 
     if (!requiredParenthesis(context, '(')) {
@@ -2808,18 +2843,19 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
  
 ExportDeclaration* ExportDeclaration::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<ExportDeclaration>();
 
     result->name = readByteArray(context);
     result->kind = readExternalType(context);
     result->index = data.getU32leb();
-    result->number = context.nextExportCount();
+    result->number = module->nextExportCount();
 
     return result;
 }
 
-void ExportDeclaration::show(std::ostream& os, Context& context)
+void ExportDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  export " << number << ": name=\"" << name << "\", kind=" << kind << ", index=" << index;
 
@@ -2853,7 +2889,7 @@ void ExportDeclaration::check(CheckContext& context)
     }
 }
 
-void ExportDeclaration::generate(std::ostream& os, Context& context)
+void ExportDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n  (export (;" << number << ";) \"" << name << "\" (" << kind << ' ' << index << ')';
 
@@ -2910,19 +2946,19 @@ void ExportSection::check(CheckContext& context)
     }
 }
 
-void ExportSection::generate(std::ostream& os, Context& context)
+void ExportSection::generate(std::ostream& os, Module* module)
 {
     for (auto& export_ : exports) {
-        export_->generate(os, context);
+        export_->generate(os, module);
     }
 }
 
-void ExportSection::show(std::ostream& os, Context& context, unsigned flags)
+void ExportSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Export section:\n";
 
     for (auto& export_ : exports) {
-        export_->show(os, context);
+        export_->show(os, module);
     }
 
     os << '\n';
@@ -2979,12 +3015,12 @@ void StartSection::check(CheckContext& context)
     context.checkFunctionIndex(this, functionIndex);
 }
 
-void StartSection::generate(std::ostream& os, Context& context)
+void StartSection::generate(std::ostream& os, Module* module)
 {
     os << "\n  (start " << functionIndex << ')';
 }
 
-void StartSection::show(std::ostream& os, Context& context, unsigned flags)
+void StartSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Start section:\n";
 
@@ -3087,7 +3123,7 @@ void Expression::check(CheckContext& context)
     }
 }
 
-void Expression::generate(std::ostream& os, Context& context)
+void Expression::generate(std::ostream& os, Module* module)
 {
     const char* separator = "";
     InstructionContext instructionContext;
@@ -3104,9 +3140,9 @@ void Expression::generate(std::ostream& os, Context& context)
     }
 }
 
-void Expression::show(std::ostream& os, Context& context)
+void Expression::show(std::ostream& os, Module* module)
 {
-    generate(os, context);
+    generate(os, module);
 }
 
 void ElementDeclaration::write(BinaryContext& context) const
@@ -3125,6 +3161,7 @@ void ElementDeclaration::write(BinaryContext& context) const
 
 ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "elem")) {
@@ -3133,7 +3170,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<ElementDeclaration>();
 
-    result->number = context.nextElementCount();
+    result->number = module->nextElementCount();
 
     if (auto index = parseTableIndex(context)) {
         result->tableIndex = *index;
@@ -3164,12 +3201,13 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
  
 ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<ElementDeclaration>();
 
     result->tableIndex = data.getU32leb();
     result->expression.reset(Expression::readInit(context));
-    result->number = context.nextElementCount();
+    result->number = module->nextElementCount();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         result->functionIndexes.push_back(data.getU32leb());
@@ -3188,7 +3226,7 @@ void ElementDeclaration::check(CheckContext& context)
     }
 }
 
-void ElementDeclaration::generate(std::ostream& os, Context& context)
+void ElementDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n  (elem (;" << number << ";)";
 
@@ -3197,7 +3235,7 @@ void ElementDeclaration::generate(std::ostream& os, Context& context)
     }
 
     os << " (";
-    expression->generate(os, context);
+    expression->generate(os, module);
     os << ')';
 
     for (auto func : functionIndexes) {
@@ -3207,10 +3245,10 @@ void ElementDeclaration::generate(std::ostream& os, Context& context)
     os << ')';
 }
 
-void ElementDeclaration::show(std::ostream& os, Context& context)
+void ElementDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  segment " << number << ": " << "table=" << tableIndex << ", offset=(";
-    expression->generate(os, context);
+    expression->generate(os, module);
     os << "), funcs=[";
 
     const char* separator = "";
@@ -3273,19 +3311,19 @@ void ElementSection::check(CheckContext& context)
     }
 }
 
-void ElementSection::generate(std::ostream& os, Context& context)
+void ElementSection::generate(std::ostream& os, Module* module)
 {
     for (auto& element : elements) {
-        element->generate(os, context);
+        element->generate(os, module);
     }
 }
 
-void ElementSection::show(std::ostream& os, Context& context, unsigned flags)
+void ElementSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Element section:\n";
 
     for (auto& element : elements) {
-        element->show(os, context);
+        element->show(os, module);
     }
 
     os << '\n';
@@ -3293,15 +3331,16 @@ void ElementSection::show(std::ostream& os, Context& context, unsigned flags)
 
 Local* Local::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<Local>();
 
-    result->number = context.nextLocalCount();
+    result->number = module->nextLocalCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addLocalId(*id, result->number)) {
+        if (!module->addLocalId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate local id.");
         }
     }
@@ -3320,12 +3359,12 @@ void Local::check(CheckContext& context)
     context.checkValueType(this, type);
 }
 
-void Local::generate(std::ostream& os, Context& context)
+void Local::generate(std::ostream& os, Module* module)
 {
     os << ' ' << type;
 }
 
-void Local::show(std::ostream& os, Context& context)
+void Local::show(std::ostream& os, Module* module)
 {
     os << "    local: " << "type=" << type << '\n';
 }
@@ -3379,12 +3418,13 @@ void CodeEntry::write(BinaryContext& context) const
 
 CodeEntry* CodeEntry::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
     auto result = context.makeTreeNode<CodeEntry>();
 
-    result->number = context.nextCodeCount();
+    result->number = module->nextCodeCount();
 
-    context.startCode(result->number - context.getLocalFunctionStart());
+    module->startCode(result->number - module->getLocalFunctionStart());
 
     while (startClause(context, "local")) {
         while (!tokens.peekParenthesis(')')) {
@@ -3409,6 +3449,7 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
  
 CodeEntry* CodeEntry::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<CodeEntry>();
 
@@ -3425,7 +3466,7 @@ CodeEntry* CodeEntry::read(BinaryContext& context)
     }
 
     result->expression.reset(Expression::read(context, startPos + size));
-    result->number = context.nextCodeCount();
+    result->number = module->nextCodeCount();
 
     return result;
 }
@@ -3439,20 +3480,20 @@ void CodeEntry::check(CheckContext& context)
     expression->check(context);
 }
 
-void CodeEntry::generate(std::ostream& os, Context& context)
+void CodeEntry::generate(std::ostream& os, Module* module)
 {
-    auto* function = context.getFunction(number);
+    auto* function = module->getFunction(number);
     auto signatureIndex = function->getSignatureIndex();
 
     os << "\n  (func (;" << number << ";) (type " << signatureIndex << ')';
 
-    function->getSignature()->generate(os, context);
+    function->getSignature()->generate(os, module);
 
     if (!locals.empty()) {
         os << "\n    (local";
 
         for (auto& local : locals) {
-            local->generate(os, context);
+            local->generate(os, module);
         }
 
         os << ')';
@@ -3485,10 +3526,10 @@ void CodeEntry::generate(std::ostream& os, Context& context)
     os << ")";
 }
 
-void CodeEntry::show(std::ostream& os, Context& context)
+void CodeEntry::show(std::ostream& os, Module* module)
 {
     for (auto& local : locals) {
-        local->show(os, context);
+        local->show(os, module);
     }
 
     std::string indent = "";
@@ -3563,26 +3604,26 @@ void CodeSection::check(CheckContext& context)
     }
 }
 
-void CodeSection::generate(std::ostream& os, Context& context)
+void CodeSection::generate(std::ostream& os, Module* module)
 {
     for (auto& code : codes) {
-        code->generate(os, context);
+        code->generate(os, module);
     }
 }
 
-void CodeSection::show(std::ostream& os, Context& context, unsigned flags)
+void CodeSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Code section:\n";
 
-    auto count = context.getLocalFunctionStart();
+    auto count = module->getLocalFunctionStart();
 
     for (auto& code : codes) {
         os << "  Code for function ";
-        shsowFunctionIndex(os, count++, context);
+        shsowFunctionIndex(os, count++, module);
 
         if ((flags & 1) != 0) {
             os <<  ":\n";
-            code->show(os, context);
+            code->show(os, module);
         } else {
             os << '\n';
         }
@@ -3601,6 +3642,7 @@ void DataSegment::write(BinaryContext& context) const
 
 DataSegment* DataSegment::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "data")) {
@@ -3609,7 +3651,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<DataSegment>();
 
-    result->number = context.getSegmentCount();
+    result->number = module->getSegmentCount();
 
     if (auto index = parseTableIndex(context)) {
         result->memoryIndex = *index;
@@ -3646,13 +3688,14 @@ DataSegment* DataSegment::parse(SourceContext& context)
  
 DataSegment* DataSegment::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<DataSegment>();
 
     result->memoryIndex = data.getU32leb();
     result->expression.reset(Expression::readInit(context));
     result->init = readByteArray(context);
-    result->number = context.getSegmentCount();
+    result->number = module->getSegmentCount();
 
     return result;
 }
@@ -3663,10 +3706,10 @@ void DataSegment::check(CheckContext& context)
     expression->check(context);
 }
 
-void DataSegment::generate(std::ostream& os, Context& context)
+void DataSegment::generate(std::ostream& os, Module* module)
 {
     os << "\n  (data (;" << number << ";) (";
-    expression->generate(os, context);
+    expression->generate(os, module);
     os << ") \"";
     generateChars(os, init);
     os << '\"';
@@ -3674,11 +3717,11 @@ void DataSegment::generate(std::ostream& os, Context& context)
     os << ')';
 }
 
-void DataSegment::show(std::ostream& os, Context& context)
+void DataSegment::show(std::ostream& os, Module* module)
 {
     os << "  segment " << number << ": ";
     os << "memory=" << memoryIndex << ", offset=(";
-    expression->generate(os, context);
+    expression->generate(os, module);
     os << "), init=";
     dumpChars(os, init, 0);
     os << '\n';
@@ -3734,19 +3777,19 @@ void DataSection::check(CheckContext& context)
     }
 }
 
-void DataSection::generate(std::ostream& os, Context& context)
+void DataSection::generate(std::ostream& os, Module* module)
 {
     for (auto& segment : segments) {
-        segment->generate(os, context);
+        segment->generate(os, module);
     }
 }
 
-void DataSection::show(std::ostream& os, Context& context, unsigned flags)
+void DataSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Data section:\n";
 
     for (auto& segment : segments) {
-        segment->show(os, context);
+        segment->show(os, module);
     }
 
     os << '\n';
@@ -3779,12 +3822,12 @@ void DataCountSection::check(CheckContext& context)
     context.checkDataCount(this, dataCount);
 }
 
-void DataCountSection::generate(std::ostream& os, Context& context)
+void DataCountSection::generate(std::ostream& os, Module* module)
 {
     // nothing to do
 }
 
-void DataCountSection::show(std::ostream& os, Context& context, unsigned flags)
+void DataCountSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "DataCount section:\n";
     os << "  data count: " << dataCount << '\n';
@@ -3815,6 +3858,7 @@ void EventDeclaration::write(BinaryContext& context) const
 
 EventDeclaration* EventDeclaration::parse(SourceContext& context)
 {
+    auto* module = context.getModule();
     auto& tokens = context.tokens();
 
     if (!startClause(context, "event")) {
@@ -3822,12 +3866,12 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
     }
 
     auto result = context.makeTreeNode<EventDeclaration>();
-    result->number = context.nextEventCount();
-    context.addEvent(result);
+    result->number = module->nextEventCount();
+    module->addEvent(result);
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-        if (!context.addEventId(*id, result->number)) {
+        if (!module->addEventId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
         }
 
@@ -3851,20 +3895,21 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
  
 EventDeclaration* EventDeclaration::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<EventDeclaration>();
 
     result->attribute = EventType(data.getU8());
     result->typeIndex = data.getU32leb();
-    result->number = context.nextEventCount();
+    result->number = module->nextEventCount();
 
     return result;
 }
 
-void EventDeclaration::show(std::ostream& os, Context& context)
+void EventDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  event ";
-    shsowFunctionIndex(os, number, context);
+    shsowFunctionIndex(os, number, module);
 
     os << ':';
     os << " type attribute=\"" << attribute << "\" ";
@@ -3878,7 +3923,7 @@ void EventDeclaration::check(CheckContext& context)
     context.checkTypeIndex(this, typeIndex);
 }
 
-void EventDeclaration::generate(std::ostream& os, Context& context)
+void EventDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n (event (;" << number << ";) " << attribute << ' ' << typeIndex;
 
@@ -3935,19 +3980,19 @@ void EventSection::check(CheckContext& context)
     }
 }
 
-void EventSection::generate(std::ostream& os, Context& context)
+void EventSection::generate(std::ostream& os, Module* module)
 {
     for (auto& event : events) {
-        event->generate(os, context);
+        event->generate(os, module);
     }
 }
 
-void EventSection::show(std::ostream& os, Context& context, unsigned flags)
+void EventSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Event section:\n";
 
     for (auto& event : events) {
-        event->show(os, context);
+        event->show(os, module);
     }
 
     os << '\n';

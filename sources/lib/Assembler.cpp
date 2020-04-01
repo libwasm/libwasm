@@ -374,12 +374,12 @@ static SectionType checkImport(TokenBuffer& tokens, SectionType sectionType)
     return sectionType;
 }
 
-std::vector<Assembler::SectionElementIndex> Assembler::findSectionEntries(bool module)
+std::vector<Assembler::SectionElementIndex> Assembler::findSectionEntries(bool isModule)
 {
     std::vector<SectionElementIndex> result;
 
     while (!tokens.atEnd()) {
-        if (module && tokens.getPos() == tokens.size() - 1 && tokens.getParenthesis(')')) {
+        if (isModule && tokens.getPos() == tokens.size() - 1 && tokens.getParenthesis(')')) {
             break;
         }
 
@@ -447,7 +447,7 @@ std::vector<size_t> Assembler::findSectionPositions(
 
 bool Assembler::checkSemantics()
 {
-    context.makeDataCountSection();
+    context.getModule()->makeDataCountSection();
 
     CheckErrorHandler error;
     CheckContext checkContext(context, error);
@@ -470,17 +470,18 @@ bool Assembler::parse()
 
 bool Assembler::doParse()
 {
-    bool module = false;
+    bool isModule = false;
+    auto* module = context.getModule();
 
     if (tokens.peekToken().isParenthesis('(') && tokens.peekToken(1).isKeyword("module")) {
         tokens.bump(2);
-        module = true;
+        isModule = true;
     }
 
-    auto entries = findSectionEntries(module);
+    auto entries = findSectionEntries(isModule);
 
     if (auto positions = findSectionPositions(entries, SectionType::type); !positions.empty()) {
-        auto* section = context.requiredTypeSection();
+        auto* section = module->requiredTypeSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -492,7 +493,7 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::import); !positions.empty()) {
-        auto* section = context.requiredImportSection();
+        auto* section = module->requiredImportSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -503,10 +504,10 @@ bool Assembler::doParse()
         }
     }
 
-    context.startLocalFunctions();
+    module->startLocalFunctions();
 
     if (auto positions = findSectionPositions(entries, SectionType::function); !positions.empty()) {
-        auto* sections = context.requiredFunctionSection();
+        auto* sections = module->requiredFunctionSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -519,7 +520,7 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::table); !positions.empty()) {
-        auto* section = context.requiredTableSection();
+        auto* section = module->requiredTableSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -531,7 +532,7 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::memory); !positions.empty()) {
-        auto* section = context.requiredMemorySection();
+        auto* section = module->requiredMemorySection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -543,7 +544,7 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::global); !positions.empty()) {
-        auto* section = context.requiredGlobalSection();
+        auto* section = module->requiredGlobalSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -555,7 +556,7 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::code); !positions.empty()) {
-        auto* section = context.requiredCodeSection();
+        auto* section = module->requiredCodeSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -567,7 +568,7 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::export_); !positions.empty()) {
-        auto* section = context.requiredExportSection();
+        auto* section = module->requiredExportSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -579,19 +580,18 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::start); !positions.empty()) {
-        for (size_t i = 1, c = positions.size(); i < c; ++i) {
-            tokens.setPos(positions[i]);
-            context.msgs().error(context.tokens().peekToken(), "Only one start section is allowed.");
-        }
+        for (auto position : positions) {
+            tokens.setPos(position);
 
-        tokens.setPos(positions[0]);
-        auto section = StartSection::parse(context);
-        context.startSectionIndex = sections.size();
-        sections.emplace_back(section);
+            if (!module->setStartSection(StartSection::parse(context))) {
+                tokens.setPos(position);
+                context.msgs().error(context.tokens().peekToken(), "Only one start section is allowed.");
+            }
+        }
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::element); !positions.empty()) {
-        auto* section = context.requiredElementSection();
+        auto* section = module->requiredElementSection();
 
         for (auto position : positions) {
             tokens.setPos(position);
@@ -603,7 +603,7 @@ bool Assembler::doParse()
     }
 
     if (auto positions = findSectionPositions(entries, SectionType::data); !positions.empty()) {
-        auto* section = context.requiredDataSection();
+        auto* section = module->requiredDataSection();
 
         for (auto position : positions) {
             tokens.setPos(position);

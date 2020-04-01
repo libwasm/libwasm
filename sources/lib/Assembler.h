@@ -7,6 +7,7 @@
 #include "Context.h"
 #include "DataBuffer.h"
 #include "ErrorHandler.h"
+#include "Module.h"
 #include "Token.h"
 #include "TokenBuffer.h"
 #include "common.h"
@@ -20,7 +21,7 @@ class Assembler
 {
     public:
         Assembler(std::istream& stream)
-          : context(tokens, msgs), sections(context.getSections())
+          : context(tokens, msgs), module(context.getModule())
         {
             good = readWat(stream);
         }
@@ -34,12 +35,12 @@ class Assembler
 
         void show(std::ostream& os, unsigned flags)
         {
-            context.show(os, flags);
+            module->show(os, flags);
         }
 
         void generate(std::ostream& os)
         {
-            context.generate(os);
+            module->generate(os);
         }
 
         void write(std::ostream& os)
@@ -124,7 +125,7 @@ class Assembler
         SourceErrorHandler msgs;
 
         SourceContext context;
-        std::vector<std::shared_ptr<Section>>& sections;
+        Module* module = nullptr;
 };
 
 #endif

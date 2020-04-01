@@ -1,6 +1,7 @@
 // parser.cpp
 
 #include "parser.h"
+#include "Module.h"
 
 std::optional<ValueType> parseElementType(SourceContext& context)
 {
@@ -37,9 +38,10 @@ std::optional<ValueType> parseValueType(SourceContext& context)
 std::optional<uint32_t> parseTableIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getTableCount()) {
+        if (*value >= module->getTableCount()) {
             return {};
         }
 
@@ -47,7 +49,7 @@ std::optional<uint32_t> parseTableIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getTableIndex(*id); index != invalidIndex) {
+        if (auto index = module->getTableIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -58,9 +60,10 @@ std::optional<uint32_t> parseTableIndex(SourceContext& context)
 std::optional<uint32_t> parseTypeIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getTypeCount()) {
+        if (*value >= module->getTypeCount()) {
             return {};
         }
 
@@ -68,7 +71,7 @@ std::optional<uint32_t> parseTypeIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getTypeIndex(*id); index != invalidIndex) {
+        if (auto index = module->getTypeIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -79,9 +82,10 @@ std::optional<uint32_t> parseTypeIndex(SourceContext& context)
 std::optional<uint32_t> parseFunctionIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getFunctionCount()) {
+        if (*value >= module->getFunctionCount()) {
             return {};
         }
 
@@ -89,7 +93,7 @@ std::optional<uint32_t> parseFunctionIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getFunctionIndex(*id); index != invalidIndex) {
+        if (auto index = module->getFunctionIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -100,9 +104,10 @@ std::optional<uint32_t> parseFunctionIndex(SourceContext& context)
 std::optional<uint32_t> parseMemoryIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getMemoryCount()) {
+        if (*value >= module->getMemoryCount()) {
             return {};
         }
 
@@ -110,7 +115,7 @@ std::optional<uint32_t> parseMemoryIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getMemoryIndex(*id); index != invalidIndex) {
+        if (auto index = module->getMemoryIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -121,9 +126,10 @@ std::optional<uint32_t> parseMemoryIndex(SourceContext& context)
 std::optional<uint32_t> parseEventIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getEventCount()) {
+        if (*value >= module->getEventCount()) {
             return {};
         }
 
@@ -131,7 +137,7 @@ std::optional<uint32_t> parseEventIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getEventIndex(*id); index != invalidIndex) {
+        if (auto index = module->getEventIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -142,9 +148,10 @@ std::optional<uint32_t> parseEventIndex(SourceContext& context)
 std::optional<uint32_t> parseGlobalIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getGlobalCount()) {
+        if (*value >= module->getGlobalCount()) {
             return {};
         }
 
@@ -152,7 +159,7 @@ std::optional<uint32_t> parseGlobalIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getGlobalIndex(*id); index != invalidIndex) {
+        if (auto index = module->getGlobalIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -163,9 +170,10 @@ std::optional<uint32_t> parseGlobalIndex(SourceContext& context)
 std::optional<uint32_t> parseLocalIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getLocalCount()) {
+        if (*value >= module->getLocalCount()) {
             return {};
         }
 
@@ -173,7 +181,7 @@ std::optional<uint32_t> parseLocalIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getLocalIndex(*id); index != invalidIndex) {
+        if (auto index = module->getLocalIndex(*id); index != invalidIndex) {
             return index;
         }
     }
@@ -184,9 +192,10 @@ std::optional<uint32_t> parseLocalIndex(SourceContext& context)
 std::optional<uint32_t> parseLabelIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= context.getLabelCount()) {
+        if (*value >= module->getLabelCount()) {
             return {};
         }
 
@@ -194,7 +203,7 @@ std::optional<uint32_t> parseLabelIndex(SourceContext& context)
     }
 
     if (auto id = tokens.getId()) {
-        if (auto index = context.getLabelIndex(*id); index != invalidIndex) {
+        if (auto index = module->getLabelIndex(*id); index != invalidIndex) {
             return index;
         }
     }
