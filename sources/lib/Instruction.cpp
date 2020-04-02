@@ -265,7 +265,7 @@ void InstructionV128::generate(std::ostream& os, InstructionContext& context)
         v128_t v128;
     };
 
-    os << opcode << " 32x4";
+    os << opcode << " i32x4";
 
     v128 = imm;
 

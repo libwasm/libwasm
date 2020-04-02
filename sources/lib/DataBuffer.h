@@ -72,10 +72,10 @@ class DataBuffer
             return containers.back()[pos + n];
         }
 
-        void bump()
+        void bump(int count = 1)
         {
-            assert(!atEnd());
-            pos++;
+            assert(pos + count <= size());
+            pos += count;
         }
 
         uint8_t getU8()

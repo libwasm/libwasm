@@ -102,6 +102,7 @@ class Token
         TokenKind kind = none;
         size_t columnNumber = 0;
         size_t lineNumber = 0;
+        size_t correspondingParenthesisIndex = 0;
         std::string_view value;
 
     friend class Assembler;

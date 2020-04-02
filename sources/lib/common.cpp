@@ -181,11 +181,37 @@ bool validUtf8(std::string_view string)
     return false;
 }
 
-static std::string removeUnderscores(std::string_view chars)
+static std::string normalize(std::string_view chars)
 {
+    if (chars[0] == '+') {
+        chars.remove_prefix(1);
+    }
+
     std::string result;
 
     result.reserve(chars.size());
+
+    size_t pos = 0;
+    size_t size = chars.size();
+
+    if (chars[pos] == '-') {
+        result = '-';
+        ++pos;
+    }
+
+    if (chars[0] == '0') {
+        pos = 1;
+
+        while (pos < size && (chars[pos] == '0' || chars[pos] == '_')) {
+            ++pos;
+        }
+
+        if (pos == size || !isNumeric(chars[pos])) {
+            result += '0';
+        }
+    }
+
+    chars.remove_prefix(pos);
 
     for (char c : chars) {
         if (c != '_') {
@@ -198,24 +224,24 @@ static std::string removeUnderscores(std::string_view chars)
 
 int64_t toI64(std::string_view chars)
 {
-    if (chars[0] == '+') {
-        chars.remove_prefix(1);
+    auto string = normalize(chars);
+
+    if (string[0] == '-') {
+        return strtoll(string.data(), nullptr, 0);
+    } else {
+        return strtoull(string.data(), nullptr, 0);
     }
-
-    auto string = removeUnderscores(chars);
-
-    return strtoll(string.data(), nullptr, 0);
 }
 
 int32_t toI32(std::string_view chars)
 {
-    if (chars[0] == '+') {
-        chars.remove_prefix(1);
+    auto string = normalize(chars);
+
+    if (string[0] == '-') {
+        return int32_t(strtol(string.data(), nullptr, 0));
+    } else {
+        return int32_t(strtoul(string.data(), nullptr, 0));
     }
-
-    auto string = removeUnderscores(chars);
-
-    return int32_t(strtol(string.data(), nullptr, 0));
 }
 
 int16_t toI16(std::string_view chars)
@@ -230,23 +256,79 @@ int8_t toI8(std::string_view chars)
 
 double toF64(std::string_view chars)
 {
+    bool negative = false;
+
     if (chars[0] == '+') {
+        chars.remove_prefix(1);
+    } else if (chars[0] == '-') {
+        negative = true;
         chars.remove_prefix(1);
     }
 
-    auto string = removeUnderscores(chars);
+    auto string = normalize(chars);
 
-    return strtod(string.c_str(), nullptr);
+    union
+    {
+        uint64_t i;
+        double d;
+    };
+
+    if (string[0] == 'n') {
+        if (string.size() > 3) {
+            i = strtol(string.c_str() + 4, nullptr, 0);
+            i |= 0x7ff0000000000000;
+        } else {
+            i = 0x7ff8000000000000ull;
+        }
+    } else if (string[0] == 'i') {
+        i = 0x7ff0000000000000ull;
+    } else {
+        d  = strtod(string.c_str(), nullptr);
+    }
+
+    if (negative) {
+        d = -d;
+    }
+
+    return d;
 }
 
 float toF32(std::string_view chars)
 {
+    bool negative = false;
+
     if (chars[0] == '+') {
+        chars.remove_prefix(1);
+    } else if (chars[0] == '-') {
+        negative = true;
         chars.remove_prefix(1);
     }
 
-    auto string = removeUnderscores(chars);
+    auto string = normalize(chars);
 
-    return strtof(string.c_str(), nullptr);
+    union
+    {
+        uint32_t i;
+        float f;
+    };
+
+    if (string[0] == 'n') {
+        if (string.size() > 3) {
+            i = strtol(string.c_str() + 4, nullptr, 0);
+            i |= 0x7f800000;
+        } else {
+            i = 0x7fc00000;
+        }
+    } else if (string[0] == 'i') {
+        i = 0x7f800000;
+    } else {
+        f  = strtof(string.c_str(), nullptr);
+    }
+
+    if (negative) {
+        f = -f;
+    }
+
+    return f;
 }
 

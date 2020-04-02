@@ -468,6 +468,8 @@ void Opcode::buildMap()
 {
     uint32_t count = 0;
 
+    map.reserve(info.size();
+
     for (const auto& entry : info) {
         map.emplace_back(entry.name, count++);
     }

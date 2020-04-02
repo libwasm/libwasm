@@ -64,7 +64,7 @@ class TokenBuffer
 
         void bump(int count = 1)
         {
-            assert(pos + count < size());
+            assert(pos + count <= size());
             pos += count;
         }
 

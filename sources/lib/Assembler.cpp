@@ -125,9 +125,13 @@ bool Assembler::parseHex()
 
     while (isHex(c) || c == '_') {
         bump();
-        if (c == '_' && peekChar() == '_') {
-            msgs.error(lineNumber, columnNumber, "Consecutive underscoes are not allowed in numbers.");
-            return false;
+        if (c == '_') {
+            if (peekChar() == '_') {
+                msgs.error(lineNumber, columnNumber, "Consecutive underscoes are not allowed in numbers.");
+                return false;
+            } else if (!isHex(peekChar())) {
+                msgs.error(lineNumber, columnNumber, "Underscores can only separate digits.");
+            }
         }
 
         if (atEnd()) {
@@ -165,9 +169,13 @@ bool Assembler::parseInteger(bool allowHex)
         } else {
             while (isNumeric(c) || c == '_') {
                 bump();
-                if (c == '_' && peekChar() == '_') {
-                    msgs.error(lineNumber, columnNumber, "Consecutive underscoes are not allowed in numbers.");
-                    return false;
+                if (c == '_') {
+                    if (peekChar() == '_') {
+                        msgs.error(lineNumber, columnNumber, "Consecutive underscoes are not allowed in numbers.");
+                        return false;
+                    } else if (!isNumeric(peekChar())) {
+                        msgs.error(lineNumber, columnNumber, "Underscores can only separate digits.");
+                    }
                 }
 
                 if (atEnd()) {
@@ -228,8 +236,9 @@ bool Assembler::parseString()
 Token::TokenKind Assembler::parseNumber()
 {
     Token::TokenKind kind = Token::none;
+    size_t startpos = (peekChar() == '-') ? 1 : 0;
 
-    if (peekChar() == '0' && (peekChar(1) == 'x' || peekChar(1) == 'X')) {
+    if (peekChar(startpos) == '0' && (peekChar(startpos + 1) == 'x' || peekChar(startpos + 1) == 'X')) {
         parseInteger();
         kind = Token::integer;
 
@@ -237,7 +246,9 @@ Token::TokenKind Assembler::parseNumber()
             bump();
             kind = Token::floating;
 
-            parseHex();
+            if (isNumeric(peekChar())) {
+                parseHex();
+            }
         }
 
         char c = peekChar();
@@ -245,13 +256,6 @@ Token::TokenKind Assembler::parseNumber()
         if (c == 'p' || c == 'P') {
             bump();
             kind = Token::floating;
-
-            if (peekChar() != '-' && peekChar() != '+') {
-                msgs.error(lineNumber, columnNumber, "Invalid floating point number; missing sign before exponent.");
-                return Token::none;
-            }
-
-            bump();
             parseInteger();
         }
     } else if (parseInteger(false)) {
@@ -260,7 +264,10 @@ Token::TokenKind Assembler::parseNumber()
         if (peekChar() == '.') {
             bump();
             kind = Token::floating;
-            parseInteger();
+
+            if (isNumeric(peekChar())) {
+                parseInteger(false);
+            }
         }
 
         char c = peekChar();
@@ -268,23 +275,39 @@ Token::TokenKind Assembler::parseNumber()
         if (c == 'e' || c == 'E') {
             bump();
             kind = Token::floating;
-
-            if (peekChar() != '-' && peekChar() != '+') {
-                msgs.error(lineNumber, columnNumber, "Invalid floating point number; missing sign before exponent.");
-                return Token::none;
-            }
-
-            bump();
-            parseInteger();
+            parseInteger(false);
         }
     }
 
     return kind;
 }
 
+bool Assembler::parseNanOrInf()
+{
+    size_t startpos = (peekChar() == '-') ? 1 : 0;
+
+    if (peekChar(startpos) == 'n' && peekChar(startpos + 1) == 'a' && peekChar(startpos + 2) == 'n' &&
+            (peekChar(startpos + 3) == ':' || !isIdChar(peekChar(startpos + 3)))) {
+        bump(startpos + 3);
+
+        if (peekChar() == ':') {
+            bump();
+            (void) parseInteger();
+        }
+    } else if (peekChar(startpos) == 'i' && peekChar(startpos + 1) == 'n' && peekChar(startpos + 2) == 'f' &&
+            !isIdChar(peekChar(startpos + 3))) {
+        bump(startpos + 3);
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
 bool Assembler::tokenize()
 {
     whiteSpace();
+    std::vector<size_t> parenthesisStack;
 
     while (!atEnd()) {
         auto* startPointer = data.getPointer();
@@ -294,9 +317,11 @@ bool Assembler::tokenize()
         bool ok = true;
         bool isSeparator = false;
 
-        char c = peekChar();
+        const char c = peekChar();
 
-        if (isAlpha(c)) {
+        if (parseNanOrInf()) {
+            kind = Token::floating;
+        } else if (isAlpha(c)) {
             kind = Token::keyword;
 
             bump();
@@ -350,6 +375,19 @@ bool Assembler::tokenize()
         size_t size = endPointer - startPointer;
 
         tokens.addToken(kind, line, column, std::string_view(startPointer, size));
+
+        if (c == '(') {
+            parenthesisStack.push_back(tokens.size() - 1);
+        } else if (c == ')') {
+            if (!parenthesisStack.empty()) {
+                auto otherIndex = parenthesisStack.back();
+
+                parenthesisStack.pop_back();
+                tokens.getTokens().back().correspondingParenthesisIndex = otherIndex;
+                tokens.getTokens()[otherIndex].correspondingParenthesisIndex = tokens.size() - 1;
+            }
+        }
+
         whiteSpace();
     }
 

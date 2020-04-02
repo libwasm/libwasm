@@ -93,9 +93,11 @@ class Assembler
             return data.peekChar(n);
         }
 
-        void bump()
+        void bump(size_t count = 1)
         {
-            (void) nextChar();
+            for (size_t i = 0; i < count; ++i) {
+                (void) nextChar();
+            }
         }
 
         bool whiteSpace();
@@ -109,6 +111,7 @@ class Assembler
         bool parse();
         bool doParse();
         bool parseInteger(bool allowHex = true);
+        bool parseNanOrInf();
         bool parseString();
         bool parseHex();
         bool checkSemantics();
