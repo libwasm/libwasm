@@ -468,7 +468,7 @@ void Opcode::buildMap()
 {
     uint32_t count = 0;
 
-    map.reserve(info.size();
+    map.reserve(std::size(info));
 
     for (const auto& entry : info) {
         map.emplace_back(entry.name, count++);
