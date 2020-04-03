@@ -574,8 +574,6 @@ InstructionLane32Idx* InstructionLane32Idx::read(BinaryContext& context)
 
 InstructionShuffle* InstructionShuffle::parse(SourceContext& context, Opcode opcode)
 {
-    auto& tokens = context.tokens();
-
     auto result = context.makeTreeNode<InstructionShuffle>();
 
     for (int i = 0; i < 16; ++i) {
@@ -850,31 +848,31 @@ Instruction* Instruction::parse(SourceContext& context)
 
     Instruction* result = nullptr;
 
-    auto encoding = opcode->getParameterEncoding();
+    auto encoding = opcode->getImmediateType();
 
     switch(encoding) {
-        case ParameterEncoding::none:          result = InstructionNone::parse(context, *opcode); break;
-        case ParameterEncoding::i32:           result = InstructionI32::parse(context, *opcode); break;
-        case ParameterEncoding::i64:           result = InstructionI64::parse(context, *opcode); break;
-        case ParameterEncoding::f32:           result = InstructionF32::parse(context, *opcode); break;
-        case ParameterEncoding::f64:           result = InstructionF64::parse(context, *opcode); break;
-        case ParameterEncoding::v128:          result = InstructionV128::parse(context, *opcode); break;
-        case ParameterEncoding::block:         result = InstructionBlock::parse(context, *opcode); break;
-        case ParameterEncoding::idx:           result = InstructionIdx::parse(context, *opcode); break;
-        case ParameterEncoding::localIdx:      result = InstructionLocalIdx::parse(context, *opcode); break;
-        case ParameterEncoding::globalIdx:     result = InstructionGlobalIdx::parse(context, *opcode); break;
-        case ParameterEncoding::functionIdx:   result = InstructionFunctionIdx::parse(context, *opcode); break;
-        case ParameterEncoding::labelIdx:      result = InstructionLabelIdx::parse(context, *opcode); break;
-        case ParameterEncoding::lane2Idx:      result = InstructionLane2Idx::parse(context, *opcode); break;
-        case ParameterEncoding::lane4Idx:      result = InstructionLane4Idx::parse(context, *opcode); break;
-        case ParameterEncoding::lane8Idx:      result = InstructionLane8Idx::parse(context, *opcode); break;
-        case ParameterEncoding::lane16Idx:     result = InstructionLane16Idx::parse(context, *opcode); break;
-        case ParameterEncoding::lane32Idx:     result = InstructionLane32Idx::parse(context, *opcode); break;
-        case ParameterEncoding::shuffle:       result = InstructionShuffle::parse(context, *opcode); break;
-        case ParameterEncoding::table:         result = InstructionTable::parse(context, *opcode); break;
-        case ParameterEncoding::memory:        result = InstructionMemory::parse(context, *opcode); break;
-        case ParameterEncoding::memory0:       result = InstructionMemory0::parse(context, *opcode); break;
-        case ParameterEncoding::indirect:      result = InstructionIndirect::parse(context, *opcode); break;
+        case ImmediateType::none:          result = InstructionNone::parse(context, *opcode); break;
+        case ImmediateType::i32:           result = InstructionI32::parse(context, *opcode); break;
+        case ImmediateType::i64:           result = InstructionI64::parse(context, *opcode); break;
+        case ImmediateType::f32:           result = InstructionF32::parse(context, *opcode); break;
+        case ImmediateType::f64:           result = InstructionF64::parse(context, *opcode); break;
+        case ImmediateType::v128:          result = InstructionV128::parse(context, *opcode); break;
+        case ImmediateType::block:         result = InstructionBlock::parse(context, *opcode); break;
+        case ImmediateType::idx:           result = InstructionIdx::parse(context, *opcode); break;
+        case ImmediateType::localIdx:      result = InstructionLocalIdx::parse(context, *opcode); break;
+        case ImmediateType::globalIdx:     result = InstructionGlobalIdx::parse(context, *opcode); break;
+        case ImmediateType::functionIdx:   result = InstructionFunctionIdx::parse(context, *opcode); break;
+        case ImmediateType::labelIdx:      result = InstructionLabelIdx::parse(context, *opcode); break;
+        case ImmediateType::lane2Idx:      result = InstructionLane2Idx::parse(context, *opcode); break;
+        case ImmediateType::lane4Idx:      result = InstructionLane4Idx::parse(context, *opcode); break;
+        case ImmediateType::lane8Idx:      result = InstructionLane8Idx::parse(context, *opcode); break;
+        case ImmediateType::lane16Idx:     result = InstructionLane16Idx::parse(context, *opcode); break;
+        case ImmediateType::lane32Idx:     result = InstructionLane32Idx::parse(context, *opcode); break;
+        case ImmediateType::shuffle:       result = InstructionShuffle::parse(context, *opcode); break;
+        case ImmediateType::table:         result = InstructionTable::parse(context, *opcode); break;
+        case ImmediateType::memory:        result = InstructionMemory::parse(context, *opcode); break;
+        case ImmediateType::memory0:       result = InstructionMemory0::parse(context, *opcode); break;
+        case ImmediateType::indirect:      result = InstructionIndirect::parse(context, *opcode); break;
         default:
             context.msgs().error(tokens.peekToken(-1), "Invalid encoding ", unsigned(encoding));
             return nullptr;
@@ -972,31 +970,31 @@ Instruction* Instruction::read(BinaryContext& context)
         opcode = Opcode(uint8_t(prefix));
     }
 
-    auto encoding = opcode.getParameterEncoding();
+    auto encoding = opcode.getImmediateType();
 
     switch(encoding) {
-        case ParameterEncoding::none:          result = InstructionNone::read(context); break;
-        case ParameterEncoding::i32:           result = InstructionI32::read(context); break;
-        case ParameterEncoding::i64:           result = InstructionI64::read(context); break;
-        case ParameterEncoding::f32:           result = InstructionF32::read(context); break;
-        case ParameterEncoding::f64:           result = InstructionF64::read(context); break;
-        case ParameterEncoding::v128:          result = InstructionV128::read(context); break;
-        case ParameterEncoding::block:         result = InstructionBlock::read(context); break;
-        case ParameterEncoding::idx:           result = InstructionIdx::read(context); break;
-        case ParameterEncoding::localIdx:      result = InstructionLocalIdx::read(context); break;
-        case ParameterEncoding::globalIdx:     result = InstructionGlobalIdx::read(context); break;
-        case ParameterEncoding::functionIdx:   result = InstructionFunctionIdx::read(context); break;
-        case ParameterEncoding::labelIdx:      result = InstructionLabelIdx::read(context); break;
-        case ParameterEncoding::lane2Idx:      result = InstructionLane2Idx::read(context); break;
-        case ParameterEncoding::lane4Idx:      result = InstructionLane4Idx::read(context); break;
-        case ParameterEncoding::lane8Idx:      result = InstructionLane8Idx::read(context); break;
-        case ParameterEncoding::lane16Idx:     result = InstructionLane16Idx::read(context); break;
-        case ParameterEncoding::lane32Idx:     result = InstructionLane32Idx::read(context); break;
-        case ParameterEncoding::shuffle:       result = InstructionShuffle::read(context); break;
-        case ParameterEncoding::table:         result = InstructionTable::read(context); break;
-        case ParameterEncoding::memory:        result = InstructionMemory::read(context); break;
-        case ParameterEncoding::memory0:       result = InstructionMemory0::read(context); break;
-        case ParameterEncoding::indirect:      result = InstructionIndirect::read(context); break;
+        case ImmediateType::none:          result = InstructionNone::read(context); break;
+        case ImmediateType::i32:           result = InstructionI32::read(context); break;
+        case ImmediateType::i64:           result = InstructionI64::read(context); break;
+        case ImmediateType::f32:           result = InstructionF32::read(context); break;
+        case ImmediateType::f64:           result = InstructionF64::read(context); break;
+        case ImmediateType::v128:          result = InstructionV128::read(context); break;
+        case ImmediateType::block:         result = InstructionBlock::read(context); break;
+        case ImmediateType::idx:           result = InstructionIdx::read(context); break;
+        case ImmediateType::localIdx:      result = InstructionLocalIdx::read(context); break;
+        case ImmediateType::globalIdx:     result = InstructionGlobalIdx::read(context); break;
+        case ImmediateType::functionIdx:   result = InstructionFunctionIdx::read(context); break;
+        case ImmediateType::labelIdx:      result = InstructionLabelIdx::read(context); break;
+        case ImmediateType::lane2Idx:      result = InstructionLane2Idx::read(context); break;
+        case ImmediateType::lane4Idx:      result = InstructionLane4Idx::read(context); break;
+        case ImmediateType::lane8Idx:      result = InstructionLane8Idx::read(context); break;
+        case ImmediateType::lane16Idx:     result = InstructionLane16Idx::read(context); break;
+        case ImmediateType::lane32Idx:     result = InstructionLane32Idx::read(context); break;
+        case ImmediateType::shuffle:       result = InstructionShuffle::read(context); break;
+        case ImmediateType::table:         result = InstructionTable::read(context); break;
+        case ImmediateType::memory:        result = InstructionMemory::read(context); break;
+        case ImmediateType::memory0:       result = InstructionMemory0::read(context); break;
+        case ImmediateType::indirect:      result = InstructionIndirect::read(context); break;
         default:
             context.msgs().error("Invalid encoding ", unsigned(encoding));
             return nullptr;

@@ -458,7 +458,6 @@ std::vector<Assembler::SectionElementIndex> Assembler::findSectionEntries(bool i
             } else {
                 result.emplace_back(sectionType, startPos);
             }
-
         } else {
             msgs.expected(tokens.peekToken(), "'('");
         }

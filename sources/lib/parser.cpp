@@ -388,6 +388,18 @@ int8_t requiredI8(SourceContext& context)
     return 0;
 }
 
+uint8_t requiredU8(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = tokens.getU8()) {
+        return *value;
+    }
+
+    context.msgs().expected(tokens.peekToken(), "8-bit unsigned integer");
+    return 0;
+}
+
 uint32_t requiredU32(SourceContext& context)
 {
     auto& tokens = context.tokens();

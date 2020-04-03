@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-enum class ParameterEncoding
+enum class ImmediateType
 {
     none,
     i8,
@@ -617,7 +617,7 @@ class Opcode
         }
 
         std::string_view getName() const;
-        ParameterEncoding getParameterEncoding() const;
+        ImmediateType getImmediateType() const;
         uint32_t getAlign() const;
         bool isValid() const;
         
@@ -652,7 +652,7 @@ class Opcode
         struct Info
         {
             uint32_t opcode;
-            ParameterEncoding encoding = ParameterEncoding::none;
+            ImmediateType encoding = ImmediateType::none;
             SignatureCode signatureCode = SignatureCode::void_;
             std::string_view name;
             uint32_t align = 0;

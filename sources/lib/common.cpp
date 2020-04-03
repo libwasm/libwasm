@@ -314,7 +314,7 @@ float toF32(std::string_view chars)
 
     if (string[0] == 'n') {
         if (string.size() > 3) {
-            i = strtol(string.c_str() + 4, nullptr, 0);
+            i = uint32_t(strtol(string.c_str() + 4, nullptr, 0));
             i |= 0x7f800000;
         } else {
             i = 0x7fc00000;

@@ -27,6 +27,7 @@ std::optional<ExternalType> parseExternalType(SourceContext& context);
 bool startClause(SourceContext& context, std::string_view name);
 
 int8_t requiredI8(SourceContext& context);
+uint8_t requiredU8(SourceContext& context);
 uint32_t requiredU32(SourceContext& context);
 int32_t requiredI32(SourceContext& context);
 int64_t requiredI64(SourceContext& context);

@@ -69,6 +69,7 @@ class TokenBuffer
         }
 
         std::optional<int8_t> getI8();
+        std::optional<uint8_t> getU8();
         std::optional<int16_t> getI16();
         std::optional<uint32_t> getU32();
         std::optional<int32_t> getI32();

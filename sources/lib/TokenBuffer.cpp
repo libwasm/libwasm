@@ -169,6 +169,19 @@ std::optional<std::string_view> TokenBuffer::peekString()
     return {};
 }
 
+std::optional<uint8_t> TokenBuffer::getU8()
+{
+    assert(!atEnd());
+    auto& token = container[pos];
+
+    if (token.getKind() == Token::integer) {
+        pos++;
+        return int8_t(toI32(token.getValue()));
+    }
+
+    return {};
+}
+
 std::optional<int8_t> TokenBuffer::getI8()
 {
     assert(!atEnd());
@@ -353,8 +366,6 @@ std::optional<std::string_view> TokenBuffer::getString()
 
 void TokenBuffer::recover()
 {
-    unsigned depth = 1;
-
     while (!atEnd()) {
         auto& token = nextToken();
 
@@ -362,15 +373,14 @@ void TokenBuffer::recover()
             char value = token.getValue()[0];
 
             if (value == '(') {
-                depth++;
-            } else {
-                assert(depth > 0);
-                if (--depth == 0) {
-                    return;
+                if (auto correspondingIndex = token.getCoorespondingIndex();
+                    correspondingIndex < container.size()) {
+                    pos = token.getCoorespondingIndex() + 1;
                 }
+            } else {
+                break;
             }
         }
     }
-
 }
 

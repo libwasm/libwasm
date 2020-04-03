@@ -98,11 +98,16 @@ class Token
 
         void dump(std::ostream& os) const;
 
+        auto getCoorespondingIndex() const
+        {
+            return correspondingParenthesisIndex;
+        }
+
     private:
         TokenKind kind = none;
         size_t columnNumber = 0;
         size_t lineNumber = 0;
-        size_t correspondingParenthesisIndex = 0;
+        size_t correspondingParenthesisIndex = ~size_t(0);
         std::string_view value;
 
     friend class Assembler;

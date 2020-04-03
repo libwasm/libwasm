@@ -1327,7 +1327,7 @@ EventImport* EventImport::parse(SourceContext& context, const std::string_view n
         }
     }
 
-    result->setAttribute(EventType(requiredU32(context)));
+    result->setAttribute(EventType(requiredU8(context)));
 
     if (auto index = parseTypeIndex(context)) {
         result->typeIndex = *index;
@@ -3517,7 +3517,7 @@ void CodeEntry::generate(std::ostream& os, Module* module)
 
         instruction->generate(os, instructionContext);
 
-        if (instruction->getParameterEncoding() == ParameterEncoding::block) {
+        if (instruction->getImmediateType() == ImmediateType::block) {
             indent.append("  ");
         }
     }
@@ -3544,7 +3544,7 @@ void CodeEntry::show(std::ostream& os, Module* module)
 
         instruction->generate(os, instructionContext);
 
-        if (instruction->getParameterEncoding() == ParameterEncoding::block) {
+        if (instruction->getImmediateType() == ImmediateType::block) {
             indent.append("  ");
         }
 
@@ -3877,7 +3877,7 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
 
     }
 
-    result->attribute = EventType(requiredU32(context));
+    result->attribute = EventType(requiredU8(context));
 
     if (auto index = parseTypeIndex(context)) {
         result->setIndex(*index);

@@ -42,7 +42,7 @@ class Instruction : public TreeNode
     public:
         Instruction() = default;
 
-        Instruction(ParameterEncoding p)
+        Instruction(ImmediateType p)
           : encoding(p)
         {
         }
@@ -62,9 +62,9 @@ class Instruction : public TreeNode
             return opcode;
         }
 
-        auto getParameterEncoding() const
+        auto getImmediateType() const
         {
-            return opcode.getParameterEncoding();
+            return opcode.getImmediateType();
         }
 
         void writeOpcode(BinaryContext& context) const;
@@ -88,19 +88,19 @@ class Instruction : public TreeNode
 
     protected:
         Opcode opcode;
-        ParameterEncoding encoding;
+        ImmediateType encoding;
 };
 
 class InstructionNone : public Instruction
 {
     public:
         InstructionNone()
-          : Instruction(ParameterEncoding::none)
+          : Instruction(ImmediateType::none)
         {
         }
 
         InstructionNone(Opcode op)
-          : Instruction(ParameterEncoding::none)
+          : Instruction(ImmediateType::none)
         {
             opcode = op;
         }
@@ -117,7 +117,7 @@ class InstructionI32 : public Instruction
 {
     public:
         InstructionI32()
-          : Instruction(ParameterEncoding::i32)
+          : Instruction(ImmediateType::i32)
         {
         }
 
@@ -136,7 +136,7 @@ class InstructionI64 : public Instruction
 {
     public:
         InstructionI64()
-          : Instruction(ParameterEncoding::i64)
+          : Instruction(ImmediateType::i64)
         {
         }
 
@@ -155,7 +155,7 @@ class InstructionF32 : public Instruction
 {
     public:
         InstructionF32()
-          : Instruction(ParameterEncoding::f32)
+          : Instruction(ImmediateType::f32)
         {
         }
 
@@ -174,7 +174,7 @@ class InstructionF64 : public Instruction
 {
     public:
         InstructionF64()
-          : Instruction(ParameterEncoding::f64)
+          : Instruction(ImmediateType::f64)
         {
         }
 
@@ -193,7 +193,7 @@ class InstructionV128 : public Instruction
 {
     public:
         InstructionV128()
-          : Instruction(ParameterEncoding::f64)
+          : Instruction(ImmediateType::f64)
         {
         }
 
@@ -212,7 +212,7 @@ class InstructionBlock : public Instruction
 {
     public:
         InstructionBlock()
-          : Instruction(ParameterEncoding::block)
+          : Instruction(ImmediateType::block)
         {
         }
 
@@ -236,7 +236,7 @@ class InstructionIdx : public Instruction
 {
     public:
         InstructionIdx()
-          : Instruction(ParameterEncoding::idx)
+          : Instruction(ImmediateType::idx)
         {
         }
 
@@ -252,7 +252,7 @@ class InstructionIdx : public Instruction
         static InstructionIdx* read(BinaryContext& context);
 
     protected:
-        InstructionIdx(ParameterEncoding encoding)
+        InstructionIdx(ImmediateType encoding)
              : Instruction(encoding)
         {
         }
@@ -264,7 +264,7 @@ class InstructionLocalIdx : public InstructionIdx
 {
     public:
         InstructionLocalIdx()
-          : InstructionIdx(ParameterEncoding::localIdx)
+          : InstructionIdx(ImmediateType::localIdx)
         {
         }
 
@@ -276,7 +276,7 @@ class InstructionFunctionIdx : public InstructionIdx
 {
     public:
         InstructionFunctionIdx()
-          : InstructionIdx(ParameterEncoding::functionIdx)
+          : InstructionIdx(ImmediateType::functionIdx)
         {
         }
 
@@ -288,7 +288,7 @@ class InstructionGlobalIdx : public InstructionIdx
 {
     public:
         InstructionGlobalIdx()
-          : InstructionIdx(ParameterEncoding::globalIdx)
+          : InstructionIdx(ImmediateType::globalIdx)
         {
         }
 
@@ -300,7 +300,7 @@ class InstructionLabelIdx : public InstructionIdx
 {
     public:
         InstructionLabelIdx()
-          : InstructionIdx(ParameterEncoding::labelIdx)
+          : InstructionIdx(ImmediateType::labelIdx)
         {
         }
 
@@ -312,7 +312,7 @@ class InstructionLane2Idx : public InstructionIdx
 {
     public:
         InstructionLane2Idx()
-          : InstructionIdx(ParameterEncoding::labelIdx)
+          : InstructionIdx(ImmediateType::labelIdx)
         {
         }
 
@@ -324,7 +324,7 @@ class InstructionLane4Idx : public InstructionIdx
 {
     public:
         InstructionLane4Idx()
-          : InstructionIdx(ParameterEncoding::labelIdx)
+          : InstructionIdx(ImmediateType::labelIdx)
         {
         }
 
@@ -336,7 +336,7 @@ class InstructionLane8Idx : public InstructionIdx
 {
     public:
         InstructionLane8Idx()
-          : InstructionIdx(ParameterEncoding::labelIdx)
+          : InstructionIdx(ImmediateType::labelIdx)
         {
         }
 
@@ -348,7 +348,7 @@ class InstructionLane16Idx : public InstructionIdx
 {
     public:
         InstructionLane16Idx()
-          : InstructionIdx(ParameterEncoding::labelIdx)
+          : InstructionIdx(ImmediateType::labelIdx)
         {
         }
 
@@ -360,7 +360,7 @@ class InstructionLane32Idx : public InstructionIdx
 {
     public:
         InstructionLane32Idx()
-          : InstructionIdx(ParameterEncoding::labelIdx)
+          : InstructionIdx(ImmediateType::labelIdx)
         {
         }
 
@@ -372,7 +372,7 @@ class InstructionShuffle : public Instruction
 {
     public:
         InstructionShuffle()
-          : Instruction(ParameterEncoding::shuffle)
+          : Instruction(ImmediateType::shuffle)
         {
         }
 
@@ -391,7 +391,7 @@ class InstructionTable : public Instruction
 {
     public:
         InstructionTable()
-          : Instruction(ParameterEncoding::table)
+          : Instruction(ImmediateType::table)
         {
         }
 
@@ -416,7 +416,7 @@ class InstructionMemory : public Instruction
 {
     public:
         InstructionMemory()
-          : Instruction(ParameterEncoding::memory)
+          : Instruction(ImmediateType::memory)
         {
         }
 
@@ -436,7 +436,7 @@ class InstructionMemory0 : public Instruction
 {
     public:
         InstructionMemory0()
-          : Instruction(ParameterEncoding::memory0)
+          : Instruction(ImmediateType::memory0)
         {
         }
 
@@ -452,7 +452,7 @@ class InstructionIndirect : public Instruction
 {
     public:
         InstructionIndirect()
-          : Instruction(ParameterEncoding::idx)
+          : Instruction(ImmediateType::idx)
         {
         }
 

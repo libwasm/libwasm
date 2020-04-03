@@ -33,7 +33,6 @@ bool Disassembler::checkHeader()
 bool Disassembler::readSections()
 {
     auto* module = context.getModule();
-    auto& mags = context.msgs();
 
     while (!data.atEnd()) {
         auto c = data.getU8();
