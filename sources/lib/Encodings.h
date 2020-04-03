@@ -652,7 +652,7 @@ class Opcode
         struct Info
         {
             uint32_t opcode;
-            ImmediateType encoding = ImmediateType::none;
+            ImmediateType type = ImmediateType::none;
             SignatureCode signatureCode = SignatureCode::void_;
             std::string_view name;
             uint32_t align = 0;

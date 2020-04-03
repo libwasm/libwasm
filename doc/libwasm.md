@@ -16,7 +16,7 @@ The start the assembler use the command
 
      $ bin/webasm [*options*] *wat_files*
 
-*wat_files* is a list of one or more webassembly sources files, usually with the '.wat' extension.
+*wat_files* is a list of one or more webassembly sources files, usually with the '.wat' extension.  
 
 *options* is a list of options.
 
@@ -370,18 +370,158 @@ The constructor will create the internal structure known as the backbone.
 #### Other methods.
 Other methods have the same functionality as for the *Assembler* class.
 
+<P style="page-break-before: always">
 
 ### The backbone
+The backbone is a set of classes that describe all the elements from the webassembly syntax and its
+binary representation.
+The instances of these classes will produce a syntak tree with a Module instance as root.
 
-To be done.
+The "Module.h" and Module.cpp" describe the Module class.
 
+The *BackBone.h* and *BackBone.cpp* files describe all other  classes in the backbone except the instructions.
+
+The instructions are described in the *Instruction.h* and the *Instruction.cpp* files.
+
+#### The Module class.
+The module class is the root of the syntax tree for a webassembly module.
+
+The module class contains pointers to all the sections.  It also maintains a lot of other information,
+such as type count, function count etc.  This information is built up gradually during parsing a text file or
+reading a binary file.
+
+Methods are provided to manipulate all that data.
+
+#### The section classes.
+There is a class for each section type. The section types are decribed by the class
+SectionType iin *Encodings.h*.
+
+All Section classes have a very similar API.
+
+##### Example
+
+     class TypeSection : public Section
+     {
+         public:
+
+             ...
+
+             virtual void show(std::ostream& os, Context& context, unsigned flags = 0) override;
+             virtual void generate(std::ostream& os, Context& context, unsigned flags = 0) override;
+             virtual void write(BinaryContext& context) const override;
+             virtual void check(CheckContext& context) override;
+
+             static void read(BinaryContext& context, TypeSection* result);
+
+         private:
+             std::vector<std::unique_ptr<TypeDeclaration>> types;
+     };
+
+All section types implement the function *show*, *generate*, *write* and *read*.
+
+The *read* method reads the from a binary input.
+
+The *write* method writes the section to binary output.
+
+The *generate* method generates text format for the section to a source file.
+
+The *show* method generates readable output of the section. (see the *-p* option of *webasm* or *webdisasm*).
+
+The *check* method performs consistency checks on the section.
+
+
+Most sections contain a vector of entries (*types* in the example).  All these entries have a similar structure.
+
+##### Example
+class TypeDeclaration
+{
+    public:
+
+        ...
+
+        void show(std::ostream& os, Context& context);
+        void generate(std::ostream& os, Context& context);
+        void check(CheckContext& context);
+        void write(BinaryContext& context) const;
+
+        static TypeDeclaration* parse(SourceContext& context);
+        static TypeDeclaration* read(BinaryContext& context);
+
+    private:
+        std::unique_ptr<Signature> signature;
+        uint32_t number = 0;
+        std::string id;
+};
+
+The *read*, *write*, *generate*, *check* and *show* functions have the same purpose as described for the sections.
+
+The *parse* function parses an entry from a source input file.
+
+
+The section entry classes will have in turn pointers to the elements they create and so on.  All these elements
+will have a similar API.
+
+
+#### Instructions.
+The webassembly instructions are divided according the type of immediate they take.  For every one of these types
+there is a separate class.  All these classes implement a similar API as described above.
+
+##### Example
+     class InstructionTable : public Instruction
+     {
+         public:
+
+             ...
+
+             virtual void write(BinaryContext& context) override;
+             virtual void generate(std::ostream& os, InstructionContext& context) override;
+             virtual void check(CheckContext& context) override;
+
+             static InstructionTable* parse(SourceContext& context, Opcode opcode);
+             static InstructionTable* read(BinaryContext& context);
+
+         protected:
+             std::vector<uint32_t> labels;
+             uint32_t defaultLabel = 0;
+     };
+
+The immediate types can be found in the file "Encodings.h".
+
+The instruction parsing process is table driven.  This table (Opcode::info) can be found in the file Encodings.cpp.
+
+Each entry in the table is a struct describing one instruction:
+
+     struct Info
+     {
+         uint32_t opcode;
+         ImmediateType type = ImmediateType::none;
+         SignatureCode signatureCode = SignatureCode::void_;
+         std::string_view name;
+         uint32_t align = 0;
+     };
+
+The *opcode* field contains the prefix and code if the instruction as described in the webassembly
+documentation.  The opcode is built as ((prefix << 24) | code).
+
+The *type* field contains the immediate type.
+
+The *signatureCode* field contains a code thet descripes the parameters and result of the instruction.
+This code is an entry of the enum *SignatureCode", found in "Encodings.h".  The code consists of some
+value types separated by underscores.  The result type (or *void*) comes first, separated with 2 underscores
+from the parameter types which are separated by one underscore.
+
+##### Examples
+     i32__i64_i64    ;; The instruction expects two i64 values on the stack
+                     ;; and returns an i32 value on the stack
+     void_           ;; The instruction does not access the stack
+     f64_            ;; The instruction returns an f64 value on the stack
+
+The *name* field contains the name of the instruction as it appears in a text file.
+
+The *align* file specifies the memory alignment for the instruction.
 
 ### The Context classes
 
 To be done.
 
-
-### Utility functions.
-
-To be done.
 

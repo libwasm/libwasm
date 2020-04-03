@@ -525,7 +525,7 @@ ImmediateType Opcode::getImmediateType() const
     if (auto* info = getInfo(); info == nullptr) {
         return ImmediateType::none;
     } else {
-        return info->encoding;
+        return info->type;
     }
 }
 
