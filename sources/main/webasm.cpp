@@ -9,6 +9,8 @@
 #include <time.h>
 #include <vector>
 
+using namespace libwasm;
+
 static void usage(const char* programName)
 {
     std::cerr << "\nUsage: " << programName << " [options] wat_files\n"

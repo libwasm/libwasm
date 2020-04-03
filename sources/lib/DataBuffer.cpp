@@ -6,6 +6,9 @@
 
 #include <iostream>
 
+namespace libwasm
+{
+
 DataBuffer::DataBuffer()
 {
     reset();
@@ -164,3 +167,4 @@ void DataBuffer::dump(std::ostream& os, size_t startOffset, size_t endOffset)
     dumpChars(os, { &containers.back()[startOffset], endOffset - startOffset }, startOffset);
 }
 
+};

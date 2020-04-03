@@ -4,6 +4,9 @@
 
 #include <iostream>
 
+namespace libwasm
+{
+
 void Token::dump(std::ostream& os) const
 {
     os << lineNumber << " (" << columnNumber << ") ";
@@ -20,3 +23,4 @@ void Token::dump(std::ostream& os) const
     os << " '" << value << "'\n";
 }
 
+};

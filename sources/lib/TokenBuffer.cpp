@@ -4,6 +4,9 @@
 
 #include <cassert>
 
+namespace libwasm
+{
+
 std::optional<int8_t> TokenBuffer::peekI8(unsigned index)
 {
     auto& token = peekToken(index);
@@ -384,3 +387,4 @@ void TokenBuffer::recover()
     }
 }
 
+};

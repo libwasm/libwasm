@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 
+namespace libwasm
+{
 class Disassembler
 {
     public:
@@ -84,6 +86,7 @@ class Disassembler
         BinaryContext context;
         DataBuffer& data;
         Module* module = 0;
+};
 };
 
 

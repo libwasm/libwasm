@@ -2,6 +2,9 @@
 
 #include "Disassembler.h"
 
+namespace libwasm
+{
+
 bool Disassembler::readFile(std::istream& stream)
 {
     stream.seekg(0, std::ios::end);
@@ -161,3 +164,4 @@ bool Disassembler::readWasm(std::istream& stream)
     return true;
 }
 
+};

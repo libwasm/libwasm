@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string_view>
 
+namespace libwasm
+{
 using v128_t = std::array<uint8_t, 16>;
 
 const uint32_t wasmMagic = 0x6d736100;
@@ -57,5 +59,6 @@ int32_t toI32(std::string_view chars);
 int64_t toI64(std::string_view chars);
 float toF32(std::string_view chars);
 double toF64(std::string_view chars);
+};
 
 #endif

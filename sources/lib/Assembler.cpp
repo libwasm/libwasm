@@ -4,6 +4,9 @@
 
 #include <cctype>
 
+namespace libwasm
+{
+
 char Assembler::nextChar()
 {
     char c = data.nextChar();
@@ -654,3 +657,4 @@ bool Assembler::doParse()
     return msgs.getErrorCount() == 0;
 }
 
+};

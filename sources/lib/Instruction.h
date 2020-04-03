@@ -13,6 +13,8 @@
 #include <memory>
 #include <vector>
 
+namespace libwasm
+{
 class InstructionContext
 {
     public:
@@ -466,6 +468,7 @@ class InstructionIndirect : public Instruction
     protected:
         uint32_t typeIndex = 0;
         uint32_t dummy = 0;
+};
 };
 
 #endif

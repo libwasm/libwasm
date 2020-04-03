@@ -16,6 +16,8 @@
 #include <string_view>
 #include <vector>
 
+namespace libwasm
+{
 class CodeSection;
 class CustomSection;
 class DataCountSection;
@@ -526,6 +528,7 @@ class Module
 
         void showSections(std::ostream& os, unsigned flags);
         void generateSections(std::ostream& os);
+};
 };
 
 #endif

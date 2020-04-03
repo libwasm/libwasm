@@ -9,6 +9,9 @@
 
 #include <iomanip>
 
+namespace libwasm
+{
+
 void Instruction::writeOpcode(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -1004,3 +1007,4 @@ Instruction* Instruction::read(BinaryContext& context)
     return result;
 }
 
+};

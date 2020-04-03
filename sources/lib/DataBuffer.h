@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+namespace libwasm
+{
 class DataBuffer
 {
     public:
@@ -233,6 +235,7 @@ class DataBuffer
         size_t pos = 0;
         std::vector<std::string> containers;
         std::string *container;
+};
 };
 
 #endif

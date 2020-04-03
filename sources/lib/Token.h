@@ -5,6 +5,8 @@
 
 #include <string_view>
 
+namespace libwasm
+{
 class Token
 {
     public:
@@ -111,6 +113,7 @@ class Token
         std::string_view value;
 
     friend class Assembler;
+};
 };
 
 

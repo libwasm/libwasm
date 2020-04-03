@@ -7,6 +7,8 @@
 #include "Encodings.h"
 #include "TokenBuffer.h"
 
+namespace libwasm
+{
 std::optional<ValueType> parseValueType(SourceContext& context);
 std::optional<ValueType> parseElementType(SourceContext& context);
 std::optional<uint32_t> parseTableIndex(SourceContext& context);
@@ -38,5 +40,6 @@ bool requiredParenthesis(SourceContext& context, char parenthesis);
 bool requiredKeyword(SourceContext& context, std::string_view keyword);
 bool requiredStartClause(SourceContext& context, std::string_view name);
 std::optional<Limits> requiredLimits(SourceContext& context);
+};
 
 #endif

@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <iostream>
 
+namespace libwasm
+{
+
 Context::Context()
 {
     module = new Module;
@@ -190,3 +193,4 @@ void CheckContext::checkMut(TreeNode* node, Mut& mut)
             "Invalid mut");
 }
 
+};

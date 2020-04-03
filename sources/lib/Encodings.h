@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+namespace libwasm
+{
 enum class ImmediateType
 {
     none,
@@ -1044,6 +1046,7 @@ struct Limits
 
     void show(std::ostream& os);
     void generate(std::ostream& os);
+};
 };
 
 #endif

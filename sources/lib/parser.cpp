@@ -3,6 +3,9 @@
 #include "parser.h"
 #include "Module.h"
 
+
+namespace libwasm
+{
 std::optional<ValueType> parseElementType(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -528,3 +531,4 @@ std::optional<Limits> requiredLimits(SourceContext& context)
     return result;
 }
 
+};

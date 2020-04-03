@@ -11,6 +11,9 @@
 #include <iomanip>
 #include <iostream>
 
+namespace libwasm
+{
+
 static ValueType readValueType(BinaryContext& context)
 {
     ValueType result(context.data().getI32leb());
@@ -3998,3 +4001,4 @@ void EventSection::show(std::ostream& os, Module* module, unsigned flags)
     os << '\n';
 }
 
+};

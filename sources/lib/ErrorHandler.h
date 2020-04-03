@@ -10,6 +10,8 @@
 #include <string>
 #include <string_view>
 
+namespace libwasm
+{
 class ErrorHandler
 {
     public:
@@ -232,6 +234,7 @@ class CheckErrorHandler : public ErrorHandler
                 std::cerr << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
             }
         }
+};
 };
 
 #endif

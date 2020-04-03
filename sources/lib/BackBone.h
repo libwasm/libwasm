@@ -14,6 +14,8 @@
 #include <memory>
 #include <vector>
 
+namespace libwasm
+{
 class Module;
 
 class Expression : public TreeNode
@@ -1799,6 +1801,7 @@ class DataCountSection : public Section
 
     private:
         uint32_t dataCount = 0;
+};
 };
 
 #endif

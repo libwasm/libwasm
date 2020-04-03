@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+namespace libwasm
+{
 class TokenBuffer
 {
     public:
@@ -109,6 +111,7 @@ class TokenBuffer
     private:
         size_t pos = 0;
         std::vector<Token> container;
+};
 };
 
 #endif

@@ -8,6 +8,9 @@
 #include <cstdlib>
 #include <iomanip>
 
+namespace libwasm
+{
+
 void dumpChars(std::ostream& os, std::string_view chars, size_t startOffset)
 {
     auto flags = os.flags();
@@ -332,3 +335,4 @@ float toF32(std::string_view chars)
     return f;
 }
 
+};

@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <iostream>
 
+namespace libwasm
+{
+
 bool Module::IndexMap::add(std::string_view id, uint32_t index)
 {
     auto it = std::lower_bound(entries.begin(), entries.end(), Entry(id, 0));
@@ -566,3 +569,4 @@ void Module::makeDataCountSection()
     }
 }
 
+};

@@ -17,6 +17,8 @@
 #include <string_view>
 #include <vector>
 
+namespace libwasm
+{
 class Assembler
 {
     public:
@@ -129,6 +131,7 @@ class Assembler
 
         SourceContext context;
         Module* module = nullptr;
+};
 };
 
 #endif

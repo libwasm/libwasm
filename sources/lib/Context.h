@@ -12,6 +12,8 @@
 #include <memory>
 #include <vector>
 
+namespace libwasm
+{
 class Module;
 
 class Context
@@ -149,6 +151,7 @@ class CheckContext : public Context
 
     private:
         CheckErrorHandler& errorHandler;
+};
 };
 
 #endif

@@ -4,6 +4,9 @@
 
 #include <algorithm>
 
+namespace libwasm
+{
+
 std::vector<Opcode::Entry> Opcode::map;
 
 static const uint32_t simd = OpcodePrefix::simd << 24;
@@ -777,3 +780,4 @@ bool hasAddend(RelocationType type)
       type == RelocationType::sectionOffsetI32;
 }
 
+};
