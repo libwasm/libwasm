@@ -450,7 +450,7 @@ InstructionLabelIdx* InstructionLabelIdx::parse(SourceContext& context, Opcode o
     if (auto index = parseLabelIndex(context); index) {
         result->imm = *index;
     } else {
-        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid local index.");
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid label index.");
     }
 
     return result;
@@ -459,6 +459,28 @@ InstructionLabelIdx* InstructionLabelIdx::parse(SourceContext& context, Opcode o
 InstructionLabelIdx* InstructionLabelIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLabelIdx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionEventIdx* InstructionEventIdx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionEventIdx>();
+
+    if (auto index = parseLabelIndex(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid event index.");
+    }
+
+    return result;
+}
+
+InstructionEventIdx* InstructionEventIdx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionEventIdx>();
 
     result->imm = context.data().getU32leb();
 
@@ -814,6 +836,49 @@ void InstructionIndirect::generate(std::ostream& os, InstructionContext& context
     os << opcode << " (type " << typeIndex << ')';
 }
 
+InstructionDepthEventIdx* InstructionDepthEventIdx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionDepthEventIdx>();
+
+    result->depth = requiredI32(context);
+    if (auto index = parseEventIndex(context); index) {
+        result->eventIndex = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid event index.");
+    }
+
+    return result;
+}
+
+InstructionDepthEventIdx* InstructionDepthEventIdx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionDepthEventIdx>();
+
+    result->depth = context.data().getU32leb();
+    result->eventIndex = context.data().getU32leb();
+
+    return result;
+}
+
+void InstructionDepthEventIdx::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putU32leb(depth);
+    data.putU32leb(eventIndex);
+}
+
+void InstructionDepthEventIdx::check(CheckContext& context)
+{
+    context.checkEventIndex(this, eventIndex);
+}
+
+void InstructionDepthEventIdx::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode << " (type " << eventIndex << ')';
+}
+
 void InstructionMemory0::write(BinaryContext& context)
 {
     auto& data = context.data();
@@ -873,6 +938,8 @@ Instruction* Instruction::parse(SourceContext& context)
         case ImmediateType::lane32Idx:     result = InstructionLane32Idx::parse(context, *opcode); break;
         case ImmediateType::shuffle:       result = InstructionShuffle::parse(context, *opcode); break;
         case ImmediateType::table:         result = InstructionTable::parse(context, *opcode); break;
+        case ImmediateType::eventIdx:      result = InstructionEventIdx::parse(context, *opcode); break;
+        case ImmediateType::depthEventIdx: result = InstructionDepthEventIdx::parse(context, *opcode); break;
         case ImmediateType::memory:        result = InstructionMemory::parse(context, *opcode); break;
         case ImmediateType::memory0:       result = InstructionMemory0::parse(context, *opcode); break;
         case ImmediateType::indirect:      result = InstructionIndirect::parse(context, *opcode); break;
@@ -898,6 +965,7 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
                 instructions.push_back(instruction0);
                 parse(context, instructions);
                 instructions.push_back(context.makeTreeNode<InstructionNone>(Opcode(Opcode::end)));
+                context.getModule()->popLabel();
             } else if (instruction0->getOpcode() == Opcode::if_) {
                 while (parseFolded(context, instructions)) {
                     // nop
@@ -923,6 +991,7 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
                 }
 
                 instructions.push_back(context.makeTreeNode<InstructionNone>(Opcode(Opcode::end)));
+                context.getModule()->popLabel();
             } else {
                 while (parseFolded(context, instructions)) {
                     // nop
@@ -995,6 +1064,7 @@ Instruction* Instruction::read(BinaryContext& context)
         case ImmediateType::lane32Idx:     result = InstructionLane32Idx::read(context); break;
         case ImmediateType::shuffle:       result = InstructionShuffle::read(context); break;
         case ImmediateType::table:         result = InstructionTable::read(context); break;
+        case ImmediateType::depthEventIdx: result = InstructionDepthEventIdx::read(context); break;
         case ImmediateType::memory:        result = InstructionMemory::read(context); break;
         case ImmediateType::memory0:       result = InstructionMemory0::read(context); break;
         case ImmediateType::indirect:      result = InstructionIndirect::read(context); break;

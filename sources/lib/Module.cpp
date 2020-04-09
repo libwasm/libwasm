@@ -31,6 +31,19 @@ uint32_t Module::IndexMap::getIndex(std::string_view id) const
     return invalidIndex;
 }
 
+uint32_t Module::getLabelIndex(std::string_view id)
+{
+    uint32_t count = uint32_t(labelStack.size());
+
+    for (uint32_t i = count; i-- > 0; ) {
+        if (labelStack[i] == id) {
+            return count - i - 1;
+        }
+    }
+
+    return invalidIndex;
+}
+
 bool Module::setTypeSection(TypeSection* section)
 {
     if (typeSectionIndex == invalidSection) {

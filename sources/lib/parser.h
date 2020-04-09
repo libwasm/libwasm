@@ -18,6 +18,7 @@ std::optional<uint32_t> parseMemoryIndex(SourceContext& context);
 std::optional<uint32_t> parseGlobalIndex(SourceContext& context);
 std::optional<uint32_t> parseLocalIndex(SourceContext& context);
 std::optional<uint32_t> parseLabelIndex(SourceContext& context);
+std::optional<uint32_t> parseEventIndex(SourceContext& context);
 std::optional<uint32_t> parseLane2Index(SourceContext& context);
 std::optional<uint32_t> parseLane4Index(SourceContext& context);
 std::optional<uint32_t> parseLane8Index(SourceContext& context);

@@ -137,17 +137,18 @@ class CheckContext : public Context
 
         bool checkSemantics();
         void checkDataCount(TreeNode* node, uint32_t count);
-        void checkTypeIndex(TreeNode* node, uint32_t count);
-        void checkFunctionIndex(TreeNode* node, uint32_t index);
-        void checkMemoryIndex(TreeNode* node, uint32_t index);
-        void checkTableIndex(TreeNode* node, uint32_t index);
-        void checkGlobalIndex(TreeNode* node, uint32_t index);
-        void checkValueType(TreeNode* node, const ValueType& type);
         void checkElementType(TreeNode* node, const ValueType& type);
-        void checkExternalType(TreeNode* node, const ExternalType& type);
+        void checkEventIndex(TreeNode* node, uint32_t index);
         void checkEventType(TreeNode* node, const EventType& type);
+        void checkExternalType(TreeNode* node, const ExternalType& type);
+        void checkFunctionIndex(TreeNode* node, uint32_t index);
+        void checkGlobalIndex(TreeNode* node, uint32_t index);
         void checkLimits(TreeNode* node, const Limits& limits);
+        void checkMemoryIndex(TreeNode* node, uint32_t index);
         void checkMut(TreeNode* node, Mut& mut);
+        void checkTableIndex(TreeNode* node, uint32_t index);
+        void checkTypeIndex(TreeNode* node, uint32_t count);
+        void checkValueType(TreeNode* node, const ValueType& type);
 
     private:
         CheckErrorHandler& errorHandler;

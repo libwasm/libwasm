@@ -714,6 +714,7 @@ Signature* Signature::parse(SourceContext& context)
                 local->setNumber(module->nextLocalCount());
 
                 result->params.emplace_back(local);
+
                 if (!module->addLocalId(*id, local->getNumber())) {
                     context.msgs().error(tokens.peekToken(-1), "Duplicate local id.");
                 }
@@ -1141,7 +1142,7 @@ void FunctionImport::write(BinaryContext& context) const
     TypeUse::write(context);
 }
 
-FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_view name)
+FunctionImport* FunctionImport::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
@@ -1158,12 +1159,10 @@ FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_
 
     if (auto id = tokens.getId()) {
         result->id = *id;
-    } else {
-        result->id = name;
-    }
 
-    if (!module->addFunctionId(result->id, result->number)) {
-        context.msgs().error(tokens.peekToken(-1), "Duplicate function id '", result->id, "'.");
+        if (!module->addFunctionId(result->id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate function id '", result->id, "'.");
+        }
     }
 
     TypeUse::parse(context, result);
@@ -1176,7 +1175,7 @@ FunctionImport* FunctionImport::parse(SourceContext& context, const std::string_
     return result;
 }
  
-FunctionImport* FunctionImport::read(BinaryContext& context, const std::string_view name)
+FunctionImport* FunctionImport::read(BinaryContext& context)
 {
     auto* module = context.getModule();
     auto result = context.makeTreeNode<FunctionImport>();
@@ -1185,11 +1184,6 @@ FunctionImport* FunctionImport::read(BinaryContext& context, const std::string_v
     result->number = module->nextFunctionCount();
 
     TypeUse::read(context, result);
-    if (result->id.empty()) {
-        result->id = name;
-    }
-
-    module->addFunctionId(name, result->number);
 
     return result;
 }
@@ -1229,7 +1223,7 @@ void MemoryImport::write(BinaryContext& context) const
     writeLimits(context, limits);
 }
 
-MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view name)
+MemoryImport* MemoryImport::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
@@ -1244,8 +1238,25 @@ MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addMemoryId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate memory id.");
+        }
+    }
+
+    while (startClause(context, "export")) {
+        auto* _export = context.makeTreeNode<ExportDeclaration>();
+
+        _export->setKind(ExternalType::memory);
+        _export->setNumber(module->nextExportCount());
+        _export->setName(requiredString(context));
+        _export->setIndex(result->number);
+
+        module->addExportEntry(_export);
+
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+            return result;
         }
     }
 
@@ -1264,7 +1275,7 @@ MemoryImport* MemoryImport::parse(SourceContext& context, const std::string_view
     return result;
 }
  
-MemoryImport* MemoryImport::read(BinaryContext& context, const std::string_view name)
+MemoryImport* MemoryImport::read(BinaryContext& context)
 {
     auto* module = context.getModule();
     auto result = context.makeTreeNode<MemoryImport>();
@@ -1310,7 +1321,7 @@ void EventImport::write(BinaryContext& context) const
     data.putU32leb(typeIndex);
 }
 
-EventImport* EventImport::parse(SourceContext& context, const std::string_view name)
+EventImport* EventImport::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
@@ -1325,8 +1336,25 @@ EventImport* EventImport::parse(SourceContext& context, const std::string_view n
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addEventId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
+        }
+    }
+
+    while (startClause(context, "export")) {
+        auto* _export = context.makeTreeNode<ExportDeclaration>();
+
+        _export->setKind(ExternalType::event);
+        _export->setNumber(module->nextExportCount());
+        _export->setName(requiredString(context));
+        _export->setIndex(result->number);
+
+        module->addExportEntry(_export);
+
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+            return result;
         }
     }
 
@@ -1346,7 +1374,7 @@ EventImport* EventImport::parse(SourceContext& context, const std::string_view n
     return result;
 }
  
-EventImport* EventImport::read(BinaryContext& context, const std::string_view name)
+EventImport* EventImport::read(BinaryContext& context)
 {
     auto* module = context.getModule();
     auto& data = context.data();
@@ -1395,7 +1423,7 @@ void TableImport::write(BinaryContext& context) const
     writeLimits(context, limits);
 }
 
-TableImport* TableImport::parse(SourceContext& context, const std::string_view name)
+TableImport* TableImport::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
@@ -1411,6 +1439,7 @@ TableImport* TableImport::parse(SourceContext& context, const std::string_view n
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addTableId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate table id.");
         }
@@ -1437,7 +1466,7 @@ TableImport* TableImport::parse(SourceContext& context, const std::string_view n
     return result;
 }
  
-TableImport* TableImport::read(BinaryContext& context, const std::string_view name)
+TableImport* TableImport::read(BinaryContext& context)
 {
     auto* module = context.getModule();
     auto result = context.makeTreeNode<TableImport>();
@@ -1486,7 +1515,7 @@ void GlobalImport::write(BinaryContext& context) const
     data.putU8(uint8_t(mut));
 }
 
-GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view name)
+GlobalImport* GlobalImport::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
@@ -1503,6 +1532,7 @@ GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addGlobalId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate global id.");
         }
@@ -1535,7 +1565,7 @@ GlobalImport* GlobalImport::parse(SourceContext& context, const std::string_view
     return result;
 }
  
-GlobalImport* GlobalImport::read(BinaryContext& context, const std::string_view name)
+GlobalImport* GlobalImport::read(BinaryContext& context)
 {
     auto* module = context.getModule();
     auto& data = context.data();
@@ -1544,6 +1574,7 @@ GlobalImport* GlobalImport::read(BinaryContext& context, const std::string_view 
     result->type = readValueType(context);
     result->mut = Mut(data.getU8());
     result->number = module->nextGlobalCount();
+    module->addGlobal(result);
 
     return result;
 }
@@ -1607,9 +1638,18 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<FunctionImport>();
 
+    result->number = module->nextFunctionCount();
+
+    if (id) {
+        result->setId(*id);
+
+        if (!module->addFunctionId(*id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate function id '", *id, "'.");
+        }
+    }
+
     module->addFunction(result);
     module->startFunction();
-    result->number = module->nextFunctionCount();
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1619,13 +1659,8 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
 
     if (auto value = tokens.getString()) {
         result->setName(*value);
-        result->setId(id ? *id : *value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
-    }
-
-    if (!module->addFunctionId(result->getId(), result->number)) {
-        context.msgs().error(tokens.peekToken(-1), "Duplicate function id '", result->getId(), "'.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1664,8 +1699,17 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<TableImport>();
 
-    module->addTable(result);
     result->number = module->nextTableCount();
+
+    if (id) {
+        result->setId(*id);
+
+        if (!module->addTableId(*id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate table id '", *id, "'.");
+        }
+    }
+
+    module->addTable(result);
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1675,13 +1719,8 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
 
     if (auto value = tokens.getString()) {
         result->setName(*value);
-        result->setId(id ? *id : *value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
-    }
-
-    if (!module->addTableId(result->getId(), result->number)) {
-        context.msgs().error(tokens.peekToken(-1), "Duplicate table id '", result->getId(), "'.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1731,8 +1770,17 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<MemoryImport>();
 
-    module->addMemory(result);
     result->number = module->nextMemoryCount();
+
+    if (id) {
+        result->setId(*id);
+
+        if (!module->addMemoryId(*id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate memory id '", *id, "'.");
+        }
+    }
+
+    module->addMemory(result);
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1742,13 +1790,8 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
 
     if (auto value = tokens.getString()) {
         result->setName(*value);
-        result->setId(id ? *id : *value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
-    }
-
-    if (!module->addMemoryId(result->getId(), result->number)) {
-        context.msgs().error(tokens.peekToken(-1), "Duplicate memory id '", result->getId(), "'.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1792,8 +1835,17 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<EventImport>();
 
-    module->addEvent(result);
     result->number = module->nextEventCount();
+
+    if (id) {
+        result->setId(*id);
+
+        if (!module->addEventId(*id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate event id '", *id, "'.");
+        }
+    }
+
+    module->addEvent(result);
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1803,13 +1855,8 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
 
     if (auto value = tokens.getString()) {
         result->setName(*value);
-        result->setId(id ? *id : *value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
-    }
-
-    if (!module->addEventId(result->getId(), result->number)) {
-        context.msgs().error(tokens.peekToken(-1), "Duplicate event id '", result->getId(), "'.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1852,8 +1899,17 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<GlobalImport>();
 
-    module->addGlobal(result);
     result->number = module->nextGlobalCount();
+
+    if (id) {
+        result->setId(*id);
+
+        if (!module->addGlobalId(*id, result->number)) {
+            context.msgs().error(tokens.peekToken(-1), "Duplicate global id '", *id, "'.");
+        }
+    }
+
+    module->addGlobal(result);
 
     if (auto value = tokens.getString()) {
         result->setModuleName(*value);
@@ -1863,13 +1919,8 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
 
     if (auto value = tokens.getString()) {
         result->setName(*value);
-        result->setId(id ? *id : *value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
-    }
-
-    if (!module->addGlobalId(result->getId(), result->number)) {
-        context.msgs().error(tokens.peekToken(-1), "Duplicate global id '", result->getId(), "'.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1951,15 +2002,15 @@ ImportDeclaration* ImportDeclaration::parse(SourceContext& context)
 
     ImportDeclaration* result = nullptr;
 
-    if (auto entry = FunctionImport::parse(context, name); entry) {
+    if (auto entry = FunctionImport::parse(context); entry) {
         result = entry;
-    } else if (auto entry = TableImport::parse(context, name); entry) {
+    } else if (auto entry = TableImport::parse(context); entry) {
         result = entry;
-    } else if (auto entry = MemoryImport::parse(context, name); entry) {
+    } else if (auto entry = MemoryImport::parse(context); entry) {
         result = entry;
-    } else if (auto entry = EventImport::parse(context, name); entry) {
+    } else if (auto entry = EventImport::parse(context); entry) {
         result = entry;
-    } else if (auto entry = GlobalImport::parse(context, name); entry) {
+    } else if (auto entry = GlobalImport::parse(context); entry) {
         result = entry;
     } else {
         msgs.expected(tokens.peekToken(), "one of '(memory', '(global', '(func' or '(table'");
@@ -2016,11 +2067,11 @@ ImportSection* ImportSection::read(BinaryContext& context)
         auto kind = readExternalType(context);
 
         switch (uint8_t(kind)) {
-            case ExternalType::function: import = FunctionImport::read(context, name); break;
-            case ExternalType::table:    import = TableImport::read(context, name); break;
-            case ExternalType::memory:   import = MemoryImport::read(context, name); break;
-            case ExternalType::event:   import = EventImport::read(context, name); break;
-            case ExternalType::global:   import = GlobalImport::read(context, name); break;
+            case ExternalType::function: import = FunctionImport::read(context); break;
+            case ExternalType::table:    import = TableImport::read(context); break;
+            case ExternalType::memory:   import = MemoryImport::read(context); break;
+            case ExternalType::event:   import = EventImport::read(context); break;
+            case ExternalType::global:   import = GlobalImport::read(context); break;
             default:
                 context.msgs().error("Invalid import declaration ", uint8_t(kind));
                 break;
@@ -2094,6 +2145,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addFunctionId(result->id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate function id.");
         }
@@ -2256,8 +2308,25 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addTableId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate table id.");
+        }
+    }
+
+    while (startClause(context, "export")) {
+        auto* _export = context.makeTreeNode<ExportDeclaration>();
+
+        _export->setKind(ExternalType::table);
+        _export->setNumber(module->nextExportCount());
+        _export->setName(requiredString(context));
+        _export->setIndex(result->number);
+
+        module->addExportEntry(_export);
+
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+            return result;
         }
     }
 
@@ -2445,6 +2514,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addMemoryId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate memory id.");
         }
@@ -2594,8 +2664,25 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addGlobalId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate global id.");
+        }
+    }
+
+    while (startClause(context, "export")) {
+        auto* _export = context.makeTreeNode<ExportDeclaration>();
+
+        _export->setKind(ExternalType::global);
+        _export->setNumber(module->nextExportCount());
+        _export->setName(requiredString(context));
+        _export->setIndex(result->number);
+
+        module->addExportEntry(_export);
+
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+            return result;
         }
     }
 
@@ -2648,6 +2735,7 @@ GlobalDeclaration* GlobalDeclaration::read(BinaryContext& context)
     result->mut = Mut(data.getU8());
     result->number = module->nextGlobalCount();
     result->expression.reset(Expression::readInit(context));
+    module->addGlobal(result);
 
     return result;
 }
@@ -3343,6 +3431,7 @@ Local* Local::parse(SourceContext& context)
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addLocalId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate local id.");
         }
@@ -3874,6 +3963,7 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
 
     if (auto id = tokens.getId()) {
         result->id = *id;
+
         if (!module->addEventId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
         }

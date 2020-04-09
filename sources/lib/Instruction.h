@@ -222,6 +222,11 @@ class InstructionBlock : public Instruction
         {
         }
 
+        auto getResultType() const
+        {
+            return imm;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -245,6 +250,11 @@ class InstructionIdx : public Instruction
         void setIndex(uint32_t index)
         {
             imm = index;
+        }
+
+        auto getIndex() const
+        {
+            return imm;
         }
 
         virtual void write(BinaryContext& context) override;
@@ -272,6 +282,7 @@ class InstructionLocalIdx : public InstructionIdx
 
         static InstructionLocalIdx* parse(SourceContext& context, Opcode opcode);
         static InstructionLocalIdx* read(BinaryContext& context);
+
 };
 
 class InstructionFunctionIdx : public InstructionIdx
@@ -310,11 +321,23 @@ class InstructionLabelIdx : public InstructionIdx
         static InstructionLabelIdx* read(BinaryContext& context);
 };
 
+class InstructionEventIdx : public InstructionIdx
+{
+    public:
+        InstructionEventIdx()
+          : InstructionIdx(ImmediateType::eventIdx)
+        {
+        }
+
+        static InstructionEventIdx* parse(SourceContext& context, Opcode opcode);
+        static InstructionEventIdx* read(BinaryContext& context);
+};
+
 class InstructionLane2Idx : public InstructionIdx
 {
     public:
         InstructionLane2Idx()
-          : InstructionIdx(ImmediateType::labelIdx)
+          : InstructionIdx(ImmediateType::lane2Idx)
         {
         }
 
@@ -326,7 +349,7 @@ class InstructionLane4Idx : public InstructionIdx
 {
     public:
         InstructionLane4Idx()
-          : InstructionIdx(ImmediateType::labelIdx)
+          : InstructionIdx(ImmediateType::lane4Idx)
         {
         }
 
@@ -338,7 +361,7 @@ class InstructionLane8Idx : public InstructionIdx
 {
     public:
         InstructionLane8Idx()
-          : InstructionIdx(ImmediateType::labelIdx)
+          : InstructionIdx(ImmediateType::lane8Idx)
         {
         }
 
@@ -350,7 +373,7 @@ class InstructionLane16Idx : public InstructionIdx
 {
     public:
         InstructionLane16Idx()
-          : InstructionIdx(ImmediateType::labelIdx)
+          : InstructionIdx(ImmediateType::lane16Idx)
         {
         }
 
@@ -362,7 +385,7 @@ class InstructionLane32Idx : public InstructionIdx
 {
     public:
         InstructionLane32Idx()
-          : InstructionIdx(ImmediateType::labelIdx)
+          : InstructionIdx(ImmediateType::lane32Idx)
         {
         }
 
@@ -400,6 +423,16 @@ class InstructionTable : public Instruction
         void addLabel(uint32_t i)
         {
             labels.push_back(i);
+        }
+
+        auto getDefaultLabel() const
+        {
+            return defaultLabel;
+        }
+
+        auto& getLabels()
+        {
+            return labels;
         }
 
         virtual void write(BinaryContext& context) override;
@@ -454,8 +487,13 @@ class InstructionIndirect : public Instruction
 {
     public:
         InstructionIndirect()
-          : Instruction(ImmediateType::idx)
+          : Instruction(ImmediateType::indirect)
         {
+        }
+
+        auto getIndex() const
+        {
+            return typeIndex;
         }
 
         virtual void write(BinaryContext& context) override;
@@ -469,6 +507,27 @@ class InstructionIndirect : public Instruction
         uint32_t typeIndex = 0;
         uint32_t dummy = 0;
 };
+
+class InstructionDepthEventIdx : public Instruction
+{
+    public:
+        InstructionDepthEventIdx()
+          : Instruction(ImmediateType::depthEventIdx)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionDepthEventIdx* parse(SourceContext& context, Opcode opcode);
+        static InstructionDepthEventIdx* read(BinaryContext& context);
+
+    protected:
+        uint32_t depth = 0;
+        uint32_t eventIndex = 0;
+};
+
 };
 
 #endif

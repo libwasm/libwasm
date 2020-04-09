@@ -29,6 +29,7 @@ enum class ImmediateType
     globalIdx,
     functionIdx,
     labelIdx,
+    eventIdx,
     lane2Idx,
     lane4Idx,
     lane8Idx,
@@ -39,6 +40,7 @@ enum class ImmediateType
     memory,
     memory0,
     indirect,
+    depthEventIdx,
 };
 
 class OpcodePrefix
@@ -46,6 +48,7 @@ class OpcodePrefix
     public:
         enum : uint8_t
         {
+            extns = 0xfc,
             simd = 0xfd,
             thread = 0xfe,
         };
@@ -95,6 +98,7 @@ enum class SignatureCode
 {
     void_,
     f32_,
+    f32__f32,
     f32__f32_f32,
     f32__f64,
     f32__i32,
@@ -102,6 +106,7 @@ enum class SignatureCode
     f32__v128,
     f64_,
     f64__f32,
+    f64__f64,
     f64__f64_f64,
     f64__i32,
     f64__i64,
@@ -146,11 +151,21 @@ enum class SignatureCode
     void__i32_i32_i32,
     void__i32_i64,
     void__i32_v128,
+    special,
 };
 
 class Opcode
 {
     public:
+        struct Info
+        {
+            uint32_t opcode;
+            ImmediateType type = ImmediateType::none;
+            SignatureCode signatureCode = SignatureCode::void_;
+            std::string_view name;
+            uint32_t align = 0;
+        };
+
         enum : uint32_t
         {
             unreachable = 0x00,
@@ -450,6 +465,10 @@ class Opcode
             i8x16__sub_saturate_s = 0x5b,
             i8x16__sub_saturate_u = 0x5c,
             i8x16__mul = 0x5d,
+            i8x16__min_s = 0x5e,
+            i8x16__min_u = 0x5f,
+            i8x16__max_s = 0x60,
+            i8x16__max_u = 0x61,
             i16x8__neg = 0x62,
             i16x8__any_true = 0x63,
             i16x8__all_true = 0x64,
@@ -463,6 +482,10 @@ class Opcode
             i16x8__sub_saturate_s = 0x6c,
             i16x8__sub_saturate_u = 0x6d,
             i16x8__mul = 0x6e,
+            i16x8__min_s = 0x6f,
+            i16x8__min_u = 0x70,
+            i16x8__max_s = 0x71,
+            i16x8__max_u = 0x72,
             i32x4__neg = 0x73,
             i32x4__any_true = 0x74,
             i32x4__all_true = 0x75,
@@ -472,6 +495,10 @@ class Opcode
             i32x4__add = 0x79,
             i32x4__sub = 0x7c,
             i32x4__mul = 0x7f,
+            i32x4__min_s = 0x80,
+            i32x4__min_u = 0x81,
+            i32x4__max_s = 0x82,
+            i32x4__max_u = 0x83,
             i64x2__neg = 0x84,
             i64x2__any_true = 0x85,
             i64x2__all_true = 0x86,
@@ -480,6 +507,7 @@ class Opcode
             i64x2__shr_u = 0x89,
             i64x2__add = 0x8a,
             i64x2__sub = 0x8d,
+            i64x2__mul = 0x90,
             f32x4__abs = 0x95,
             f32x4__neg = 0x96,
             f32x4__sqrt = 0x97,
@@ -508,10 +536,10 @@ class Opcode
             f64x2__convert_i64x2_u = 0xb2,
             v8x16__swizzle = 0xc0,
             v8x16__shuffle = 0xc1,
-            i8x16__load_splat = 0xc2,
-            i16x8__load_splat = 0xc3,
-            i32x4__load_splat = 0xc4,
-            i64x2__load_splat = 0xc5,
+            v8x16__load_splat = 0xc2,
+            v16x8__load_splat = 0xc3,
+            v32x4__load_splat = 0xc4,
+            v64x2__load_splat = 0xc5,
             i8x16__narrow_i16x8_s = 0xc6,
             i8x16__narrow_i16x8_u = 0xc7,
             i16x8__narrow_i32x4_s = 0xc8,
@@ -648,18 +676,11 @@ class Opcode
             return value & 0xffffff;
         }
 
+        const Info* getInfo() const;
+
         static std::optional<Opcode> fromString(std::string_view name);
 
     private:
-        struct Info
-        {
-            uint32_t opcode;
-            ImmediateType type = ImmediateType::none;
-            SignatureCode signatureCode = SignatureCode::void_;
-            std::string_view name;
-            uint32_t align = 0;
-        };
-
         struct Entry
         {
             Entry(std::string_view n, uint32_t i)
@@ -671,12 +692,25 @@ class Opcode
             uint32_t index;
         };
 
-        Info* getInfo() const;
         static void buildMap();
+
+        uint32_t value = 0;
 
         static Info info[];
         static std::vector<Entry> map;
-        uint32_t value = 0;
+
+        class Initializer
+        {
+            public:
+                Initializer()
+                {
+                    Opcode::buildMap();
+                }
+        };
+
+        friend class Initializer;
+
+        static Initializer initializer;
 };
 
 inline bool operator==(uint32_t v, const Opcode& opcode)

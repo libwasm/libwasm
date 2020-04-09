@@ -239,7 +239,7 @@ bool Assembler::parseString()
 Token::TokenKind Assembler::parseNumber()
 {
     Token::TokenKind kind = Token::none;
-    size_t startpos = (peekChar() == '-') ? 1 : 0;
+    size_t startpos = (peekChar() == '-' || peekChar() == '+') ? 1 : 0;
 
     if (peekChar(startpos) == '0' && (peekChar(startpos + 1) == 'x' || peekChar(startpos + 1) == 'X')) {
         parseInteger();
@@ -249,7 +249,7 @@ Token::TokenKind Assembler::parseNumber()
             bump();
             kind = Token::floating;
 
-            if (isNumeric(peekChar())) {
+            if (isHex(peekChar())) {
                 parseHex();
             }
         }
@@ -287,7 +287,7 @@ Token::TokenKind Assembler::parseNumber()
 
 bool Assembler::parseNanOrInf()
 {
-    size_t startpos = (peekChar() == '-') ? 1 : 0;
+    size_t startpos = (peekChar() == '-' || peekChar() == '+') ? 1 : 0;
 
     if (peekChar(startpos) == 'n' && peekChar(startpos + 1) == 'a' && peekChar(startpos + 2) == 'n' &&
             (peekChar(startpos + 3) == ':' || !isIdChar(peekChar(startpos + 3)))) {

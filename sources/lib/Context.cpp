@@ -4,6 +4,7 @@
 #include "BackBone.h"
 #include "Encodings.h"
 #include "Module.h"
+#include "Validator.h"
 
 #include <algorithm>
 #include <iostream>
@@ -118,6 +119,7 @@ bool CheckContext::checkSemantics()
         section->check(*this);
     }
 
+    validate(*this);
     return errorHandler.getErrorCount() == 0;
 }
 
@@ -155,6 +157,12 @@ void CheckContext::checkGlobalIndex(TreeNode* node, uint32_t index)
 {
     errorHandler.errorWhen((index >= uint32_t(module->getGlobalCount())), node,
             "Global index (", index, ") is larger then maximum (", module->getGlobalCount(), ")");
+}
+
+void CheckContext::checkEventIndex(TreeNode* node, uint32_t index)
+{
+    errorHandler.errorWhen((index >= uint32_t(module->getEventCount())), node,
+            "Event index (", index, ") is larger then maximum (", module->getEventCount(), ")");
 }
 
 void CheckContext::checkValueType(TreeNode* node, const ValueType& type)

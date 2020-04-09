@@ -446,18 +446,7 @@ class Module
             labelStack.pop_back();
         }
 
-        uint32_t getLabelIndex(std::string_view id)
-        {
-            uint32_t count = uint32_t(labelStack.size());
-
-            for (uint32_t i = count; i-- > 0; ) {
-                if (labelStack[i] == id) {
-                    return count - i - 1;
-                }
-            }
-
-            return invalidIndex;
-        }
+        uint32_t getLabelIndex(std::string_view id);
 
         void addTypeEntry(TypeDeclaration* entry);
         void addImportEntry(ImportDeclaration* entry);

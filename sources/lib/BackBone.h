@@ -910,8 +910,8 @@ class FunctionImport : public TypeUse, public ImportDeclaration
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
-        static FunctionImport* parse(SourceContext& context, const std::string_view name);
-        static FunctionImport* read(BinaryContext& context, const std::string_view name);
+        static FunctionImport* parse(SourceContext& context);
+        static FunctionImport* read(BinaryContext& context);
 };
 
 class Table
@@ -966,8 +966,8 @@ class TableImport : public Table, public ImportDeclaration
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
-        static TableImport* parse(SourceContext& context, const std::string_view name);
-        static TableImport* read(BinaryContext& context, const std::string_view name);
+        static TableImport* parse(SourceContext& context);
+        static TableImport* read(BinaryContext& context);
 };
 
 class Memory
@@ -1011,8 +1011,8 @@ class MemoryImport : public Memory, public ImportDeclaration
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
-        static MemoryImport* parse(SourceContext& context, const std::string_view name);
-        static MemoryImport* read(BinaryContext& context, const std::string_view name);
+        static MemoryImport* parse(SourceContext& context);
+        static MemoryImport* read(BinaryContext& context);
 };
 
 class Event
@@ -1067,8 +1067,8 @@ class EventImport : public Event, public ImportDeclaration
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
-        static EventImport* parse(SourceContext& context, const std::string_view name);
-        static EventImport* read(BinaryContext& context, const std::string_view name);
+        static EventImport* parse(SourceContext& context);
+        static EventImport* read(BinaryContext& context);
 };
 
 class Global
@@ -1123,8 +1123,8 @@ class GlobalImport : public Global, public ImportDeclaration
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
-        static GlobalImport* parse(SourceContext& context, const std::string_view name);
-        static GlobalImport* read(BinaryContext& context, const std::string_view name);
+        static GlobalImport* parse(SourceContext& context);
+        static GlobalImport* read(BinaryContext& context);
 };
 
 class ImportSection : public Section
@@ -1189,7 +1189,7 @@ class FunctionSection : public Section
         {
         }
 
-        auto& getFunctions() const
+        auto& getFunctions()
         {
             return functions;
         }
@@ -1647,6 +1647,11 @@ class CodeEntry : public TreeNode
         auto& getLocals()
         {
             return locals;
+        }
+
+        auto* getExpression()
+        {
+            return expression.get();
         }
 
         void show(std::ostream& os, Module* context);

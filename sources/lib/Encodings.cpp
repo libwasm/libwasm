@@ -7,40 +7,39 @@
 namespace libwasm
 {
 
-std::vector<Opcode::Entry> Opcode::map;
-
+static const uint32_t extns = OpcodePrefix::extns << 24;
 static const uint32_t simd = OpcodePrefix::simd << 24;
 static const uint32_t thread = OpcodePrefix::thread << 24;
 
 Opcode::Info Opcode::info[] =
 {
-    { Opcode::unreachable, ImmediateType::none, SignatureCode::void_, "unreachable", 0 },
+    { Opcode::unreachable, ImmediateType::none, SignatureCode::special, "unreachable", 0 },
     { Opcode::nop, ImmediateType::none, SignatureCode::void_, "nop", 0 },
-    { Opcode::block, ImmediateType::block, SignatureCode::void_, "block", 0 },
-    { Opcode::loop, ImmediateType::block, SignatureCode::void_, "loop", 0 },
-    { Opcode::if_, ImmediateType::block, SignatureCode::void_, "if", 0 },
-    { Opcode::else_, ImmediateType::none, SignatureCode::void_, "else", 0 },
-    { Opcode::try_, ImmediateType::none, SignatureCode::void_, "try", 0 },
-    { Opcode::catch_, ImmediateType::none, SignatureCode::void_, "catch", 0 },
-    { Opcode::throw_, ImmediateType::none, SignatureCode::void_, "throw", 0 },
-    { Opcode::rethrow_, ImmediateType::none, SignatureCode::void_, "rethrow", 0 },
-    { Opcode::br_on_exn, ImmediateType::none, SignatureCode::void_, "br_on_exn", 0 },
-    { Opcode::end, ImmediateType::none, SignatureCode::void_, "end", 0 },
-    { Opcode::br, ImmediateType::labelIdx, SignatureCode::void_, "br", 0 },
-    { Opcode::br_if, ImmediateType::labelIdx, SignatureCode::void_, "br_if", 0 },
-    { Opcode::br_table, ImmediateType::table, SignatureCode::void_, "br_table", 0 },
-    { Opcode::return_, ImmediateType::none, SignatureCode::void_, "return", 0 },
-    { Opcode::call, ImmediateType::functionIdx, SignatureCode::void_, "call", 0 },
-    { Opcode::call_indirect, ImmediateType::indirect, SignatureCode::void_, "call_indirect", 0 },
-    { Opcode::return_call, ImmediateType::none, SignatureCode::void_, "return_call", 0 },
-    { Opcode::return_call_indirect, ImmediateType::none, SignatureCode::void_, "return_call_indirect", 0 },
-    { Opcode::drop, ImmediateType::none, SignatureCode::void_, "drop", 0 },
-    { Opcode::select, ImmediateType::none, SignatureCode::void_, "select", 0 },
-    { Opcode::local__get, ImmediateType::localIdx, SignatureCode::void_, "local.get", 0 },
-    { Opcode::local__set, ImmediateType::localIdx, SignatureCode::void_, "local.set", 0 },
-    { Opcode::local__tee, ImmediateType::localIdx, SignatureCode::void_, "local.tee", 0 },
-    { Opcode::global__get, ImmediateType::globalIdx, SignatureCode::void_, "global.get", 0 },
-    { Opcode::global__set, ImmediateType::globalIdx, SignatureCode::void_, "global.set", 0 },
+    { Opcode::block, ImmediateType::block, SignatureCode::special, "block", 0 },
+    { Opcode::loop, ImmediateType::block, SignatureCode::special, "loop", 0 },
+    { Opcode::if_, ImmediateType::block, SignatureCode::special, "if", 0 },
+    { Opcode::else_, ImmediateType::none, SignatureCode::special, "else", 0 },
+    { Opcode::try_, ImmediateType::block, SignatureCode::special, "try", 0 },
+    { Opcode::catch_, ImmediateType::none, SignatureCode::special, "catch", 0 },
+    { Opcode::throw_, ImmediateType::eventIdx, SignatureCode::special, "throw", 0 },
+    { Opcode::rethrow_, ImmediateType::none, SignatureCode::special, "rethrow", 0 },
+    { Opcode::br_on_exn, ImmediateType::depthEventIdx, SignatureCode::void_, "br_on_exn", 0 },
+    { Opcode::end, ImmediateType::none, SignatureCode::special, "end", 0 },
+    { Opcode::br, ImmediateType::labelIdx, SignatureCode::special, "br", 0 },
+    { Opcode::br_if, ImmediateType::labelIdx, SignatureCode::special, "br_if", 0 },
+    { Opcode::br_table, ImmediateType::table, SignatureCode::special, "br_table", 0 },
+    { Opcode::return_, ImmediateType::none, SignatureCode::special, "return", 0 },
+    { Opcode::call, ImmediateType::functionIdx, SignatureCode::special, "call", 0 },
+    { Opcode::call_indirect, ImmediateType::indirect, SignatureCode::special, "call_indirect", 0 },
+    { Opcode::return_call, ImmediateType::functionIdx, SignatureCode::special, "return_call", 0 },
+    { Opcode::return_call_indirect, ImmediateType::functionIdx, SignatureCode::special, "return_call_indirect", 0 },
+    { Opcode::drop, ImmediateType::none, SignatureCode::special, "drop", 0 },
+    { Opcode::select, ImmediateType::none, SignatureCode::special, "select", 0 },
+    { Opcode::local__get, ImmediateType::localIdx, SignatureCode::special, "local.get", 0 },
+    { Opcode::local__set, ImmediateType::localIdx, SignatureCode::special, "local.set", 0 },
+    { Opcode::local__tee, ImmediateType::localIdx, SignatureCode::special, "local.tee", 0 },
+    { Opcode::global__get, ImmediateType::globalIdx, SignatureCode::special, "global.get", 0 },
+    { Opcode::global__set, ImmediateType::globalIdx, SignatureCode::special, "global.set", 0 },
     { Opcode::i32__load, ImmediateType::memory, SignatureCode::i32__i32, "i32.load", 4 },
     { Opcode::i64__load, ImmediateType::memory, SignatureCode::i64__i32, "i64.load", 8 },
     { Opcode::f32__load, ImmediateType::memory, SignatureCode::f32__i32, "f32.load", 4 },
@@ -140,13 +139,13 @@ Opcode::Info Opcode::info[] =
     { Opcode::i64__shr_u, ImmediateType::none, SignatureCode::i64__i64_i64, "i64.shr_u", 0 },
     { Opcode::i64__rotl, ImmediateType::none, SignatureCode::i64__i64_i64, "i64.rotl", 0 },
     { Opcode::i64__rotr, ImmediateType::none, SignatureCode::i64__i64_i64, "i64.rotr", 0 },
-    { Opcode::f32__abs, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.abs", 0 },
-    { Opcode::f32__neg, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.neg", 0 },
-    { Opcode::f32__ceil, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.ceil", 0 },
-    { Opcode::f32__floor, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.floor", 0 },
-    { Opcode::f32__trunc, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.trunc", 0 },
-    { Opcode::f32__nearest, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.nearest", 0 },
-    { Opcode::f32__sqrt, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.sqrt", 0 },
+    { Opcode::f32__abs, ImmediateType::none, SignatureCode::f32__f32, "f32.abs", 0 },
+    { Opcode::f32__neg, ImmediateType::none, SignatureCode::f32__f32, "f32.neg", 0 },
+    { Opcode::f32__ceil, ImmediateType::none, SignatureCode::f32__f32, "f32.ceil", 0 },
+    { Opcode::f32__floor, ImmediateType::none, SignatureCode::f32__f32, "f32.floor", 0 },
+    { Opcode::f32__trunc, ImmediateType::none, SignatureCode::f32__f32, "f32.trunc", 0 },
+    { Opcode::f32__nearest, ImmediateType::none, SignatureCode::f32__f32, "f32.nearest", 0 },
+    { Opcode::f32__sqrt, ImmediateType::none, SignatureCode::f32__f32, "f32.sqrt", 0 },
     { Opcode::f32__add, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.add", 0 },
     { Opcode::f32__sub, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.sub", 0 },
     { Opcode::f32__mul, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.mul", 0 },
@@ -154,13 +153,13 @@ Opcode::Info Opcode::info[] =
     { Opcode::f32__min, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.min", 0 },
     { Opcode::f32__max, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.max", 0 },
     { Opcode::f32__copysign, ImmediateType::none, SignatureCode::f32__f32_f32, "f32.copysign", 0 },
-    { Opcode::f64__abs, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.abs", 0 },
-    { Opcode::f64__neg, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.neg", 0 },
-    { Opcode::f64__ceil, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.ceil", 0 },
-    { Opcode::f64__floor, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.floor", 0 },
-    { Opcode::f64__trunc, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.trunc", 0 },
-    { Opcode::f64__nearest, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.nearest", 0 },
-    { Opcode::f64__sqrt, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.sqrt", 0 },
+    { Opcode::f64__abs, ImmediateType::none, SignatureCode::f64__f64, "f64.abs", 0 },
+    { Opcode::f64__neg, ImmediateType::none, SignatureCode::f64__f64, "f64.neg", 0 },
+    { Opcode::f64__ceil, ImmediateType::none, SignatureCode::f64__f64, "f64.ceil", 0 },
+    { Opcode::f64__floor, ImmediateType::none, SignatureCode::f64__f64, "f64.floor", 0 },
+    { Opcode::f64__trunc, ImmediateType::none, SignatureCode::f64__f64, "f64.trunc", 0 },
+    { Opcode::f64__nearest, ImmediateType::none, SignatureCode::f64__f64, "f64.nearest", 0 },
+    { Opcode::f64__sqrt, ImmediateType::none, SignatureCode::f64__f64, "f64.sqrt", 0 },
     { Opcode::f64__add, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.add", 0 },
     { Opcode::f64__sub, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.sub", 0 },
     { Opcode::f64__mul, ImmediateType::none, SignatureCode::f64__f64_f64, "f64.mul", 0 },
@@ -199,34 +198,35 @@ Opcode::Info Opcode::info[] =
     { Opcode::i64__extend16_s, ImmediateType::none, SignatureCode::i64__i64, "i64.extend16_s", 0 },
     { Opcode::i64__extend32_s, ImmediateType::none, SignatureCode::i64__i64, "i64.extend32_s", 0 },
     { Opcode::alloca, ImmediateType::none, SignatureCode::void_, "alloca", 0 },
-    { Opcode::br_unless, ImmediateType::none, SignatureCode::void_, "br_unless", 0 },
+    { Opcode::br_unless, ImmediateType::none, SignatureCode::special, "br_unless", 0 },
     { Opcode::call_host, ImmediateType::none, SignatureCode::void_, "call_host", 0 },
     { Opcode::data, ImmediateType::none, SignatureCode::void_, "data", 0 },
     { Opcode::drop_keep, ImmediateType::none, SignatureCode::void_, "drop_keep", 0 },
-    { Opcode::i32__trunc_sat_f32_s, ImmediateType::none, SignatureCode::i32__f32, "i32.trunc_sat_f32_s", 0 },
-    { Opcode::i32__trunc_sat_f32_u, ImmediateType::none, SignatureCode::i32__f32, "i32.trunc_sat_f32_u", 0 },
-    { Opcode::i32__trunc_sat_f64_s, ImmediateType::none, SignatureCode::i32__f64, "i32.trunc_sat_f64_s", 0 },
-    { Opcode::i32__trunc_sat_f64_u, ImmediateType::none, SignatureCode::i32__f64, "i32.trunc_sat_f64_u", 0 },
-    { Opcode::i64__trunc_sat_f32_s, ImmediateType::none, SignatureCode::i64__f32, "i64.trunc_sat_f32_s", 0 },
-    { Opcode::i64__trunc_sat_f32_u, ImmediateType::none, SignatureCode::i64__f32, "i64.trunc_sat_f32_u", 0 },
-    { Opcode::i64__trunc_sat_f64_s, ImmediateType::none, SignatureCode::i64__f64, "i64.trunc_sat_f64_s", 0 },
-    { Opcode::i64__trunc_sat_f64_u, ImmediateType::none, SignatureCode::i64__f64, "i64.trunc_sat_f64_u", 0 },
-    { Opcode::memory__init, ImmediateType::none, SignatureCode::void__i32_i32_i32, "memory.init", 0 },
-    { Opcode::data__drop, ImmediateType::none, SignatureCode::void_, "data.drop", 0 },
-    { Opcode::memory__copy, ImmediateType::none, SignatureCode::void__i32_i32_i32, "memory.copy", 0 },
-    { Opcode::memory__fill, ImmediateType::none, SignatureCode::void__i32_i32_i32, "memory.fill", 0 },
-    { Opcode::table__init, ImmediateType::none, SignatureCode::void__i32_i32_i32, "table.init", 0 },
-    { Opcode::elem__drop, ImmediateType::none, SignatureCode::void_, "elem.drop", 0 },
-    { Opcode::table__copy, ImmediateType::none, SignatureCode::void__i32_i32_i32, "table.copy", 0 },
-    { Opcode::table__get, ImmediateType::none, SignatureCode::void_, "table.get", 0 },
-    { Opcode::table__set, ImmediateType::none, SignatureCode::void_, "table.set", 0 },
-    { Opcode::table__grow, ImmediateType::none, SignatureCode::void_, "table.grow", 0 },
-    { Opcode::table__size, ImmediateType::none, SignatureCode::void_, "table.size", 0 },
-    { Opcode::table__fill, ImmediateType::none, SignatureCode::void_, "table.fill", 0 },
     { Opcode::ref__null, ImmediateType::none, SignatureCode::void_, "ref.null", 0 },
     { Opcode::ref__is_null, ImmediateType::none, SignatureCode::void_, "ref.is_null", 0 },
     { Opcode::ref__func, ImmediateType::none, SignatureCode::void_, "ref.func", 0 },
 
+    // 0xfd extensions.
+    { extns | Opcode::i32__trunc_sat_f32_s, ImmediateType::none, SignatureCode::i32__f32, "i32.trunc_sat_f32_s", 0 },
+    { extns | Opcode::i32__trunc_sat_f32_u, ImmediateType::none, SignatureCode::i32__f32, "i32.trunc_sat_f32_u", 0 },
+    { extns | Opcode::i32__trunc_sat_f64_s, ImmediateType::none, SignatureCode::i32__f64, "i32.trunc_sat_f64_s", 0 },
+    { extns | Opcode::i32__trunc_sat_f64_u, ImmediateType::none, SignatureCode::i32__f64, "i32.trunc_sat_f64_u", 0 },
+    { extns | Opcode::i64__trunc_sat_f32_s, ImmediateType::none, SignatureCode::i64__f32, "i64.trunc_sat_f32_s", 0 },
+    { extns | Opcode::i64__trunc_sat_f32_u, ImmediateType::none, SignatureCode::i64__f32, "i64.trunc_sat_f32_u", 0 },
+    { extns | Opcode::i64__trunc_sat_f64_s, ImmediateType::none, SignatureCode::i64__f64, "i64.trunc_sat_f64_s", 0 },
+    { extns | Opcode::i64__trunc_sat_f64_u, ImmediateType::none, SignatureCode::i64__f64, "i64.trunc_sat_f64_u", 0 },
+    { extns | Opcode::memory__init, ImmediateType::none, SignatureCode::void__i32_i32_i32, "memory.init", 0 },
+    { extns | Opcode::data__drop, ImmediateType::none, SignatureCode::void_, "data.drop", 0 },
+    { extns | Opcode::memory__copy, ImmediateType::none, SignatureCode::void__i32_i32_i32, "memory.copy", 0 },
+    { extns | Opcode::memory__fill, ImmediateType::none, SignatureCode::void__i32_i32_i32, "memory.fill", 0 },
+    { extns | Opcode::table__init, ImmediateType::none, SignatureCode::void__i32_i32_i32, "table.init", 0 },
+    { extns | Opcode::elem__drop, ImmediateType::none, SignatureCode::void_, "elem.drop", 0 },
+    { extns | Opcode::table__copy, ImmediateType::none, SignatureCode::void__i32_i32_i32, "table.copy", 0 },
+    { extns | Opcode::table__get, ImmediateType::none, SignatureCode::void_, "table.get", 0 },
+    { extns | Opcode::table__set, ImmediateType::none, SignatureCode::void_, "table.set", 0 },
+    { extns | Opcode::table__grow, ImmediateType::none, SignatureCode::void_, "table.grow", 0 },
+    { extns | Opcode::table__size, ImmediateType::none, SignatureCode::void_, "table.size", 0 },
+    { extns | Opcode::table__fill, ImmediateType::none, SignatureCode::void_, "table.fill", 0 },
     // SIMD
     { simd | Opcode::v128__load, ImmediateType::memory, SignatureCode::v128__i32, "v128.load", 16 },
     { simd | Opcode::v128__store, ImmediateType::memory, SignatureCode::void__i32_v128, "v128.store", 16 },
@@ -311,6 +311,10 @@ Opcode::Info Opcode::info[] =
     { simd | Opcode::i8x16__sub_saturate_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.sub_saturate_s", 0 },
     { simd | Opcode::i8x16__sub_saturate_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.sub_saturate_u", 0 },
     { simd | Opcode::i8x16__mul, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.mul", 0 },
+    { simd | Opcode::i8x16__min_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.min_s", 0 },
+    { simd | Opcode::i8x16__min_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.min_u", 0 },
+    { simd | Opcode::i8x16__max_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.max_s", 0 },
+    { simd | Opcode::i8x16__max_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.max_u", 0 },
     { simd | Opcode::i16x8__neg, ImmediateType::none, SignatureCode::v128__v128, "i16x8.neg", 0 },
     { simd | Opcode::i16x8__any_true, ImmediateType::none, SignatureCode::i32__v128, "i16x8.any_true", 0 },
     { simd | Opcode::i16x8__all_true, ImmediateType::none, SignatureCode::i32__v128, "i16x8.all_true", 0 },
@@ -324,6 +328,10 @@ Opcode::Info Opcode::info[] =
     { simd | Opcode::i16x8__sub_saturate_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.sub_saturate_s", 0 },
     { simd | Opcode::i16x8__sub_saturate_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.sub_saturate_u", 0 },
     { simd | Opcode::i16x8__mul, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.mul", 0 },
+    { simd | Opcode::i16x8__min_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.min_s", 0 },
+    { simd | Opcode::i16x8__min_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.min_u", 0 },
+    { simd | Opcode::i16x8__max_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.max_s", 0 },
+    { simd | Opcode::i16x8__max_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.max_u", 0 },
     { simd | Opcode::i32x4__neg, ImmediateType::none, SignatureCode::v128__v128, "i32x4.neg", 0 },
     { simd | Opcode::i32x4__any_true, ImmediateType::none, SignatureCode::i32__v128, "i32x4.any_true", 0 },
     { simd | Opcode::i32x4__all_true, ImmediateType::none, SignatureCode::i32__v128, "i32x4.all_true", 0 },
@@ -333,6 +341,10 @@ Opcode::Info Opcode::info[] =
     { simd | Opcode::i32x4__add, ImmediateType::none, SignatureCode::v128__v128_v128, "i32x4.add", 0 },
     { simd | Opcode::i32x4__sub, ImmediateType::none, SignatureCode::v128__v128_v128, "i32x4.sub", 0 },
     { simd | Opcode::i32x4__mul, ImmediateType::none, SignatureCode::v128__v128_v128, "i32x4.mul", 0 },
+    { simd | Opcode::i32x4__min_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i32x4.min_s", 0 },
+    { simd | Opcode::i32x4__min_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i32x4.min_u", 0 },
+    { simd | Opcode::i32x4__max_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i32x4.max_s", 0 },
+    { simd | Opcode::i32x4__max_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i32x4.max_u", 0 },
     { simd | Opcode::i64x2__neg, ImmediateType::none, SignatureCode::v128__v128, "i64x2.neg", 0 },
     { simd | Opcode::i64x2__any_true, ImmediateType::none, SignatureCode::i32__v128, "i64x2.any_true", 0 },
     { simd | Opcode::i64x2__all_true, ImmediateType::none, SignatureCode::i32__v128, "i64x2.all_true", 0 },
@@ -341,6 +353,7 @@ Opcode::Info Opcode::info[] =
     { simd | Opcode::i64x2__shr_u, ImmediateType::none, SignatureCode::v128__v128_i32, "i64x2.shr_u", 0 },
     { simd | Opcode::i64x2__add, ImmediateType::none, SignatureCode::v128__v128_v128, "i64x2.add", 0 },
     { simd | Opcode::i64x2__sub, ImmediateType::none, SignatureCode::v128__v128_v128, "i64x2.sub", 0 },
+    { simd | Opcode::i64x2__mul, ImmediateType::none, SignatureCode::v128__v128_v128, "i64x2.mul", 0 },
     { simd | Opcode::f32x4__abs, ImmediateType::none, SignatureCode::v128__v128, "f32x4.abs", 0 },
     { simd | Opcode::f32x4__neg, ImmediateType::none, SignatureCode::v128__v128, "f32x4.neg", 0 },
     { simd | Opcode::f32x4__sqrt, ImmediateType::none, SignatureCode::v128__v128, "f32x4.sqrt", 0 },
@@ -369,10 +382,10 @@ Opcode::Info Opcode::info[] =
     { simd | Opcode::f64x2__convert_i64x2_u, ImmediateType::none, SignatureCode::v128__v128, "f64x2.convert_i64x2_u", 0 },
     { simd | Opcode::v8x16__swizzle, ImmediateType::none, SignatureCode::v128__v128_v128, "v8x16.swizzle", 0 },
     { simd | Opcode::v8x16__shuffle, ImmediateType::shuffle, SignatureCode::v128__v128_v128, "v8x16.shuffle", 0 },
-    { simd | Opcode::i8x16__load_splat, ImmediateType::none, SignatureCode::v128__i32, "i8x16.load_splat", 1 },
-    { simd | Opcode::i16x8__load_splat, ImmediateType::none, SignatureCode::v128__i32, "i16x8.load_splat", 2 },
-    { simd | Opcode::i32x4__load_splat, ImmediateType::none, SignatureCode::v128__i32, "i32x4.load_splat", 4 },
-    { simd | Opcode::i64x2__load_splat, ImmediateType::none, SignatureCode::v128__i32, "i64x2.load_splat", 8 },
+    { simd | Opcode::v8x16__load_splat, ImmediateType::memory, SignatureCode::v128__i32, "v8x16.load_splat", 1 },
+    { simd | Opcode::v16x8__load_splat, ImmediateType::memory, SignatureCode::v128__i32, "v16x8.load_splat", 2 },
+    { simd | Opcode::v32x4__load_splat, ImmediateType::memory, SignatureCode::v128__i32, "v32x4.load_splat", 4 },
+    { simd | Opcode::v64x2__load_splat, ImmediateType::memory, SignatureCode::v128__i32, "v64x2.load_splat", 8 },
     { simd | Opcode::i8x16__narrow_i16x8_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.narrow_i16x8_s", 0 },
     { simd | Opcode::i8x16__narrow_i16x8_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.narrow_i16x8_u", 0 },
     { simd | Opcode::i16x8__narrow_i32x4_s, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.narrow_i32x4_s", 0 },
@@ -385,12 +398,12 @@ Opcode::Info Opcode::info[] =
     { simd | Opcode::i32x4__widen_high_i16x8_s, ImmediateType::none, SignatureCode::v128__v128, "i32x4.widen_high_i16x8_s", 0 },
     { simd | Opcode::i32x4__widen_low_i16x8_u, ImmediateType::none, SignatureCode::v128__v128, "i32x4.widen_low_i16x8_u", 0 },
     { simd | Opcode::i32x4__widen_high_i16x8_u, ImmediateType::none, SignatureCode::v128__v128, "i32x4.widen_high_i16x8_u", 0 },
-    { simd | Opcode::i16x8__load8x8_s, ImmediateType::memory, SignatureCode::v128_, "i16x8.load8x8_s", 2 },
-    { simd | Opcode::i16x8__load8x8_u, ImmediateType::memory, SignatureCode::v128_, "i16x8.load8x8_u", 2 },
-    { simd | Opcode::i32x4__load16x4_s, ImmediateType::memory, SignatureCode::v128_, "i32x4.load16x4_s", 4 },
-    { simd | Opcode::i32x4__load16x4_u, ImmediateType::memory, SignatureCode::v128_, "i32x4.load16x4_u", 4 },
-    { simd | Opcode::i64x2__load32x2_s, ImmediateType::memory, SignatureCode::v128_, "i64x2.load32x2_s", 8 },
-    { simd | Opcode::i64x2__load32x2_u, ImmediateType::memory, SignatureCode::v128_, "i64x2.load32x2_u", 8 },
+    { simd | Opcode::i16x8__load8x8_s, ImmediateType::memory, SignatureCode::v128__i32, "i16x8.load8x8_s", 8 },
+    { simd | Opcode::i16x8__load8x8_u, ImmediateType::memory, SignatureCode::v128__i32, "i16x8.load8x8_u", 8 },
+    { simd | Opcode::i32x4__load16x4_s, ImmediateType::memory, SignatureCode::v128__i32, "i32x4.load16x4_s", 8 },
+    { simd | Opcode::i32x4__load16x4_u, ImmediateType::memory, SignatureCode::v128__i32, "i32x4.load16x4_u", 8 },
+    { simd | Opcode::i64x2__load32x2_s, ImmediateType::memory, SignatureCode::v128__i32, "i64x2.load32x2_s", 8 },
+    { simd | Opcode::i64x2__load32x2_u, ImmediateType::memory, SignatureCode::v128__i32, "i64x2.load32x2_u", 8 },
     { simd | Opcode::v128__andnot, ImmediateType::none, SignatureCode::v128__v128_v128, "v128.andnot", 0 },
     { simd | Opcode::i8x16__avgr_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i8x16.avgr_u", 0 },
     { simd | Opcode::i16x8__avgr_u, ImmediateType::none, SignatureCode::v128__v128_v128, "i16x8.avgr_u", 0 },
@@ -467,8 +480,15 @@ Opcode::Info Opcode::info[] =
     { thread | Opcode::i64__atomic__rmw32__cmpxchg_u, ImmediateType::memory, SignatureCode::i64__i32_i64_i64, "i64.atomic.rmw32.cmpxchg_u", 4 },
 };
 
+std::vector<Opcode::Entry> Opcode::map;
+
+Opcode::Initializer Opcode::initializer;
+
 void Opcode::buildMap()
 {
+    std::sort(std::begin(info), std::end(info),
+            [](const Info& x, const Info& y) { return x.opcode < y.opcode; });
+
     uint32_t count = 0;
 
     map.reserve(std::size(info));
@@ -483,10 +503,6 @@ void Opcode::buildMap()
 
 std::optional<Opcode> Opcode::fromString(std::string_view name)
 {
-    if (map.empty()) {
-        buildMap();
-    }
-
     auto it = std::lower_bound(map.begin(), map.end(), Entry{name, 0},
             [](const Entry& x, const Entry& y) { return x.name < y.name; });
 
@@ -497,7 +513,7 @@ std::optional<Opcode> Opcode::fromString(std::string_view name)
     return {};
 }
 
-Opcode::Info* Opcode::getInfo() const
+const Opcode::Info* Opcode::getInfo() const
 {
     auto it = std::lower_bound(std::begin(info), std::end(info), Info{value},
             [](const Info& x, const Info& y) { return x.opcode < y.opcode; });
