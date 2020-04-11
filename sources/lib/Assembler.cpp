@@ -485,7 +485,7 @@ std::vector<size_t> Assembler::findSectionPositions(
 
 bool Assembler::checkSemantics()
 {
-    context.getModule()->makeDataCountSection();
+    // context.getModule()->makeDataCountSection();
 
     CheckErrorHandler error;
     CheckContext checkContext(context, error);

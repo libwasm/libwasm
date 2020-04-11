@@ -52,29 +52,30 @@ static ValueType readElementType(BinaryContext& context)
 static Limits readLimits(BinaryContext& context)
 {
     auto& data = context.data();
-    Limits result;
 
-    result.kind = LimitKind(data.getU8());
-    result.min = data.getU32leb();
+    auto flags = data.getU8();
+    auto min = data.getU32leb();
 
-    if (result.kind == LimitKind::hasMax) {
-        result.max = data.getU32leb();
+    if ((flags & Limits::hasMaxFlag) != 0) {
+        auto max = data.getU32leb();
 
-        context.msgs().errorWhen(result.max < result.min, "Invalid limits: max (", result.max,
-                ") is less than min (", result.min, ')');
+        context.msgs().errorWhen(max < min, "Invalid limits: max (", max,
+                ") is less than min (", min, ')');
+
+        return Limits(min, max);
     }
 
-    return result;
+    return Limits(min);
 }
 
 static void writeLimits(BinaryContext& context, const Limits& limits)
 {
     auto& data = context.data();
 
-    data.putU8(uint8_t(limits.kind));
+    data.putU8(uint8_t(limits.flags));
     data.putU32leb(limits.min);
 
-    if (limits.kind == LimitKind::hasMax) {
+    if (limits.hasMax()) {
         data.putU32leb(limits.max);
     }
 }
@@ -124,8 +125,12 @@ void Limits::generate(std::ostream& os)
 {
     os << ' ' << min;
 
-    if (kind == LimitKind::hasMax) {
+    if (hasMax()) {
         os << ' ' << max;
+    }
+
+    if (isShared()) {
+        os << " shared";
     }
 }
 
@@ -133,8 +138,12 @@ void Limits::show(std::ostream& os)
 {
     os << " min=" << min;
 
-    if (kind == LimitKind::hasMax) {
+    if (hasMax()) {
         os << ", max=" << max;
+    }
+
+    if (isShared()) {
+        os << ", shared";
     }
 }
 
@@ -2364,9 +2373,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
 
             module->addElementEntry(element);
 
-            result->limits.min = functionIndexCount;
-            result->limits.max = functionIndexCount;
-            result->limits.kind = LimitKind::hasMax;
+            result->limits = Limits(functionIndexCount, functionIndexCount);
         } else {
             context.msgs().expected(tokens.peekToken(), "(elem");
             tokens.recover();
@@ -3305,13 +3312,13 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 
     if (startClause(context, "offset")) {
         result->expression.reset(Expression::parse(context));
-    } else if (requiredParenthesis(context, '(')) {
+    } else if (tokens.getParenthesis('(')) {
         result->expression.reset(Expression::parse(context, true));
-    }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+            return result;
+        }
     }
 
     while (auto index = parseFunctionIndex(context)) {
@@ -3787,13 +3794,13 @@ DataSegment* DataSegment::parse(SourceContext& context)
 
     if (startClause(context, "offset")) {
         result->expression.reset(Expression::parse(context));
-    } else if (requiredParenthesis(context, '(')) {
+    } else if (tokens.getParenthesis('(')) {
         result->expression.reset(Expression::parse(context, true));
-    }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+            return result;
+        }
     }
 
     while (auto str = tokens.getString()) {
@@ -3831,7 +3838,9 @@ DataSegment* DataSegment::read(BinaryContext& context)
 void DataSegment::check(CheckContext& context)
 {
     context.checkMemoryIndex(this, memoryIndex);
-    expression->check(context);
+    if (expression) {
+        expression->check(context);
+    }
 }
 
 void DataSegment::generate(std::ostream& os, Module* module)

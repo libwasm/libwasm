@@ -191,7 +191,7 @@ void CheckContext::checkEventType(TreeNode* node, const EventType& type)
 
 void CheckContext::checkLimits(TreeNode* node, const Limits& limits)
 {
-    errorHandler.errorWhen((limits.kind == LimitKind::hasMax && limits.max < limits.min), node,
+    errorHandler.errorWhen((limits.hasMax() && limits.max < limits.min), node,
             "Invalid limits; maximum (", limits.max, ") is less then minimum (", limits.min, ')');
 }
 

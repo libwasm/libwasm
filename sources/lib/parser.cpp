@@ -198,7 +198,7 @@ std::optional<uint32_t> parseLabelIndex(SourceContext& context)
     auto* module = context.getModule();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getLabelCount()) {
+        if (*value > module->getLabelCount()) {
             return {};
         }
 
@@ -525,7 +525,11 @@ std::optional<Limits> requiredLimits(SourceContext& context)
 
     if (auto max = tokens.getU32()) {
         result.max = *max;
-        result.kind = LimitKind::hasMax;
+        result.flags = Limits::hasMaxFlag;
+    }
+
+    if (tokens.getKeyword("shared")) {
+        result.flags |= Limits::isSharedFlag;
     }
 
     return result;

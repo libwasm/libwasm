@@ -46,7 +46,7 @@ enum class ImmediateType
 class OpcodePrefix
 {
     public:
-        enum : uint8_t
+        enum Value : uint8_t
         {
             extns = 0xfc,
             simd = 0xfd,
@@ -54,26 +54,21 @@ class OpcodePrefix
         };
 
         OpcodePrefix() = default;
+        OpcodePrefix(int32_t v)
+          : value(Value(v))
+        {
+        }
 
-        explicit OpcodePrefix(uint8_t v)
+        OpcodePrefix(Value v)
           : value(v)
         {
         }
 
-        bool operator==(uint8_t v) const
-        {
-            return value == v;
-        }
-
-        bool operator!=(uint8_t v) const
-        {
-            return value != v;
-        }
-
-        explicit operator uint8_t() const
+        operator Value() const
         {
             return value;
         }
+
 
         bool isValid() const
         {
@@ -81,18 +76,8 @@ class OpcodePrefix
         }
 
     private:
-        uint8_t value = 0;
+        Value value = Value(0);
 };
-
-inline bool operator==(uint8_t v, const OpcodePrefix& event)
-{
-    return event == v;
-}
-
-inline bool operator!=(uint8_t v, const OpcodePrefix& event)
-{
-    return event != v;
-}
 
 enum class SignatureCode
 {
@@ -166,7 +151,7 @@ class Opcode
             uint32_t align = 0;
         };
 
-        enum : uint32_t
+        enum Value : uint32_t
         {
             unreachable = 0x00,
             nop = 0x01,
@@ -635,14 +620,24 @@ class Opcode
         };
 
         Opcode() = default;
-
-        Opcode(uint8_t prefix, uint32_t code)
-          : value((prefix << 24) | code)
+        Opcode(int32_t v)
+          : value(Value(v))
         {
         }
 
-        explicit Opcode(uint32_t v)
+        Opcode(Value v)
           : value(v)
+        {
+        }
+
+        operator Value() const
+        {
+            return value;
+        }
+
+
+        Opcode(uint8_t prefix, uint32_t code)
+          : value(Value((prefix << 24) | code))
         {
         }
 
@@ -651,21 +646,6 @@ class Opcode
         uint32_t getAlign() const;
         bool isValid() const;
         
-        bool operator==(uint32_t v) const
-        {
-            return value == v;
-        }
-
-        bool operator!=(uint32_t v) const
-        {
-            return value != v;
-        }
-
-        explicit operator uint32_t() const
-        {
-            return value;
-        }
-
         OpcodePrefix getPrefix() const
         {
             return OpcodePrefix(uint8_t(value >> 24));
@@ -694,7 +674,7 @@ class Opcode
 
         static void buildMap();
 
-        uint32_t value = 0;
+        Value value = Value(0);
 
         static Info info[];
         static std::vector<Entry> map;
@@ -713,16 +693,6 @@ class Opcode
         static Initializer initializer;
 };
 
-inline bool operator==(uint32_t v, const Opcode& opcode)
-{
-    return opcode == v;
-}
-
-inline bool operator!=(uint32_t v, const Opcode& opcode)
-{
-    return opcode != v;
-}
-
 inline std::ostream& operator<<(std::ostream& os, Opcode opcode)
 {
     return os << opcode.getName();
@@ -731,7 +701,7 @@ inline std::ostream& operator<<(std::ostream& os, Opcode opcode)
 class SectionType
 {
     public:
-        enum : uint8_t
+        enum Value : uint8_t
         {
             custom,
             type,
@@ -750,58 +720,28 @@ class SectionType
             max = event
         };
 
-        bool isValid() const;
-        std::string_view getName() const;
-        
-        bool operator==(const SectionType& v) const
-        {
-            return value == v.value;
-        }
-
-        bool operator!=(const SectionType& v) const
-        {
-            return value != v.value;
-        }
-
-        bool operator==(uint8_t v) const
-        {
-            return value == v;
-        }
-
-        bool operator!=(uint8_t v) const
-        {
-            return value != v;
-        }
-
         SectionType() = default;
-        SectionType(const SectionType& v)
-          : value(v.value)
+        SectionType(int32_t v)
+          : value(Value(v))
         {
         }
 
-        SectionType(uint8_t v)
+        SectionType(Value v)
           : value(v)
         {
         }
 
-        explicit operator uint8_t() const
+        operator Value() const
         {
             return value;
         }
 
+        bool isValid() const;
+        std::string_view getName() const;
+        
     private:
-        uint8_t value = max + 1;
+        Value value = Value(max + 1);
 };
-
-inline bool operator==(uint8_t v, const SectionType& type)
-{
-    return type == v;
-}
-
-inline bool operator!=(uint8_t v, const SectionType& type)
-{
-    return type != v;
-}
 
 inline std::ostream& operator<<(std::ostream& os, SectionType type)
 {
@@ -811,7 +751,7 @@ inline std::ostream& operator<<(std::ostream& os, SectionType type)
 class ValueType
 {
     public:
-        enum : int32_t
+        enum Value : int32_t
         {
             i32 = -0x01,      // 0x7f
             i64 = -0x02,      // 0x7e
@@ -825,56 +765,31 @@ class ValueType
             void_ = -0x40,    // 0x40
         };
 
-        bool isValid() const;
-        std::string_view getName() const;
-        
-        bool operator==(int32_t v) const
-        {
-            return value == v;
-        }
-
-        bool operator!=(int32_t v) const
-        {
-            return value != v;
-        }
-
         ValueType() = default;
         ValueType(int32_t v)
+          : value(Value(v))
+        {
+        }
+
+        ValueType(Value v)
           : value(v)
         {
         }
 
-        bool operator==(const ValueType& other) const
-        {
-            return value == other.value;
-        }
-
-        bool operator!=(const ValueType& other) const
-        {
-            return value != other.value;
-        }
-
-        explicit operator int32_t() const
+        operator Value() const
         {
             return value;
         }
 
+        bool isValid() const;
+        std::string_view getName() const;
+        
         static std::optional<ValueType> getEncoding(std::string_view v);
 
     private:
-        int32_t value = 0;
+        Value value = Value(0);
         
 };
-
-inline bool operator==(int32_t v, const ValueType& type)
-{
-    return type == v;
-}
-
-inline bool operator!=(int32_t v, const ValueType& type)
-{
-    return type != v;
-}
 
 inline std::ostream& operator<<(std::ostream& os, ValueType type)
 {
@@ -884,29 +799,23 @@ inline std::ostream& operator<<(std::ostream& os, ValueType type)
 class EventType
 {
     public:
-        enum : uint8_t
+        enum Value : uint8_t
         {
             exception = 0
         };
 
         EventType() = default;
+        EventType(int32_t v)
+          : value(Value(v))
+        {
+        }
 
-        explicit EventType(uint8_t v)
+        EventType(Value v)
           : value(v)
         {
         }
 
-        bool operator==(uint8_t v) const
-        {
-            return value == v;
-        }
-
-        bool operator!=(uint8_t v) const
-        {
-            return value != v;
-        }
-
-        explicit operator uint8_t() const
+        operator Value() const
         {
             return value;
         }
@@ -919,18 +828,8 @@ class EventType
         std::string_view getName() const;
 
     private:
-        uint8_t value = 0;
+        Value value = Value(0);
 };
-
-inline bool operator==(uint8_t v, const EventType& event)
-{
-    return event == v;
-}
-
-inline bool operator!=(uint8_t v, const EventType& event)
-{
-    return event != v;
-}
 
 inline std::ostream& operator<<(std::ostream& os, const EventType& value)
 {
@@ -940,7 +839,7 @@ inline std::ostream& operator<<(std::ostream& os, const EventType& value)
 class ExternalType
 {
     public:
-        enum : uint8_t
+        enum Value : uint8_t
         {
             function,
             table,
@@ -950,45 +849,30 @@ class ExternalType
             max = event
         };
 
-        bool isValid() const;
-        std::string_view getName() const;
-        
-        bool operator==(uint8_t v) const
-        {
-            return value == v;
-        }
-
-        bool operator!=(uint8_t v) const
-        {
-            return value != v;
-        }
-
         ExternalType() = default;
-        ExternalType(uint8_t v)
+        ExternalType(int32_t v)
+          : value(Value(v))
+        {
+        }
+
+        ExternalType(Value v)
           : value(v)
         {
         }
 
-        explicit operator uint8_t() const
+        operator Value() const
         {
             return value;
         }
 
+        bool isValid() const;
+        std::string_view getName() const;
+        
         static std::optional<ExternalType> getEncoding(std::string_view name);
 
     private:
-        uint8_t value = max + 1;
+        Value value = Value(max + 1);
 };
-
-inline bool operator==(uint8_t v, const ExternalType& type)
-{
-    return type == v;
-}
-
-inline bool operator!=(uint8_t v, const ExternalType& type)
-{
-    return type != v;
-}
 
 inline std::ostream& operator<<(std::ostream& os, ExternalType value)
 {
@@ -1066,14 +950,15 @@ enum class SymbolFlags : uint32_t
     noStrip = 0x80
 };
 
-enum class LimitKind : uint8_t
-{
-    onlyMin,
-    hasMax
-};
-
 struct Limits
 {
+    enum : uint8_t
+    {
+        none = 0,
+        hasMaxFlag = 0x1,
+        isSharedFlag = 0x2
+    };
+
     Limits() = default;
 
     Limits(uint32_t min)
@@ -1082,11 +967,21 @@ struct Limits
     }
 
     Limits(uint32_t min, uint32_t max)
-      : kind(LimitKind::hasMax), min(min), max(max)
+      : flags(hasMaxFlag), min(min), max(max)
     {
     }
 
-    LimitKind kind = LimitKind::onlyMin;
+    bool hasMax() const
+    {
+        return (flags & hasMaxFlag) != 0;
+    }
+
+    bool isShared() const
+    {
+        return (flags & isSharedFlag) != 0;
+    }
+
+    uint8_t flags = none;
     uint32_t min = 0;
     uint32_t max = 0;
 
