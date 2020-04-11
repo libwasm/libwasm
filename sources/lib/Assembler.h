@@ -60,6 +60,11 @@ class Assembler
             return warningCount + msgs.getWarningCount();
         }
 
+        SourceContext& getContext()
+        {
+            return context;
+        }
+
     private:
         struct SectionElementIndex
         {

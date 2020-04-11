@@ -217,18 +217,13 @@ bool Assembler::parseString()
 
         if (c == '\\' && !atEnd()) {
             c = nextChar();
-            if (c == 't' || c == 'n' || c == 'r' || c == '"' || c == '\'') {
-                //nop
-            } else if (isHex(c) ) {
+            if (isHex(c) ) {
                 if (isHex(peekChar())) {
                     bump();
                 } else {
                     msgs.error(lineNumber, columnNumber, "Invalid hexadecomal escape.");
                     return false;
                 }
-            } else {
-                msgs.error(lineNumber, columnNumber, "Invalid escaqpe sequence escape.");
-                return false;
             }
         }
     }
@@ -359,7 +354,8 @@ bool Assembler::tokenize()
 
         if (!isSeparator) {
             if (!ok || (peekChar() != '(' && peekChar() != ')' && !whiteSpace())) {
-                while (peekChar() != '(' && !whiteSpace()) {
+                (void) nextChar();
+                while (isIdChar(peekChar())) {
                     bump();
                     endPointer++;
                 }
@@ -388,6 +384,8 @@ bool Assembler::tokenize()
                 parenthesisStack.pop_back();
                 tokens.getTokens().back().correspondingParenthesisIndex = otherIndex;
                 tokens.getTokens()[otherIndex].correspondingParenthesisIndex = tokens.size() - 1;
+            } else {
+                msgs.error(line, column, "Unmatched ')'.");
             }
         }
 

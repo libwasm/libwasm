@@ -14,6 +14,17 @@
 namespace libwasm
 {
 
+static Expression* makeI32Const0(SourceContext& context)
+{
+    auto* expression = context.makeTreeNode<Expression>();
+    auto* instruction = context.makeTreeNode<InstructionI32>();
+
+    instruction->setOpcode(Opcode::i32__const);
+    expression->addInstruction(instruction);
+
+    return expression;
+}
+
 static ValueType readValueType(BinaryContext& context)
 {
     ValueType result(context.data().getI32leb());
@@ -2344,13 +2355,8 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
                 ++functionIndexCount;
             }
 
-            auto* expression = context.makeTreeNode<Expression>();
-            auto* instruction = context.makeTreeNode<InstructionI32>();
+            element->setExpression(makeI32Const0(context));
 
-            instruction->setOpcode(Opcode::i32__const);
-            expression->addInstruction(instruction);
-
-            element->setExpression(expression);
             if (!requiredParenthesis(context, ')')) {
                 tokens.recover();
                 return result;
@@ -2518,14 +2524,44 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
         if (!module->addMemoryId(*id, result->number)) {
             context.msgs().error(tokens.peekToken(-1), "Duplicate memory id.");
         }
-
     }
 
-    if (auto limits = requiredLimits(context)) {
-        result->limits = *limits;
+    if (startClause(context, "data")) {
+        auto dataEntry = context.makeTreeNode<DataSegment>();
+
+        dataEntry->setNumber(module->getSegmentCount());
+
+        std::string init;
+
+        while (auto str = tokens.getString()) {
+            auto [error, data] = unEscape(*str);
+
+            if (!error.empty()) {
+                context.msgs().error(tokens.peekToken(-1), "Invalid string; ", error);
+            }
+
+            init.append(data);
+        }
+
+        uint32_t m = uint32_t((init.size() + 0x10000 - 1) / 0x10000);
+
+        result->setLimits({ m, m });
+
+        dataEntry->setInit(init);
+        dataEntry->setExpression(makeI32Const0(context));
+
+        module->addDataEntry(dataEntry);
+
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+        }
     } else {
-        tokens.recover();
-        return result;
+        if (auto limits = requiredLimits(context)) {
+            result->limits = *limits;
+        } else {
+            tokens.recover();
+            return result;
+        }
     }
 
     if (!requiredParenthesis(context, ')')) {

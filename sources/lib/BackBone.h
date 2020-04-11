@@ -1730,6 +1730,16 @@ class DataSegment : public TreeNode
             init = value;
         }
 
+        auto* getExpression() const
+        {
+            return expression.get();
+        }
+
+        void setExpression(Expression* value)
+        {
+            expression.reset(value);
+        }
+
         void show(std::ostream& os, Module* context);
         void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);

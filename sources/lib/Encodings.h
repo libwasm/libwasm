@@ -995,12 +995,6 @@ inline std::ostream& operator<<(std::ostream& os, ExternalType value)
     return os << value.getName();
 }
 
-enum class LimitKind : uint8_t
-{
-    onlyMin,
-    hasMax
-};
-
 enum class Mut : uint8_t
 {
     const_,
@@ -1072,8 +1066,26 @@ enum class SymbolFlags : uint32_t
     noStrip = 0x80
 };
 
+enum class LimitKind : uint8_t
+{
+    onlyMin,
+    hasMax
+};
+
 struct Limits
 {
+    Limits() = default;
+
+    Limits(uint32_t min)
+      : min(min)
+    {
+    }
+
+    Limits(uint32_t min, uint32_t max)
+      : kind(LimitKind::hasMax), min(min), max(max)
+    {
+    }
+
     LimitKind kind = LimitKind::onlyMin;
     uint32_t min = 0;
     uint32_t max = 0;
