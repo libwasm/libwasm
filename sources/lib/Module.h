@@ -24,6 +24,7 @@ class DataCountSection;
 class DataSection;
 class ElementDeclaration;
 class ElementSection;
+class Element;
 class Event;
 class EventSection;
 class ExportDeclaration;
@@ -58,7 +59,7 @@ class Module
         class IndexMap
         {
             public:
-                bool add(std::string_view id, uint32_t index);
+                bool add(std::string_view id, uint32_t index, bool replace = false);
 
                 uint32_t getIndex(std::string_view id) const;
                 void clear()
@@ -280,6 +281,26 @@ class Module
             return importTable[index];
         }
 
+        void addSegment(DataSegment* segment)
+        {
+            segmentTable.push_back(segment);
+        }
+
+        bool addSegmentId(std::string_view id, uint32_t index)
+        {
+            return segmentMap.add(id, index, true);
+        }
+
+        DataSegment* getSegment(uint32_t index) const
+        {
+            return segmentTable[index];
+        }
+
+        uint32_t getSegmentIndex(std::string_view id)
+        {
+            return segmentMap.getIndex(id);
+        }
+
         auto nextExportCount()
         {
             return exportCount++;
@@ -310,6 +331,31 @@ class Module
         auto getElementCount() const
         {
             return elementCount;
+        }
+
+        auto getElementSectionIndex() const
+        {
+            return elementSectionIndex;
+        }
+
+        void setElementSectionIndex(size_t index)
+        {
+            elementSectionIndex = index;
+        }
+
+        bool addElementId(std::string_view id, uint32_t index)
+        {
+            return elementMap.add(id, index);
+        }
+
+        Element* getElement(uint32_t index) const
+        {
+            return elementTable[index];
+        }
+
+        uint32_t getElementIndex(std::string_view id)
+        {
+            return elementMap.getIndex(id);
         }
 
         void startLocalFunctions()
@@ -411,16 +457,6 @@ class Module
             dataCountSectionIndex = index;
         }
 
-        auto getElementSectionIndex() const
-        {
-            return elementSectionIndex;
-        }
-
-        void setElementSectionIndex(size_t index)
-        {
-            elementSectionIndex = index;
-        }
-
         auto getExportSectionIndex() const
         {
             return exportSectionIndex;
@@ -464,7 +500,19 @@ class Module
 
         void makeDataCountSection();
 
+        auto needsDataCount() const
+        {
+            return dataCountFlag;
+        }
+
+        void setDataCountNeeded()
+        {
+            dataCountFlag = true;
+        }
+
     protected:
+        bool dataCountFlag = false;
+
         uint32_t codeCount = 0;
         uint32_t elementCount = 0;
         uint32_t eventCount = 0;
@@ -490,10 +538,12 @@ class Module
         size_t tableSectionIndex = invalidSection;
         size_t typeSectionIndex = invalidSection;
 
+        std::vector<DataSegment*> segmentTable;
+        std::vector<Element*> elementTable;
+        std::vector<Event*> eventTable;
         std::vector<Global*> globalTable;
         std::vector<ImportDeclaration*> importTable;
         std::vector<Memory*> memoryTable;
-        std::vector<Event*> eventTable;
         std::vector<SymbolTableInfo*> symbolTable;
         std::vector<Table*> tableTable;
         std::vector<TypeUse*> functionTable;
@@ -503,11 +553,13 @@ class Module
         std::vector<std::string_view> labelStack;
         std::vector<Local*> locals;
 
+        IndexMap elementMap;
+        IndexMap eventMap;
         IndexMap functionMap;
         IndexMap globalMap;
         IndexMap localMap;
         IndexMap memoryMap;
-        IndexMap eventMap;
+        IndexMap segmentMap;
         IndexMap tableMap;
         IndexMap typeMap;
 

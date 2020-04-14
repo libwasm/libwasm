@@ -115,6 +115,10 @@ void SourceContext::write(std::ostream& os)
 
 bool CheckContext::checkSemantics()
 {
+    if (module->needsDataCount()) {
+        module->makeDataCountSection();
+    }
+
     for (auto& section : module->getSections()) {
         section->check(*this);
     }

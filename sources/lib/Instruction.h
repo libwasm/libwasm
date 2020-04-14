@@ -87,6 +87,7 @@ class Instruction : public TreeNode
         static void parse(SourceContext& context, std::vector<Instruction*>& dest);
         static bool parseFolded(SourceContext& context, std::vector<Instruction*>& dest);
         static Instruction* read(BinaryContext& context);
+        static Opcode readOpcode(BinaryContext& context);
 
     protected:
         Opcode opcode;
@@ -333,6 +334,30 @@ class InstructionEventIdx : public InstructionIdx
         static InstructionEventIdx* read(BinaryContext& context);
 };
 
+class InstructionSegmentIdx : public InstructionIdx
+{
+    public:
+        InstructionSegmentIdx()
+          : InstructionIdx(ImmediateType::segmentIdx)
+        {
+        }
+
+        static InstructionSegmentIdx* parse(SourceContext& context, Opcode opcode);
+        static InstructionSegmentIdx* read(BinaryContext& context);
+};
+
+class InstructionElementIdx : public InstructionIdx
+{
+    public:
+        InstructionElementIdx()
+          : InstructionIdx(ImmediateType::elementIdx)
+        {
+        }
+
+        static InstructionElementIdx* parse(SourceContext& context, Opcode opcode);
+        static InstructionElementIdx* read(BinaryContext& context);
+};
+
 class InstructionLane2Idx : public InstructionIdx
 {
     public:
@@ -526,6 +551,105 @@ class InstructionDepthEventIdx : public Instruction
     protected:
         uint32_t depth = 0;
         uint32_t eventIndex = 0;
+};
+
+class InstructionSegmentIdxMem : public Instruction
+{
+    public:
+        InstructionSegmentIdxMem()
+          : Instruction(ImmediateType::segmentIdxMem)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionSegmentIdxMem* parse(SourceContext& context, Opcode opcode);
+        static InstructionSegmentIdxMem* read(BinaryContext& context);
+
+    protected:
+        uint32_t segmentIndex = 0;
+        uint8_t memory = 0;
+};
+
+class InstructionMem : public Instruction
+{
+    public:
+        InstructionMem()
+            : Instruction(ImmediateType::mem)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionMem* parse(SourceContext& context, Opcode opcode);
+        static InstructionMem* read(BinaryContext& context);
+
+    protected:
+        uint8_t memory = 0;
+};
+
+class InstructionMemMem : public Instruction
+{
+    public:
+        InstructionMemMem()
+          : Instruction(ImmediateType::memMem)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionMemMem* parse(SourceContext& context, Opcode opcode);
+        static InstructionMemMem* read(BinaryContext& context);
+
+    protected:
+        uint8_t dst = 0;
+        uint8_t src = 0;
+};
+
+class InstructionElementIdxTable : public Instruction
+{
+    public:
+        InstructionElementIdxTable()
+          : Instruction(ImmediateType::elementIdxTable)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionElementIdxTable* parse(SourceContext& context, Opcode opcode);
+        static InstructionElementIdxTable* read(BinaryContext& context);
+
+    protected:
+        uint32_t elementIndex = 0;
+        uint8_t table = 0;
+};
+
+class InstructionTableTable : public Instruction
+{
+    public:
+        InstructionTableTable()
+          : Instruction(ImmediateType::tableTable)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionTableTable* parse(SourceContext& context, Opcode opcode);
+        static InstructionTableTable* read(BinaryContext& context);
+
+    protected:
+        uint8_t dst = 0;
+        uint8_t src = 0;
 };
 
 };

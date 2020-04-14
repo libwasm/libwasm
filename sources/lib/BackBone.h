@@ -1587,6 +1587,16 @@ class ElementDeclaration : public TreeNode
             expression.reset(value);
         }
 
+        std::string_view getId() const
+        {
+            return id;
+        }
+
+        void setId(std::string_view value)
+        {
+            id = value;
+        }
+
         void show(std::ostream& os, Module* context);
         void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
@@ -1596,10 +1606,14 @@ class ElementDeclaration : public TreeNode
         static ElementDeclaration* read(BinaryContext& context);
 
     private:
+        SegmentFlags flags = SegmentFlagNone;
         uint32_t tableIndex = 0;
+        ValueType elementType = ValueType(0);
         std::unique_ptr<Expression> expression;
+        std::vector<std::unique_ptr<Expression>> refExpressions;
         std::vector<uint32_t> functionIndexes;
         uint32_t number = 0;
+        std::string id;
 };
 
 class ElementSection : public Section
@@ -1740,6 +1754,16 @@ class DataSegment : public TreeNode
             expression.reset(value);
         }
 
+        std::string_view getId() const
+        {
+            return id;
+        }
+
+        void setId(std::string_view value)
+        {
+            id = value;
+        }
+
         void show(std::ostream& os, Module* context);
         void generate(std::ostream& os, Module* context);
         void check(CheckContext& context);
@@ -1749,10 +1773,12 @@ class DataSegment : public TreeNode
         static DataSegment* read(BinaryContext& context);
 
     private:
+        SegmentFlags flags = SegmentFlagNone;
         uint32_t memoryIndex = 0;
         uint32_t number = 0;
-        std::unique_ptr<Expression> expression;
+        std::unique_ptr<Expression> expression = nullptr;
         std::string init;
+        std::string id;
 };
 
 class DataSection : public Section

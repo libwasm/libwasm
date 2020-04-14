@@ -16,6 +16,8 @@ std::optional<uint32_t> parseTypeIndex(SourceContext& context);
 std::optional<uint32_t> parseFunctionIndex(SourceContext& context);
 std::optional<uint32_t> parseMemoryIndex(SourceContext& context);
 std::optional<uint32_t> parseGlobalIndex(SourceContext& context);
+std::optional<uint32_t> parseElementIndex(SourceContext& context);
+std::optional<uint32_t> parseSegmentIndex(SourceContext& context);
 std::optional<uint32_t> parseLocalIndex(SourceContext& context);
 std::optional<uint32_t> parseLabelIndex(SourceContext& context);
 std::optional<uint32_t> parseEventIndex(SourceContext& context);

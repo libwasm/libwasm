@@ -485,8 +485,6 @@ std::vector<size_t> Assembler::findSectionPositions(
 
 bool Assembler::checkSemantics()
 {
-    // context.getModule()->makeDataCountSection();
-
     CheckErrorHandler error;
     CheckContext checkContext(context, error);
 
@@ -593,6 +591,30 @@ bool Assembler::doParse()
         }
     }
 
+    if (auto positions = findSectionPositions(entries, SectionType::data); !positions.empty()) {
+        auto* section = module->requiredDataSection();
+
+        for (auto position : positions) {
+            tokens.setPos(position);
+
+            auto entry = DataSegment::parse(context);
+            assert(entry != nullptr);
+            section->addSegment(entry);
+        }
+    }
+
+    if (auto positions = findSectionPositions(entries, SectionType::element); !positions.empty()) {
+        auto* section = module->requiredElementSection();
+
+        for (auto position : positions) {
+            tokens.setPos(position);
+
+            auto entry = ElementDeclaration::parse(context);
+            assert(entry != nullptr);
+            section->addElement(entry);
+        }
+    }
+
     if (auto positions = findSectionPositions(entries, SectionType::code); !positions.empty()) {
         auto* section = module->requiredCodeSection();
 
@@ -625,30 +647,6 @@ bool Assembler::doParse()
                 tokens.setPos(position);
                 context.msgs().error(context.tokens().peekToken(), "Only one start section is allowed.");
             }
-        }
-    }
-
-    if (auto positions = findSectionPositions(entries, SectionType::element); !positions.empty()) {
-        auto* section = module->requiredElementSection();
-
-        for (auto position : positions) {
-            tokens.setPos(position);
-
-            auto entry = ElementDeclaration::parse(context);
-            assert(entry != nullptr);
-            section->addElement(entry);
-        }
-    }
-
-    if (auto positions = findSectionPositions(entries, SectionType::data); !positions.empty()) {
-        auto* section = module->requiredDataSection();
-
-        for (auto position : positions) {
-            tokens.setPos(position);
-
-            auto entry = DataSegment::parse(context);
-            assert(entry != nullptr);
-            section->addSegment(entry);
         }
     }
 

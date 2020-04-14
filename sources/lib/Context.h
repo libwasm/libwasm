@@ -32,6 +32,11 @@ class Context
             return modules;
         }
 
+        DataBuffer& data()
+        {
+            return dataBuffer;
+        }
+
     protected:
         DataBuffer dataBuffer;
         Module* module;
@@ -49,11 +54,6 @@ class BinaryContext : public Context
         BinaryContext(Context& other, BinaryErrorHandler& error)
           : Context(other), errorHandler(error)
         {
-        }
-
-        DataBuffer& data()
-        {
-            return dataBuffer;
         }
 
         BinaryErrorHandler& msgs()

@@ -14,6 +14,26 @@
 namespace libwasm
 {
 
+static Expression* requiredExpression(SourceContext& context, bool oneInstruction = false)
+{
+    if (auto* expression = Expression::parse(context, oneInstruction)) {
+        return expression;
+    }
+
+    context.msgs().error(context.tokens().peekToken(), "Missing or invalid expression.");
+    return nullptr;
+}
+
+bool requiredCloseParenthesis(SourceContext& context)
+{
+    if (requiredParenthesis(context, ')')) {
+        return true;
+    } else {
+        context.tokens().recover();
+        return false;
+    }
+}
+
 static Expression* makeI32Const0(SourceContext& context)
 {
     auto* expression = context.makeTreeNode<Expression>();
@@ -42,9 +62,10 @@ static void writeValueType(BinaryContext& context, ValueType type)
 static ValueType readElementType(BinaryContext& context)
 {
     ValueType result(context.data().getI32leb());
+    auto& msgs = context.msgs();
 
-    context.msgs().errorWhen(!result.isValid(), "Invalid element type ", int32_t(result));
-    context.msgs().errorWhen((result != ValueType::funcref), "Invalid element type '", result, "'; must be 'funcref'");
+    msgs.errorWhen(!result.isValid(), "Invalid element type ", int32_t(result));
+    msgs.errorWhen((result != ValueType::funcref), "Invalid element type '", result, "'; must be 'funcref'");
 
     return result;
 }
@@ -164,8 +185,9 @@ CustomSection* CustomSection::read(BinaryContext& context)
     auto startPos = data.getPos();
     CustomSection* result;
     std::string name = readByteArray(context);
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Custom");
+    msgs.setSectionName("Custom");
 
     if (name.find("reloc.") == 0) {
         result = RelocationSection::read(context);
@@ -173,7 +195,7 @@ CustomSection* CustomSection::read(BinaryContext& context)
         result = LinkingSection::read(context, startPos + size);
     } else {
         result = context.makeTreeNode<CustomSection>();
-        context.msgs().warning("Custom section '", name, "' ignored");
+        msgs.warning("Custom section '", name, "' ignored");
     }
 
     result->setOffsets(startPos, startPos + size);
@@ -183,11 +205,11 @@ CustomSection* CustomSection::read(BinaryContext& context)
     data.setPos(startPos + size);
 
     if (data.getPos() != startPos + size) {
-        context.msgs().error("Custom section not fully read");
+        msgs.error("Custom section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -439,8 +461,7 @@ SymbolTableFGETInfo* SymbolTableFGETInfo::read(BinaryContext& context,
 
     result->index = data.getU32leb();
 
-    if ((uint32_t(flags) & uint32_t(SymbolFlags::undefined)) == 0 ||
-            (uint32_t(flags) & uint32_t(SymbolFlags::explicitName)) != 0) {
+    if ((flags & SymbolFlagUndefined) == 0 || (flags & SymbolFlagExplicitName) != 0) {
         result->name = readByteArray(context);
 
         switch(kind) {
@@ -475,7 +496,7 @@ SymbolTableDataInfo* SymbolTableDataInfo::read(BinaryContext& context, SymbolFla
 
     result->name = readByteArray(context);
 
-    if ((uint32_t(flags) & uint32_t(SymbolFlags::undefined)) == 0) {
+    if ((flags & SymbolFlagUndefined) == 0) {
         result->dataIndex = data.getU32leb();
         result->offset = data.getU32leb();
         result->size = data.getU32leb();
@@ -488,7 +509,7 @@ void SymbolTableDataInfo::show(std::ostream& os, Module* module)
 {
     os << "    " << kind << ", name=\"" << name << '\"';
 
-    if ((uint32_t(flags) & uint32_t(SymbolFlags::undefined)) == 0) {
+    if ((flags & SymbolFlagUndefined) == 0) {
         os << ", index=" << dataIndex << ", offset-" << offset << ", size=" << size;
     }
 
@@ -552,32 +573,32 @@ void SymbolTableInfo::show(std::ostream& os, Module* module)
 
 void SymbolTableInfo::showFlags(std::ostream& os)
 {
-    if (flags != SymbolFlags::none) {
-        if ((uint32_t(flags) & uint32_t(SymbolFlags::weak)) != 0) {
+    if (flags != SymbolFlagNone) {
+        if ((flags & SymbolFlagWeak) != 0) {
             os << ", weak";
         }
 
-        if ((uint32_t(flags) & uint32_t(SymbolFlags::local)) != 0) {
+        if ((flags & SymbolFlagLocal) != 0) {
             os << ", local";
         }
 
-        if ((uint32_t(flags) & uint32_t(SymbolFlags::hidden)) != 0) {
+        if ((flags & SymbolFlagHidden) != 0) {
             os << ", hidden";
         }
 
-        if ((uint32_t(flags) & uint32_t(SymbolFlags::undefined)) != 0) {
+        if ((flags & SymbolFlagUndefined) != 0) {
             os << ", undefined";
         }
 
-        if ((uint32_t(flags) & uint32_t(SymbolFlags::exported)) != 0) {
+        if ((flags & SymbolFlagExported) != 0) {
             os << ", exported";
         }
 
-        if ((uint32_t(flags) & uint32_t(SymbolFlags::explicitName)) != 0) {
+        if ((flags & SymbolFlagExplicitName) != 0) {
             os << ", explicitName";
         }
 
-        if ((uint32_t(flags) & uint32_t(SymbolFlags::noStrip)) != 0) {
+        if ((flags & SymbolFlagNoStrip) != 0) {
             os << ", noStrip";
         }
     }
@@ -990,13 +1011,14 @@ TypeSection* TypeSection::read(BinaryContext& context)
     auto size = data.getU32leb();
     auto startPos = data.getPos();
     auto* result = new TypeSection;
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Type");
+    msgs.setSectionName("Type");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         auto* typeDeclaration = TypeDeclaration::read(context);
 
         typeDeclaration->setNumber(i);
@@ -1004,11 +1026,11 @@ TypeSection* TypeSection::read(BinaryContext& context)
     }
 
     if (data.getPos() != startPos + size) {
-        context.msgs().error("Type section not fully read");
+        msgs.error("Type section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -1276,7 +1298,6 @@ MemoryImport* MemoryImport::parse(SourceContext& context)
 
         if (!requiredParenthesis(context, ')')) {
             tokens.recover();
-            return result;
         }
     }
 
@@ -1345,6 +1366,7 @@ EventImport* EventImport::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "event")) {
         return nullptr;
@@ -1358,7 +1380,7 @@ EventImport* EventImport::parse(SourceContext& context)
         result->id = *id;
 
         if (!module->addEventId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
+            msgs.error(tokens.peekToken(-1), "Duplicate event id.");
         }
     }
 
@@ -1374,7 +1396,6 @@ EventImport* EventImport::parse(SourceContext& context)
 
         if (!requiredParenthesis(context, ')')) {
             tokens.recover();
-            return result;
         }
     }
 
@@ -1383,7 +1404,7 @@ EventImport* EventImport::parse(SourceContext& context)
     if (auto index = parseTypeIndex(context)) {
         result->typeIndex = *index;
     } else {
-        context.msgs().error(tokens.peekToken(), "Missing or invalid Type index.");
+        msgs.error(tokens.peekToken(), "Missing or invalid Type index.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1447,6 +1468,7 @@ TableImport* TableImport::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "table")) {
         return nullptr;
@@ -1461,7 +1483,7 @@ TableImport* TableImport::parse(SourceContext& context)
         result->id = *id;
 
         if (!module->addTableId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate table id.");
+            msgs.error(tokens.peekToken(-1), "Duplicate table id.");
         }
     }
 
@@ -1475,7 +1497,7 @@ TableImport* TableImport::parse(SourceContext& context)
     if (auto elementType = parseElementType(context)) {
         result->type = *elementType;
     } else {
-        context.msgs().expected(tokens.peekToken(), "funcref");
+        msgs.expected(tokens.peekToken(), "funcref");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1564,7 +1586,6 @@ GlobalImport* GlobalImport::parse(SourceContext& context)
             result->type = *valueType;
             if (!requiredParenthesis(context, ')')) {
                 tokens.recover();
-                return result;
             }
         } else {
             msgs.error(tokens.peekToken(), "Missing or invalid value type.");
@@ -1664,7 +1685,7 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
         result->setId(*id);
 
         if (!module->addFunctionId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate function id '", *id, "'.");
+            msgs.error(tokens.peekToken(-1), "Duplicate function id '", *id, "'.");
         }
     }
 
@@ -1725,7 +1746,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
         result->setId(*id);
 
         if (!module->addTableId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate table id '", *id, "'.");
+            msgs.error(tokens.peekToken(-1), "Duplicate table id '", *id, "'.");
         }
     }
 
@@ -1758,7 +1779,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
     if (auto elementType = parseElementType(context)) {
         result->setType(*elementType);
     } else {
-        context.msgs().expected(tokens.peekToken(), "funcref");
+        msgs.expected(tokens.peekToken(), "funcref");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1796,7 +1817,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
         result->setId(*id);
 
         if (!module->addMemoryId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate memory id '", *id, "'.");
+            msgs.error(tokens.peekToken(-1), "Duplicate memory id '", *id, "'.");
         }
     }
 
@@ -1861,7 +1882,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
         result->setId(*id);
 
         if (!module->addEventId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate event id '", *id, "'.");
+            msgs.error(tokens.peekToken(-1), "Duplicate event id '", *id, "'.");
         }
     }
 
@@ -1887,7 +1908,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
     if (auto index = parseTypeIndex(context)) {
         result->setIndex(*index);
     } else {
-        context.msgs().error(tokens.peekToken(), "Missing or invalid Type index.");
+        msgs.error(tokens.peekToken(), "Missing or invalid Type index.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -1925,7 +1946,7 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
         result->setId(*id);
 
         if (!module->addGlobalId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate global id '", *id, "'.");
+            msgs.error(tokens.peekToken(-1), "Duplicate global id '", *id, "'.");
         }
     }
 
@@ -1954,7 +1975,6 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
             result->setType(*valueType);
             if (!requiredParenthesis(context, ')')) {
                 tokens.recover();
-                return result;
             }
         } else {
             msgs.error(tokens.peekToken(), "Missing or invalid value type.");
@@ -2073,13 +2093,14 @@ ImportSection* ImportSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<ImportSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Import");
+    msgs.setSectionName("Import");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         auto moduleName = readByteArray(context);
         auto name = readByteArray(context);
 
@@ -2093,7 +2114,7 @@ ImportSection* ImportSection::read(BinaryContext& context)
             case ExternalType::event:   import = EventImport::read(context); break;
             case ExternalType::global:   import = GlobalImport::read(context); break;
             default:
-                context.msgs().error("Invalid import declaration ", uint8_t(kind));
+                msgs.error("Invalid import declaration ", uint8_t(kind));
                 break;
         }
 
@@ -2109,11 +2130,11 @@ ImportSection* ImportSection::read(BinaryContext& context)
     }
 
     if (data.getPos() != startPos + size) {
-        context.msgs().error("Import section not fully read");
+        msgs.error("Import section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -2183,7 +2204,6 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
 
         if (!requiredParenthesis(context, ')')) {
             tokens.recover();
-            return result;
         }
     }
 
@@ -2256,24 +2276,25 @@ FunctionSection* FunctionSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<FunctionSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Function");
+    msgs.setSectionName("Function");
 
     result->setOffsets(startPos, startPos + size);
 
     module->startLocalFunctions();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->functions.emplace_back(FunctionDeclaration::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Function section not fully read");
+        msgs.error("Function section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -2316,6 +2337,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "table")) {
         return nullptr;
@@ -2330,7 +2352,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
         result->id = *id;
 
         if (!module->addTableId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate table id.");
+            msgs.error(tokens.peekToken(-1), "Duplicate table id.");
         }
     }
 
@@ -2346,7 +2368,6 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
 
         if (!requiredParenthesis(context, ')')) {
             tokens.recover();
-            return result;
         }
     }
 
@@ -2368,16 +2389,14 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
 
             if (!requiredParenthesis(context, ')')) {
                 tokens.recover();
-                return result;
             }
 
             module->addElementEntry(element);
 
             result->limits = Limits(functionIndexCount, functionIndexCount);
         } else {
-            context.msgs().expected(tokens.peekToken(), "(elem");
+            msgs.expected(tokens.peekToken(), "(elem");
             tokens.recover();
-            return result;
         }
     } else if (auto limits = requiredLimits(context)) {
         result->limits = *limits;
@@ -2385,7 +2404,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
         if (auto elementType = parseElementType(context)) {
             result->type = *elementType;
         } else {
-            context.msgs().expected(tokens.peekToken(), "funcref");
+            msgs.expected(tokens.peekToken(), "funcref");
         }
     } else {
         tokens.recover();
@@ -2463,22 +2482,23 @@ TableSection* TableSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<TableSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Table");
+    msgs.setSectionName("Table");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->tables.emplace_back(TableDeclaration::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Table section not fully read");
+        msgs.error("Table section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -2516,6 +2536,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "memory")) {
         return nullptr;
@@ -2529,7 +2550,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
         result->id = *id;
 
         if (!module->addMemoryId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate memory id.");
+            msgs.error(tokens.peekToken(-1), "Duplicate memory id.");
         }
     }
 
@@ -2544,7 +2565,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
             auto [error, data] = unEscape(*str);
 
             if (!error.empty()) {
-                context.msgs().error(tokens.peekToken(-1), "Invalid string; ", error);
+                msgs.error(tokens.peekToken(-1), "Invalid string; ", error);
             }
 
             init.append(data);
@@ -2567,7 +2588,6 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
             result->limits = *limits;
         } else {
             tokens.recover();
-            return result;
         }
     }
 
@@ -2637,22 +2657,23 @@ MemorySection* MemorySection::read(BinaryContext& context)
     auto result = context.makeTreeNode<MemorySection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Memory");
+    msgs.setSectionName("Memory");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->memories.emplace_back(MemoryDeclaration::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error(" memory section not fully read");
+        msgs.error(" memory section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -2709,7 +2730,7 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
         result->id = *id;
 
         if (!module->addGlobalId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate global id.");
+            msgs.error(tokens.peekToken(-1), "Duplicate global id.");
         }
     }
 
@@ -2725,7 +2746,6 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
 
         if (!requiredParenthesis(context, ')')) {
             tokens.recover();
-            return result;
         }
     }
 
@@ -2735,7 +2755,6 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
             result->type = *valueType;
             if (!requiredParenthesis(context, ')')) {
                 tokens.recover();
-                return result;
             }
         } else {
             msgs.error(tokens.peekToken(), "Missing or invalid value type.");
@@ -2753,7 +2772,7 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
         return result;
     }
 
-    result->expression.reset(Expression::parse(context));
+    result->expression.reset(requiredExpression(context));
 
     if (!requiredParenthesis(context, ')')) {
         tokens.recover();
@@ -2843,22 +2862,23 @@ GlobalSection* GlobalSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<GlobalSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Global");
+    msgs.setSectionName("Global");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->globals.emplace_back(GlobalDeclaration::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Global section not fully read");
+        msgs.error("Global section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -2900,6 +2920,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "export")) {
         return nullptr;
@@ -2922,7 +2943,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
                 if (auto index = parseFunctionIndex(context)) {
                     result->index = *index;
                 } else {
-                    context.msgs().error(tokens.peekToken(), "Missing or invalid function index.");
+                    msgs.error(tokens.peekToken(), "Missing or invalid function index.");
                 }
 
                 break;
@@ -2931,7 +2952,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
                 if (auto index = parseTableIndex(context)) {
                     result->index = *index;
                 } else {
-                    context.msgs().error(tokens.peekToken(), "Missing or invalid Table index.");
+                    msgs.error(tokens.peekToken(), "Missing or invalid Table index.");
                 }
 
                 break;
@@ -2940,7 +2961,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
                 if (auto index = parseMemoryIndex(context)) {
                     result->index = *index;
                 } else {
-                    context.msgs().error(tokens.peekToken(), "Missing or invalid memory index.");
+                    msgs.error(tokens.peekToken(), "Missing or invalid memory index.");
                 }
 
                 break;
@@ -2949,7 +2970,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
                 if (auto index = parseGlobalIndex(context)) {
                     result->index = *index;
                 } else {
-                    context.msgs().error(tokens.peekToken(), "Missing or invalid global index.");
+                    msgs.error(tokens.peekToken(), "Missing or invalid global index.");
                 }
 
                 break;
@@ -2959,7 +2980,7 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
         }
 
     } else {
-        context.msgs().error(tokens.peekToken(), "Missing or invalid export kind.");
+        msgs.error(tokens.peekToken(), "Missing or invalid export kind.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -3054,22 +3075,23 @@ ExportSection* ExportSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<ExportSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Export");
+    msgs.setSectionName("Export");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->exports.emplace_back(ExportDeclaration::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Export section not fully read");
+        msgs.error("Export section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -3128,19 +3150,20 @@ StartSection* StartSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<StartSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Start");
+    msgs.setSectionName("Start");
 
     result->setOffsets(startPos, startPos + size);
 
     result->functionIndex = data.getU32leb();
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Start section not fully read");
+        msgs.error("Start section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -3202,6 +3225,11 @@ Expression* Expression::parse(SourceContext& context, bool oneInstruction)
         for (auto* instruction : instructions) {
             result->instructions.emplace_back(instruction);
         }
+    }
+
+    if (result->instructions.empty()) {
+        delete result;
+        return nullptr;
     }
 
     return result;
@@ -3283,13 +3311,36 @@ void ElementDeclaration::write(BinaryContext& context) const
 {
     auto& data = context.data();
 
-    data.putU32leb(tableIndex);
-    expression->write(context);
+    data.putU32leb(flags);
 
-    data.putU32leb(uint32_t(functionIndexes.size()));
+    if ((flags & (SegmentFlagPassive | SegmentFlagExplicitIndex)) == SegmentFlagExplicitIndex) {
+        data.putU32leb(tableIndex);
+    }
 
-    for (auto f : functionIndexes) {
-        data.putU32leb(f);
+    if ((flags & SegmentFlagPassive) == 0) {
+        expression->write(context);
+    }
+
+    if (flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+        if ((flags & SegmentFlagElemExpr) != 0) {
+            writeValueType(context, elementType);
+        } else {
+            data.putU8(ExternalType::function);
+        }
+    }
+
+    if (flags & SegmentFlagElemExpr) {
+        data.putU32leb(uint32_t(refExpressions.size()));
+
+        for (auto& edxpression : refExpressions) {
+            edxpression->write(context);
+        }
+    } else {
+        data.putU32leb(uint32_t(functionIndexes.size()));
+
+        for (auto f : functionIndexes) {
+            data.putU32leb(f);
+        }
     }
 }
 
@@ -3297,6 +3348,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "elem")) {
         return nullptr;
@@ -3306,23 +3358,91 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 
     result->number = module->nextElementCount();
 
-    if (auto index = parseTableIndex(context)) {
-        result->tableIndex = *index;
-    }
+    if (auto id = tokens.getId()) {
+        result->id = *id;
 
-    if (startClause(context, "offset")) {
-        result->expression.reset(Expression::parse(context));
-    } else if (tokens.getParenthesis('(')) {
-        result->expression.reset(Expression::parse(context, true));
-
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-            return result;
+        if (!module->addElementId(*id, result->number)) {
+            msgs.error(tokens.peekToken(-1), "Duplicate element id.");
         }
     }
 
-    while (auto index = parseFunctionIndex(context)) {
-        result->functionIndexes.push_back(*index);
+    if (tokens.getKeyword("declare")) {
+        result->flags = SegmentFlagDEclared;
+    }
+
+    if (auto index = parseTableIndex(context)) {
+        result->tableIndex = *index;
+    } else if (startClause(context, "table")) {
+        if (auto index = parseTableIndex(context)) {
+            result->tableIndex = *index;
+        } else {
+            msgs.error(tokens.peekToken(), "Missing or invalid table index.");
+        }
+
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
+        }
+    }
+
+    if (result->flags != SegmentFlagDEclared) {
+        if (startClause(context, "offset")) {
+            result->expression.reset(requiredExpression(context));
+        } else if (tokens.getParenthesis('(')) {
+            result->expression.reset(requiredExpression(context, true));
+
+            if (!requiredParenthesis(context, ')')) {
+                tokens.recover();
+            }
+        } else {
+            result->flags = SegmentFlagPassive;
+        }
+    }
+
+    if (auto type = parseValueType(context)) {
+        result->elementType = *type;
+
+        while (tokens.getParenthesis('(')) {
+            bool extraParenthesis = false;
+
+            if (tokens.getKeyword("item")) {
+                extraParenthesis = tokens.getParenthesis('(');
+            }
+
+            if (auto* expression = requiredExpression(context, true); expression != nullptr) {
+                result->refExpressions.emplace_back(expression);
+
+                if ((result->flags & SegmentFlagElemExpr) == 0) {
+                    auto* instruction = result->refExpressions.back()->getInstructions()[0].get();
+                    auto opcode = instruction->getOpcode();
+
+                    if (opcode == Opcode::ref__null) {
+                        result->flags = SegmentFlags(result->flags | SegmentFlagElemExpr);
+                    } else if (opcode == Opcode::ref__func) {
+                        auto *f = static_cast<InstructionFunctionIdx*>(instruction);
+
+                        result->functionIndexes.push_back(f->getIndex());
+                    }
+                }
+            }
+
+            if (extraParenthesis) {
+                if (!requiredParenthesis(context, ')')) {
+                    tokens.recover();
+                }
+            }
+
+            if (!requiredParenthesis(context, ')')) {
+                tokens.recover();
+            }
+        }
+    } else {
+        result->elementType = ValueType::funcref;
+
+        (void) tokens.getKeyword("func");
+
+        while (auto index = parseFunctionIndex(context)) {
+            result->functionIndexes.push_back(*index);
+        }
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -3337,14 +3457,41 @@ ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
 {
     auto* module = context.getModule();
     auto& data = context.data();
+    auto& msgs = context.msgs();
     auto result = context.makeTreeNode<ElementDeclaration>();
 
-    result->tableIndex = data.getU32leb();
-    result->expression.reset(Expression::readInit(context));
     result->number = module->nextElementCount();
 
+    result->flags = SegmentFlags(data.getU32leb());
+    msgs.errorWhen((result->flags > SegmentFlagMax), "Invalid segment flags.");
+
+    if ((result->flags & (SegmentFlagPassive | SegmentFlagExplicitIndex)) == SegmentFlagExplicitIndex) {
+        result->tableIndex = data.getU32leb();
+    }
+
+    result->elementType = ValueType::funcref;
+
+    if ((result->flags & SegmentFlagPassive) == 0) {
+        result->expression.reset(Expression::readInit(context));
+    }
+
+    if (result->flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+        if ((result->flags & SegmentFlagElemExpr) != 0) {
+            result->elementType = readValueType(context);
+            msgs.errorWhen((!result->elementType.isValidRef()), "Element type must be a referncetype.");
+        } else {
+            auto kind = readExternalType(context);
+
+            msgs.errorWhen((kind != ExternalType::function), "Segement element type must be 'func'.");
+        }
+    }
+
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        result->functionIndexes.push_back(data.getU32leb());
+        if ((result->flags & SegmentFlagElemExpr) != 0) {
+            result->refExpressions.emplace_back(Expression::readInit(context));
+        } else {
+            result->functionIndexes.push_back(data.getU32leb());
+        }
     }
 
     return result;
@@ -3352,8 +3499,14 @@ ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
 
 void ElementDeclaration::check(CheckContext& context)
 {
-    context.checkTableIndex(this,tableIndex);
-    expression->check(context);
+    if ((flags & SegmentFlagPassive) == 0) {
+        context.checkTableIndex(this,tableIndex);
+    }
+
+    context.msgs().errorWhen((flags > SegmentFlagMax), this, "Invalid segment flags.");
+    if (expression) {
+        expression->check(context);
+    }
 
     for (auto index : functionIndexes) {
         context.checkFunctionIndex(this, index);
@@ -3364,16 +3517,32 @@ void ElementDeclaration::generate(std::ostream& os, Module* module)
 {
     os << "\n  (elem (;" << number << ";)";
 
-    if (tableIndex != 0) {
+    if ((flags & (SegmentFlagPassive | SegmentFlagExplicitIndex)) == SegmentFlagExplicitIndex) {
         os << ' ' << tableIndex;
     }
 
-    os << " (";
-    expression->generate(os, module);
-    os << ')';
+    if ((flags & SegmentFlagPassive) == 0) {
+        os << " (";
+        expression->generate(os, module);
+        os << ')';
+    }
 
-    for (auto func : functionIndexes) {
-        os << ' ' << func;
+    if (flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+        if ((flags & SegmentFlagElemExpr) != 0) {
+            os << " " << elementType;
+        }
+    }
+
+    if (flags & SegmentFlagElemExpr) {
+        for (auto& ref : refExpressions) {
+            os << " (";
+            ref->generate(os, module);
+            os << ')';
+        }
+    } else {
+        for (auto func : functionIndexes) {
+            os << ' ' << func;
+        }
     }
 
     os << ')';
@@ -3381,15 +3550,32 @@ void ElementDeclaration::generate(std::ostream& os, Module* module)
 
 void ElementDeclaration::show(std::ostream& os, Module* module)
 {
-    os << "  segment " << number << ": " << "table=" << tableIndex << ", offset=(";
-    expression->generate(os, module);
+    os << "  segment " << number << ": " << "table=" << tableIndex;
+
+    if ((flags & SegmentFlagPassive) == 0) {
+        os << ", offset=(";
+        expression->generate(os, module);
+    }
+
+    if (flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+        os << ", element type=" << elementType;
+    }
+
     os << "), funcs=[";
 
     const char* separator = "";
 
-    for (auto func : functionIndexes) {
-        os << separator << func;
-        separator = ", ";
+    if (flags & SegmentFlagElemExpr) {
+        for (auto& ref : refExpressions) {
+            os << separator;
+            ref->show(os, module);
+            separator = ", ";
+        }
+    } else {
+        for (auto func : functionIndexes) {
+            os << separator << func;
+            separator = ", ";
+        }
     }
 
     os << "]\n";
@@ -3419,22 +3605,23 @@ ElementSection* ElementSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<ElementSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Element");
+    msgs.setSectionName("Element");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->elements.emplace_back(ElementDeclaration::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Element section not fully read");
+        msgs.error("Element section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -3476,7 +3663,7 @@ Local* Local::parse(SourceContext& context)
         result->id = *id;
 
         if (!module->addLocalId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate local id.");
+            msgs.error(tokens.peekToken(-1), "Duplicate local id.");
         }
     }
 
@@ -3543,7 +3730,9 @@ void CodeEntry::write(BinaryContext& context) const
         data.putU32leb(0u);
     }
 
-    expression->write(context);
+    if (expression.get() != nullptr) {
+        expression->write(context);
+    }
 
     auto text = data.pop();
 
@@ -3576,7 +3765,6 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
     // close the '(func' clause.
     if (!requiredParenthesis(context, ')')) {
         tokens.recover();
-        return result;
     }
 
     return result;
@@ -3612,7 +3800,9 @@ void CodeEntry::check(CheckContext& context)
         local->check(context);
     }
 
-    expression->check(context);
+    if (expression.get() != nullptr) {
+        expression->check(context);
+    }
 }
 
 void CodeEntry::generate(std::ostream& os, Module* module)
@@ -3713,22 +3903,23 @@ CodeSection* CodeSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<CodeSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Code");
+    msgs.setSectionName("Code");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->codes.emplace_back(CodeEntry::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Code section not fully read");
+        msgs.error("Code section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -3770,8 +3961,17 @@ void CodeSection::show(std::ostream& os, Module* module, unsigned flags)
 void DataSegment::write(BinaryContext& context) const
 {
     auto& data = context.data();
-    data.putU32leb(memoryIndex);
-    expression->write(context);
+
+    data.putU32leb(flags);
+
+    if ((flags & SegmentFlagExplicitIndex) != 0) {
+        data.putU32leb(memoryIndex);
+    }
+
+    if ((flags & SegmentFlagPassive) == 0) {
+        expression->write(context);
+    }
+
     writeByteArray(context, init);
 }
 
@@ -3779,6 +3979,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "data")) {
         return nullptr;
@@ -3788,18 +3989,35 @@ DataSegment* DataSegment::parse(SourceContext& context)
 
     result->number = module->getSegmentCount();
 
-    if (auto index = parseTableIndex(context)) {
-        result->memoryIndex = *index;
+    if (auto id = tokens.getId()) {
+        result->id = *id;
+
+        if (!module->addSegmentId(*id, result->number)) {
+            msgs.error(tokens.peekToken(-1), "Duplicate data segment id.");
+        }
     }
 
-    if (startClause(context, "offset")) {
-        result->expression.reset(Expression::parse(context));
-    } else if (tokens.getParenthesis('(')) {
-        result->expression.reset(Expression::parse(context, true));
+    if (auto index = parseMemoryIndex(context)) {
+        result->memoryIndex = *index;
+    } else if (startClause(context, "memory")) {
+        if (auto index = parseMemoryIndex(context)) {
+            result->memoryIndex = *index;
+        } else {
+            msgs.error(tokens.peekToken(), "Missing or invalid memory index.");
+        }
 
         if (!requiredParenthesis(context, ')')) {
             tokens.recover();
-            return result;
+        }
+    }
+
+    if (startClause(context, "offset")) {
+        result->expression.reset(requiredExpression(context));
+    } else if (tokens.getParenthesis('(')) {
+        result->expression.reset(requiredExpression(context, true));
+
+        if (!requiredParenthesis(context, ')')) {
+            tokens.recover();
         }
     }
 
@@ -3807,11 +4025,23 @@ DataSegment* DataSegment::parse(SourceContext& context)
         auto [error, data] = unEscape(*str);
 
         if (!error.empty()) {
-            context.msgs().error(tokens.peekToken(-1), "Invalid string; ", error);
+            msgs.error(tokens.peekToken(-1), "Invalid string; ", error);
         }
 
         result->init.append(data);
     }
+
+    auto flags = SegmentFlagNone;
+
+    if (result->memoryIndex != 0) {
+        flags = SegmentFlags(flags | SegmentFlagExplicitIndex);
+    }
+
+    if (!result->expression) {
+        flags = SegmentFlags(flags | SegmentFlagPassive);
+    }
+
+    result->flags = flags;
 
     if (!requiredParenthesis(context, ')')) {
         tokens.recover();
@@ -3825,12 +4055,23 @@ DataSegment* DataSegment::read(BinaryContext& context)
 {
     auto* module = context.getModule();
     auto& data = context.data();
+    auto& msgs = context.msgs();
     auto result = context.makeTreeNode<DataSegment>();
 
-    result->memoryIndex = data.getU32leb();
-    result->expression.reset(Expression::readInit(context));
-    result->init = readByteArray(context);
     result->number = module->getSegmentCount();
+
+    result->flags = SegmentFlags(data.getU32leb());
+    msgs.errorWhen((result->flags > SegmentFlagMax), "Invalid segment flags.");
+
+    if ((result->flags & SegmentFlagExplicitIndex) != 0) {
+        result->memoryIndex = data.getU32leb();
+    }
+
+    if ((result->flags & SegmentFlagPassive) == 0) {
+        result->expression.reset(Expression::readInit(context));
+    }
+
+    result->init = readByteArray(context);
 
     return result;
 }
@@ -3845,9 +4086,18 @@ void DataSegment::check(CheckContext& context)
 
 void DataSegment::generate(std::ostream& os, Module* module)
 {
-    os << "\n  (data (;" << number << ";) (";
-    expression->generate(os, module);
-    os << ") \"";
+    os << "\n  (data (;" << number << ";)";
+
+    if ((flags & SegmentFlagExplicitIndex) != 0) {
+        os << " " << memoryIndex;
+    }
+
+    if ((flags & SegmentFlagPassive) == 0) {
+        os << " (";
+        expression->generate(os, module);
+        os << ')';
+    }
+
     generateChars(os, init);
     os << '\"';
 
@@ -3857,9 +4107,15 @@ void DataSegment::generate(std::ostream& os, Module* module)
 void DataSegment::show(std::ostream& os, Module* module)
 {
     os << "  segment " << number << ": ";
-    os << "memory=" << memoryIndex << ", offset=(";
-    expression->generate(os, module);
-    os << "), init=";
+    os << "memory=" << memoryIndex;
+
+    if ((flags & SegmentFlagPassive) == 0) {
+        os << ", offset=(";
+        expression->generate(os, module);
+        os << ")";
+    }
+
+    os << ", init=";
     dumpChars(os, init, 0);
     os << '\n';
 }
@@ -3888,22 +4144,23 @@ DataSection* DataSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<DataSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Data");
+    msgs.setSectionName("Data");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->segments.emplace_back(DataSegment::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("Data section not fully read");
+        msgs.error("Data section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -3938,19 +4195,20 @@ DataCountSection* DataCountSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<DataCountSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("DataCount");
+    msgs.setSectionName("DataCount");
 
     result->setOffsets(startPos, startPos + size);
 
     result->dataCount = data.getU32leb();
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error("DataCount section not fully read");
+        msgs.error("DataCount section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 
@@ -3997,6 +4255,7 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
 
     if (!startClause(context, "event")) {
         return nullptr;
@@ -4010,7 +4269,7 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
         result->id = *id;
 
         if (!module->addEventId(*id, result->number)) {
-            context.msgs().error(tokens.peekToken(-1), "Duplicate event id.");
+            msgs.error(tokens.peekToken(-1), "Duplicate event id.");
         }
 
     }
@@ -4020,7 +4279,7 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
     if (auto index = parseTypeIndex(context)) {
         result->setIndex(*index);
     } else {
-        context.msgs().error(tokens.peekToken(), "Missing or invalid Type index.");
+        msgs.error(tokens.peekToken(), "Missing or invalid Type index.");
     }
 
     if (!requiredParenthesis(context, ')')) {
@@ -4092,22 +4351,23 @@ EventSection* EventSection::read(BinaryContext& context)
     auto result = context.makeTreeNode<EventSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
+    auto& msgs = context.msgs();
 
-    context.msgs().setSectionName("Event");
+    msgs.setSectionName("Event");
 
     result->setOffsets(startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        context.msgs().setEntryNumber(i);
+        msgs.setEntryNumber(i);
         result->events.emplace_back(EventDeclaration::read(context));
     }
 
     if (data.getPos() != startPos + size) { 
-        context.msgs().error(" event section not fully read");
+        msgs.error(" event section not fully read");
         data.setPos(startPos + size);
     }
 
-    context.msgs().resetInfo();
+    msgs.resetInfo();
     return result;
 }
 

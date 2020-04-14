@@ -148,6 +148,50 @@ std::optional<uint32_t> parseEventIndex(SourceContext& context)
     return{};
 }
 
+std::optional<uint32_t> parseSegmentIndex(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    auto* module = context.getModule();
+
+    if (auto value = tokens.getU32()) {
+        if (*value >= module->getSegmentCount()) {
+            return {};
+        }
+
+        return *value;
+    }
+
+    if (auto id = tokens.getId()) {
+        if (auto index = module->getSegmentIndex(*id); index != invalidIndex) {
+            return index;
+        }
+    }
+
+    return{};
+}
+
+std::optional<uint32_t> parseElementIndex(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    auto* module = context.getModule();
+
+    if (auto value = tokens.getU32()) {
+        if (*value >= module->getElementCount()) {
+            return {};
+        }
+
+        return *value;
+    }
+
+    if (auto id = tokens.getId()) {
+        if (auto index = module->getElementIndex(*id); index != invalidIndex) {
+            return index;
+        }
+    }
+
+    return{};
+}
+
 std::optional<uint32_t> parseGlobalIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();

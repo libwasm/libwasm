@@ -10,12 +10,16 @@
 namespace libwasm
 {
 
-bool Module::IndexMap::add(std::string_view id, uint32_t index)
+bool Module::IndexMap::add(std::string_view id, uint32_t index, bool replace)
 {
     auto it = std::lower_bound(entries.begin(), entries.end(), Entry(id, 0));
 
     if (it != entries.end() && it->id == id) {
-        return false;
+        if (replace) {
+            it->index = index;
+        } else {
+            return false;
+        }
     }
 
     entries.emplace(it, id, index);

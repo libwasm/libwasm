@@ -137,8 +137,10 @@ void Validator::check(CodeEntry* code)
     currentCodeEntry = code;
     pushFrame({}, currentSignature->getResults());
 
-    for (auto& instruction : code->getExpression()->getInstructions()) {
-        check(instruction.get());
+    if (code->getExpression() != nullptr) {
+        for (auto& instruction : code->getExpression()->getInstructions()) {
+            check(instruction.get());
+        }
     }
 }
 

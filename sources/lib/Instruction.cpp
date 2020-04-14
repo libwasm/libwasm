@@ -469,7 +469,7 @@ InstructionEventIdx* InstructionEventIdx::parse(SourceContext& context, Opcode o
 {
     auto result = context.makeTreeNode<InstructionEventIdx>();
 
-    if (auto index = parseLabelIndex(context); index) {
+    if (auto index = parseEventIndex(context); index) {
         result->imm = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid event index.");
@@ -481,6 +481,50 @@ InstructionEventIdx* InstructionEventIdx::parse(SourceContext& context, Opcode o
 InstructionEventIdx* InstructionEventIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionEventIdx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionSegmentIdx* InstructionSegmentIdx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionSegmentIdx>();
+
+    if (auto index = parseSegmentIndex(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid data segment index.");
+    }
+
+    return result;
+}
+
+InstructionSegmentIdx* InstructionSegmentIdx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionSegmentIdx>();
+
+    result->imm = context.data().getU32leb();
+
+    return result;
+}
+
+InstructionElementIdx* InstructionElementIdx::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionElementIdx>();
+
+    if (auto index = parseElementIndex(context); index) {
+        result->imm = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid element index.");
+    }
+
+    return result;
+}
+
+InstructionElementIdx* InstructionElementIdx::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionElementIdx>();
 
     result->imm = context.data().getU32leb();
 
@@ -897,6 +941,201 @@ void InstructionMemory0::generate(std::ostream& os, InstructionContext& context)
     os << opcode;
 }
 
+InstructionSegmentIdxMem* InstructionSegmentIdxMem::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionSegmentIdxMem>();
+
+    if (auto index = parseSegmentIndex(context); index) {
+        result->segmentIndex = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid data segment index.");
+    }
+
+    return result;
+}
+
+InstructionSegmentIdxMem* InstructionSegmentIdxMem::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<InstructionSegmentIdxMem>();
+
+    result->segmentIndex = data.getU32leb();
+    result->memory = data.getU8();
+
+    return result;
+}
+
+void InstructionSegmentIdxMem::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putU32leb(segmentIndex);
+    data.putU8(memory);
+}
+
+void InstructionSegmentIdxMem::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionSegmentIdxMem::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode << " " << segmentIndex;
+}
+
+InstructionMem* InstructionMem::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionMem>();
+
+    return result;
+}
+
+InstructionMem* InstructionMem::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<InstructionMem>();
+
+    result->memory = data.getU8();
+
+    return result;
+}
+
+void InstructionMem::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putU8(memory);
+}
+
+void InstructionMem::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionMem::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode;
+}
+
+InstructionMemMem* InstructionMemMem::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionMemMem>();
+
+    return result;
+}
+
+InstructionMemMem* InstructionMemMem::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<InstructionMemMem>();
+
+    result->dst = data.getU8();
+    result->src = data.getU8();
+
+    return result;
+}
+
+void InstructionMemMem::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putU8(dst);
+    data.putU8(src);
+}
+
+void InstructionMemMem::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionMemMem::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode;
+}
+
+InstructionElementIdxTable* InstructionElementIdxTable::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionElementIdxTable>();
+
+    if (auto index = parseElementIndex(context); index) {
+        result->elementIndex = *index;
+    } else {
+        context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid element index.");
+    }
+
+    return result;
+}
+
+InstructionElementIdxTable* InstructionElementIdxTable::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<InstructionElementIdxTable>();
+
+    result->elementIndex = data.getU32leb();
+    result->table = data.getU8();
+
+    return result;
+}
+
+void InstructionElementIdxTable::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putU32leb(elementIndex);
+    data.putU8(table);
+}
+
+void InstructionElementIdxTable::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionElementIdxTable::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode << " " << elementIndex;
+}
+
+InstructionTableTable* InstructionTableTable::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionTableTable>();
+
+    return result;
+}
+
+InstructionTableTable* InstructionTableTable::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto result = context.makeTreeNode<InstructionTableTable>();
+
+    result->dst = data.getU8();
+    result->src = data.getU8();
+
+    return result;
+}
+
+void InstructionTableTable::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putU8(dst);
+    data.putU8(src);
+}
+
+void InstructionTableTable::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionTableTable::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode;
+}
+
 Instruction* Instruction::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -914,35 +1153,46 @@ Instruction* Instruction::parse(SourceContext& context)
         return nullptr;
     }
 
+    if (opcode == Opcode::memory__init || opcode == Opcode::data__drop) {
+        context.getModule()->setDataCountNeeded();
+    }
+
     Instruction* result = nullptr;
 
     auto encoding = opcode->getImmediateType();
 
     switch(encoding) {
-        case ImmediateType::none:          result = InstructionNone::parse(context, *opcode); break;
-        case ImmediateType::i32:           result = InstructionI32::parse(context, *opcode); break;
-        case ImmediateType::i64:           result = InstructionI64::parse(context, *opcode); break;
-        case ImmediateType::f32:           result = InstructionF32::parse(context, *opcode); break;
-        case ImmediateType::f64:           result = InstructionF64::parse(context, *opcode); break;
-        case ImmediateType::v128:          result = InstructionV128::parse(context, *opcode); break;
-        case ImmediateType::block:         result = InstructionBlock::parse(context, *opcode); break;
-        case ImmediateType::idx:           result = InstructionIdx::parse(context, *opcode); break;
-        case ImmediateType::localIdx:      result = InstructionLocalIdx::parse(context, *opcode); break;
-        case ImmediateType::globalIdx:     result = InstructionGlobalIdx::parse(context, *opcode); break;
-        case ImmediateType::functionIdx:   result = InstructionFunctionIdx::parse(context, *opcode); break;
-        case ImmediateType::labelIdx:      result = InstructionLabelIdx::parse(context, *opcode); break;
-        case ImmediateType::lane2Idx:      result = InstructionLane2Idx::parse(context, *opcode); break;
-        case ImmediateType::lane4Idx:      result = InstructionLane4Idx::parse(context, *opcode); break;
-        case ImmediateType::lane8Idx:      result = InstructionLane8Idx::parse(context, *opcode); break;
-        case ImmediateType::lane16Idx:     result = InstructionLane16Idx::parse(context, *opcode); break;
-        case ImmediateType::lane32Idx:     result = InstructionLane32Idx::parse(context, *opcode); break;
-        case ImmediateType::shuffle:       result = InstructionShuffle::parse(context, *opcode); break;
-        case ImmediateType::table:         result = InstructionTable::parse(context, *opcode); break;
-        case ImmediateType::eventIdx:      result = InstructionEventIdx::parse(context, *opcode); break;
-        case ImmediateType::depthEventIdx: result = InstructionDepthEventIdx::parse(context, *opcode); break;
-        case ImmediateType::memory:        result = InstructionMemory::parse(context, *opcode); break;
-        case ImmediateType::memory0:       result = InstructionMemory0::parse(context, *opcode); break;
-        case ImmediateType::indirect:      result = InstructionIndirect::parse(context, *opcode); break;
+        case ImmediateType::none:               result = InstructionNone::parse(context, *opcode); break;
+        case ImmediateType::i32:                result = InstructionI32::parse(context, *opcode); break;
+        case ImmediateType::i64:                result = InstructionI64::parse(context, *opcode); break;
+        case ImmediateType::f32:                result = InstructionF32::parse(context, *opcode); break;
+        case ImmediateType::f64:                result = InstructionF64::parse(context, *opcode); break;
+        case ImmediateType::v128:               result = InstructionV128::parse(context, *opcode); break;
+        case ImmediateType::block:              result = InstructionBlock::parse(context, *opcode); break;
+        case ImmediateType::idx:                result = InstructionIdx::parse(context, *opcode); break;
+        case ImmediateType::localIdx:           result = InstructionLocalIdx::parse(context, *opcode); break;
+        case ImmediateType::globalIdx:          result = InstructionGlobalIdx::parse(context, *opcode); break;
+        case ImmediateType::elementIdx:         result = InstructionElementIdx::parse(context, *opcode); break;
+        case ImmediateType::segmentIdx:         result = InstructionSegmentIdx::parse(context, *opcode); break;
+        case ImmediateType::segmentIdxMem:      result = InstructionSegmentIdxMem::parse(context, *opcode); break;
+        case ImmediateType::mem:                result = InstructionMem::parse(context, *opcode); break;
+        case ImmediateType::memMem:             result = InstructionMemMem::parse(context, *opcode); break;
+        case ImmediateType::elementIdxTable:    result = InstructionElementIdxTable::parse(context, *opcode); break;
+        case ImmediateType::tableTable:         result = InstructionTableTable::parse(context, *opcode); break;
+        case ImmediateType::functionIdx:        result = InstructionFunctionIdx::parse(context, *opcode); break;
+        case ImmediateType::labelIdx:           result = InstructionLabelIdx::parse(context, *opcode); break;
+        case ImmediateType::lane2Idx:           result = InstructionLane2Idx::parse(context, *opcode); break;
+        case ImmediateType::lane4Idx:           result = InstructionLane4Idx::parse(context, *opcode); break;
+        case ImmediateType::lane8Idx:           result = InstructionLane8Idx::parse(context, *opcode); break;
+        case ImmediateType::lane16Idx:          result = InstructionLane16Idx::parse(context, *opcode); break;
+        case ImmediateType::lane32Idx:          result = InstructionLane32Idx::parse(context, *opcode); break;
+        case ImmediateType::shuffle:            result = InstructionShuffle::parse(context, *opcode); break;
+        case ImmediateType::table:              result = InstructionTable::parse(context, *opcode); break;
+        case ImmediateType::eventIdx:           result = InstructionEventIdx::parse(context, *opcode); break;
+        case ImmediateType::depthEventIdx:      result = InstructionDepthEventIdx::parse(context, *opcode); break;
+        case ImmediateType::memory:             result = InstructionMemory::parse(context, *opcode); break;
+        case ImmediateType::memory0:            result = InstructionMemory0::parse(context, *opcode); break;
+        case ImmediateType::indirect:           result = InstructionIndirect::parse(context, *opcode); break;
         default:
             context.msgs().error(tokens.peekToken(-1), "Invalid encoding ", unsigned(encoding));
             return nullptr;
@@ -1029,45 +1279,56 @@ void Instruction::parse(SourceContext& context, std::vector<Instruction*>& instr
     }
 }
 
-Instruction* Instruction::read(BinaryContext& context)
+Opcode Instruction::readOpcode(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = context.makeTreeNode<Instruction>();
-
-    Opcode opcode;
 
     if (OpcodePrefix prefix = OpcodePrefix(data.getU8()); prefix.isValid()) {
-        opcode = Opcode((uint8_t(prefix) << 24) | data.getU32leb());
+        return Opcode((uint8_t(prefix) << 24) | data.getU32leb());
     } else {
-        opcode = Opcode(uint8_t(prefix));
+        return Opcode(uint8_t(prefix));
     }
+}
+
+Instruction* Instruction::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<Instruction>();
+
+    auto opcode = readOpcode(context);
 
     auto encoding = opcode.getImmediateType();
 
     switch(encoding) {
-        case ImmediateType::none:          result = InstructionNone::read(context); break;
-        case ImmediateType::i32:           result = InstructionI32::read(context); break;
-        case ImmediateType::i64:           result = InstructionI64::read(context); break;
-        case ImmediateType::f32:           result = InstructionF32::read(context); break;
-        case ImmediateType::f64:           result = InstructionF64::read(context); break;
-        case ImmediateType::v128:          result = InstructionV128::read(context); break;
-        case ImmediateType::block:         result = InstructionBlock::read(context); break;
-        case ImmediateType::idx:           result = InstructionIdx::read(context); break;
-        case ImmediateType::localIdx:      result = InstructionLocalIdx::read(context); break;
-        case ImmediateType::globalIdx:     result = InstructionGlobalIdx::read(context); break;
-        case ImmediateType::functionIdx:   result = InstructionFunctionIdx::read(context); break;
-        case ImmediateType::labelIdx:      result = InstructionLabelIdx::read(context); break;
-        case ImmediateType::lane2Idx:      result = InstructionLane2Idx::read(context); break;
-        case ImmediateType::lane4Idx:      result = InstructionLane4Idx::read(context); break;
-        case ImmediateType::lane8Idx:      result = InstructionLane8Idx::read(context); break;
-        case ImmediateType::lane16Idx:     result = InstructionLane16Idx::read(context); break;
-        case ImmediateType::lane32Idx:     result = InstructionLane32Idx::read(context); break;
-        case ImmediateType::shuffle:       result = InstructionShuffle::read(context); break;
-        case ImmediateType::table:         result = InstructionTable::read(context); break;
-        case ImmediateType::depthEventIdx: result = InstructionDepthEventIdx::read(context); break;
-        case ImmediateType::memory:        result = InstructionMemory::read(context); break;
-        case ImmediateType::memory0:       result = InstructionMemory0::read(context); break;
-        case ImmediateType::indirect:      result = InstructionIndirect::read(context); break;
+        case ImmediateType::none:               result = InstructionNone::read(context); break;
+        case ImmediateType::i32:                result = InstructionI32::read(context); break;
+        case ImmediateType::i64:                result = InstructionI64::read(context); break;
+        case ImmediateType::f32:                result = InstructionF32::read(context); break;
+        case ImmediateType::f64:                result = InstructionF64::read(context); break;
+        case ImmediateType::v128:               result = InstructionV128::read(context); break;
+        case ImmediateType::block:              result = InstructionBlock::read(context); break;
+        case ImmediateType::idx:                result = InstructionIdx::read(context); break;
+        case ImmediateType::localIdx:           result = InstructionLocalIdx::read(context); break;
+        case ImmediateType::globalIdx:          result = InstructionGlobalIdx::read(context); break;
+        case ImmediateType::elementIdx:         result = InstructionElementIdx::read(context); break;
+        case ImmediateType::segmentIdx:         result = InstructionSegmentIdx::read(context); break;
+        case ImmediateType::segmentIdxMem:      result = InstructionSegmentIdxMem::read(context); break;
+        case ImmediateType::mem:                result = InstructionMem::read(context); break;
+        case ImmediateType::memMem:             result = InstructionMemMem::read(context); break;
+        case ImmediateType::elementIdxTable:    result = InstructionElementIdxTable::read(context); break;
+        case ImmediateType::tableTable:         result = InstructionTableTable::read(context); break;
+        case ImmediateType::functionIdx:        result = InstructionFunctionIdx::read(context); break;
+        case ImmediateType::labelIdx:           result = InstructionLabelIdx::read(context); break;
+        case ImmediateType::lane2Idx:           result = InstructionLane2Idx::read(context); break;
+        case ImmediateType::lane4Idx:           result = InstructionLane4Idx::read(context); break;
+        case ImmediateType::lane8Idx:           result = InstructionLane8Idx::read(context); break;
+        case ImmediateType::lane16Idx:          result = InstructionLane16Idx::read(context); break;
+        case ImmediateType::lane32Idx:          result = InstructionLane32Idx::read(context); break;
+        case ImmediateType::shuffle:            result = InstructionShuffle::read(context); break;
+        case ImmediateType::table:              result = InstructionTable::read(context); break;
+        case ImmediateType::depthEventIdx:      result = InstructionDepthEventIdx::read(context); break;
+        case ImmediateType::memory:             result = InstructionMemory::read(context); break;
+        case ImmediateType::memory0:            result = InstructionMemory0::read(context); break;
+        case ImmediateType::indirect:           result = InstructionIndirect::read(context); break;
         default:
             context.msgs().error("Invalid encoding ", unsigned(encoding));
             return nullptr;
