@@ -437,11 +437,11 @@ class InstructionShuffle : public Instruction
         std::array<int8_t, 16> imm;
 };
 
-class InstructionTable : public Instruction
+class InstructionBrTable : public Instruction
 {
     public:
-        InstructionTable()
-          : Instruction(ImmediateType::table)
+        InstructionBrTable()
+          : Instruction(ImmediateType::brTable)
         {
         }
 
@@ -464,8 +464,8 @@ class InstructionTable : public Instruction
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
 
-        static InstructionTable* parse(SourceContext& context, Opcode opcode);
-        static InstructionTable* read(BinaryContext& context);
+        static InstructionBrTable* parse(SourceContext& context, Opcode opcode);
+        static InstructionBrTable* read(BinaryContext& context);
 
     protected:
         std::vector<uint32_t> labels;
@@ -530,7 +530,7 @@ class InstructionIndirect : public Instruction
 
     protected:
         uint32_t typeIndex = 0;
-        uint32_t dummy = 0;
+        uint8_t tableIndex = 0;
 };
 
 class InstructionDepthEventIdx : public Instruction
@@ -612,11 +612,11 @@ class InstructionMemMem : public Instruction
         uint8_t src = 0;
 };
 
-class InstructionElementIdxTable : public Instruction
+class InstructionTableElementIdx : public Instruction
 {
     public:
-        InstructionElementIdxTable()
-          : Instruction(ImmediateType::elementIdxTable)
+        InstructionTableElementIdx()
+          : Instruction(ImmediateType::tableElementIdx)
         {
         }
 
@@ -624,12 +624,36 @@ class InstructionElementIdxTable : public Instruction
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
 
-        static InstructionElementIdxTable* parse(SourceContext& context, Opcode opcode);
-        static InstructionElementIdxTable* read(BinaryContext& context);
+        static InstructionTableElementIdx* parse(SourceContext& context, Opcode opcode);
+        static InstructionTableElementIdx* read(BinaryContext& context);
 
     protected:
         uint32_t elementIndex = 0;
-        uint8_t table = 0;
+        uint8_t tableIndex = 0;
+};
+
+class InstructionTable : public Instruction
+{
+    public:
+        InstructionTable()
+            : Instruction(ImmediateType::table)
+        {
+        }
+
+        auto getIndex() const
+        {
+            return tableIndex;
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionTable* parse(SourceContext& context, Opcode opcode);
+        static InstructionTable* read(BinaryContext& context);
+
+    protected:
+        uint8_t tableIndex = 0;
 };
 
 class InstructionTableTable : public Instruction

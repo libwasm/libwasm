@@ -415,6 +415,7 @@ class Module
 
         void startFunction();
         void endFunction();
+        void endType();
         void startCode(uint32_t number);
 
         bool addLocalId(std::string_view id, uint32_t index)

@@ -77,15 +77,23 @@ ValueType Validator::popOperand(ValueType expect)
 {
     auto actual = popOperand();
 
+    if (actual == expect || expect == ValueType::void_) {
+        return actual;
+    }
+
     if (actual == ValueType::void_) {
         return expect;
     }
 
-    if (expect == ValueType::void_) {
+    if (expect == ValueType::anyref && actual.isValidRef()) {
         return actual;
     }
 
-    msgs.errorWhen((actual != expect), currentInstruction,
+    if (actual == ValueType::nullref && expect.isValidRef()) {
+        return expect;
+    }
+
+    msgs.error(currentInstruction,
             "Invalid stack access.  Expected '", expect, "'; found '", actual, "'.");
 
     return actual;
@@ -104,7 +112,19 @@ void Validator::peekOperand(ValueType expect, size_t index)
 
    auto actual = operands[operands.size() - index - 1];
 
-   msgs.errorWhen((actual != expect), currentInstruction,
+    if (actual == expect) {
+        return;
+    }
+
+    if (expect == ValueType::anyref && actual.isValidRef()) {
+        return;
+    }
+
+    if (actual == ValueType::nullref && expect.isValidRef()) {
+        return;
+    }
+
+   msgs.error(currentInstruction,
             "Invalid stack access.  Expected '", expect, "'; found '", actual, "'.");
 }
 
@@ -131,16 +151,17 @@ void Validator::popOperands(const std::vector<std::unique_ptr<Local>>& locals)
 
 void Validator::check(CodeEntry* code)
 {
+    reset();
+
+    currentCodeEntry = code;
     currentSignature = module->getFunction(code->getNumber())->getSignature();
 
-    reset();
-    currentCodeEntry = code;
-    pushFrame({}, currentSignature->getResults());
+    auto resultTypes = currentSignature->getResults();
 
-    if (code->getExpression() != nullptr) {
-        for (auto& instruction : code->getExpression()->getInstructions()) {
-            check(instruction.get());
-        }
+    pushFrame(resultTypes, resultTypes);
+
+    for (auto& instruction : code->getExpression()->getInstructions()) {
+        check(instruction.get());
     }
 }
 
@@ -215,7 +236,7 @@ void Validator::checkBrIf()
 
 void Validator::checkBrTable()
 {
-    auto* branchInstruction = static_cast<InstructionTable*>(currentInstruction);
+    auto* branchInstruction = static_cast<InstructionBrTable*>(currentInstruction);
     auto defaultIndex = branchInstruction->getDefaultLabel();
     const auto& defaultTypes = getFrame(defaultIndex).labelTypes;
 
@@ -256,6 +277,29 @@ void Validator::checkCallIndirect()
     pushOperands(signature->getResults());
 }
 
+void Validator::checkReturnCall()
+{
+    auto* callInstruction = static_cast<InstructionFunctionIdx*>(currentInstruction);
+    auto* signature = module->getFunction(callInstruction->getIndex())->getSignature();
+
+    popOperands(signature->getParams());
+
+    unreachable();
+}
+
+void Validator::checkReturnCallIndirect()
+{
+    auto& types = module->getTypeSection()->getTypes();
+    auto* indirectInstruction = static_cast<InstructionIndirect*>(currentInstruction);
+    size_t typeIndex = indirectInstruction->getIndex();
+    auto* signature = types[typeIndex]->getSignature();
+
+    popOperand(ValueType::i32);
+
+    popOperands(signature->getParams());
+    unreachable();
+}
+
 void Validator::checkBlock()
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(currentInstruction);
@@ -263,7 +307,7 @@ void Validator::checkBlock()
     auto resultType = blockInstruction->getResultType();
 
     if (resultType != ValueType::void_) {
-        types.push_back(blockInstruction->getResultType());
+        types.push_back(resultType);
     }
 
     switch(uint32_t(currentInstruction->getOpcode())) {
@@ -289,7 +333,7 @@ void Validator::checkBlock()
             break;
 
         default:
-            std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkSpecial.\n";
+            std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkBlock.\n";
     }
 }
 
@@ -324,13 +368,13 @@ void Validator::checkLocal()
             break;
 
         default:
-            std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkSpecial.\n";
+            std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkLocal.\n";
     }
 }
 
 void Validator::checkGlobal()
 {
-    auto* globalInstruction = static_cast<InstructionLocalIdx*>(currentInstruction);
+    auto* globalInstruction = static_cast<InstructionGlobalIdx*>(currentInstruction);
     auto globalIndex = globalInstruction->getIndex();
     auto type = module->getGlobal(globalIndex)->getType();
 
@@ -346,7 +390,39 @@ void Validator::checkGlobal()
             break;
 
         default:
-            std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkSpecial.\n";
+            std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkGlobal.\n";
+    }
+}
+
+void Validator::checkTable()
+{
+    auto* tableInstruction = static_cast<InstructionTable*>(currentInstruction);
+    auto tableIndex = tableInstruction->getIndex();
+    auto type = module->getTable(tableIndex)->getType();
+
+    switch(uint32_t(currentInstruction->getOpcode())) {
+        case Opcode::table__get:
+            popOperand(ValueType::i32);
+
+            pushOperand(type);
+            break;
+
+        case Opcode::table__set:
+            popOperands(type, ValueType::i32);
+            break;
+
+        case Opcode::table__grow:
+            popOperands(ValueType::i32, type);
+
+            pushOperand(ValueType::i32);
+            break;
+
+        case Opcode::table__fill:
+            popOperands(ValueType::i32, type, ValueType::i32);
+            break;
+
+        default:
+            std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkTable.\n";
     }
 }
 
@@ -367,9 +443,28 @@ void Validator::checkSpecial()
         return;
     }
 
+    if (currentInstruction->getImmediateType() == ImmediateType::table) {
+        checkTable();
+        return;
+    }
+
     switch(uint32_t(currentInstruction->getOpcode())) {
         case Opcode::drop:
             popOperand();
+            break;
+
+        case Opcode::ref__func:
+            pushOperand(ValueType::funcref);
+            break;
+
+        case Opcode::ref__null:
+            pushOperand(ValueType::nullref);
+            break;
+
+        case Opcode::ref__is_null:
+            popOperand(ValueType::anyref);
+
+            pushOperand(ValueType::i32);
             break;
 
         case Opcode::select:
@@ -429,6 +524,16 @@ void Validator::checkSpecial()
         case Opcode::return_:
             popOperands(frames.back().labelTypes);
             unreachable();
+
+            break;
+
+        case Opcode::return_call:
+            checkReturnCall();
+
+            break;
+
+        case Opcode::return_call_indirect:
+            checkReturnCallIndirect();
 
             break;
 
@@ -726,6 +831,10 @@ void Validator::check(Instruction* instruction)
             popOperands(ValueType::v128, ValueType::v128, ValueType::v128);
 
             pushOperand(ValueType::v128);
+            break;
+
+        case SignatureCode::void__i32:
+            popOperand(ValueType::f32);
             break;
 
         case SignatureCode::void__i32_f32:

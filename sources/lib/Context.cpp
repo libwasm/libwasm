@@ -177,7 +177,7 @@ void CheckContext::checkValueType(TreeNode* node, const ValueType& type)
 
 void CheckContext::checkElementType(TreeNode* node, const ValueType& type)
 {
-    errorHandler.errorWhen(type != ValueType::funcref, node,
+    errorHandler.errorWhen(!type.isValidRef(), node,
             "Invalid element type ", int32_t(type));
 }
 

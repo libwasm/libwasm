@@ -1602,10 +1602,14 @@ class ElementDeclaration : public TreeNode
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
+        uint32_t parseFunctionIndexExpressions(SourceContext context);
+        uint32_t parseFunctionIndexes(SourceContext context);
+
         static ElementDeclaration* parse(SourceContext& context);
         static ElementDeclaration* read(BinaryContext& context);
 
     private:
+
         SegmentFlags flags = SegmentFlagNone;
         uint32_t tableIndex = 0;
         ValueType elementType = ValueType(0);

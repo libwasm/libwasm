@@ -229,7 +229,7 @@ class CheckErrorHandler : public ErrorHandler
         void showHeader(std::string_view type, size_t lineNumber, size_t columnNumber)
         {
             if (lineNumber == 0) {
-                std::cerr << type << " at position " << columnNumber << ":\n    ";
+                std::cerr << type << " at position 0x" << std::hex << columnNumber << std::dec << ":\n    ";
             } else {
                 std::cerr << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
             }

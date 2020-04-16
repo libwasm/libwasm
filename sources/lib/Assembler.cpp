@@ -401,12 +401,14 @@ static SectionType checkImport(TokenBuffer& tokens, SectionType sectionType)
 
     tokens.getId();
 
-    if (tokens.getParenthesis('(')) {
-        if (auto key = tokens.getKeyword()) {
-            if (*key == "import") {
-                sectionType = SectionType::import;
-            }
-        }
+    while (tokens.peekParenthesis('(') && tokens.peekKeyword("export", 1)) {
+        auto& token = tokens.peekToken();
+
+        tokens.setPos(token.getCorrespondingIndex() + 1);
+    }
+
+    if (tokens.peekParenthesis('(') && tokens.peekKeyword("import", 1)) {
+        sectionType = SectionType::import;
     }
 
     tokens.setPos(startpos);

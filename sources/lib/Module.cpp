@@ -493,6 +493,13 @@ void Module::startFunction()
     localCount = 0;
 }
 
+void Module::endType()
+{
+    labelStack.clear();
+    localMap.clear();
+    localCount = 0;
+}
+
 void Module::endFunction()
 {
     localMaps.push_back(std::move(localMap));

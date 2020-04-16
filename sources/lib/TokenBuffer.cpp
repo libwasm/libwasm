@@ -376,9 +376,9 @@ void TokenBuffer::recover()
             char value = token.getValue()[0];
 
             if (value == '(') {
-                if (auto correspondingIndex = token.getCoorespondingIndex();
+                if (auto correspondingIndex = token.getCorrespondingIndex();
                     correspondingIndex < container.size()) {
-                    pos = token.getCoorespondingIndex() + 1;
+                    pos = token.getCorrespondingIndex() + 1;
                 }
             } else {
                 break;

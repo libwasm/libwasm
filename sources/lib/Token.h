@@ -100,7 +100,7 @@ class Token
 
         void dump(std::ostream& os) const;
 
-        auto getCoorespondingIndex() const
+        auto getCorrespondingIndex() const
         {
             return correspondingParenthesisIndex;
         }

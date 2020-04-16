@@ -64,8 +64,7 @@ static ValueType readElementType(BinaryContext& context)
     ValueType result(context.data().getI32leb());
     auto& msgs = context.msgs();
 
-    msgs.errorWhen(!result.isValid(), "Invalid element type ", int32_t(result));
-    msgs.errorWhen((result != ValueType::funcref), "Invalid element type '", result, "'; must be 'funcref'");
+    msgs.errorWhen(!result.isValidRef(), "Invalid element type ", int32_t(result));
 
     return result;
 }
@@ -139,6 +138,24 @@ static void shsowFunctionIndex(std::ostream& os, uint32_t index, Module* module)
 
     if (!id.empty()) {
         os << " \"" << id << "\"";
+    }
+}
+
+static void makeExport(SourceContext& context, ExternalType type, uint32_t index)
+{
+    auto* module = context.getModule();
+
+    while (startClause(context, "export")) {
+        auto* _export = context.makeTreeNode<ExportDeclaration>();
+
+        _export->setKind(type);
+        _export->setNumber(module->nextExportCount());
+        _export->setName(requiredString(context));
+        _export->setIndex(index);
+
+        module->addExportEntry(_export);
+
+        requiredCloseParenthesis(context);
     }
 }
 
@@ -774,9 +791,7 @@ Signature* Signature::parse(SourceContext& context)
             }
         }
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
+        requiredCloseParenthesis(context);
     }
 
     while (startClause(context, "result")) {
@@ -789,9 +804,7 @@ Signature* Signature::parse(SourceContext& context)
             }
         }
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
+        requiredCloseParenthesis(context);
     }
 
     if (!found) {
@@ -935,16 +948,12 @@ TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
     }
 
     // terminate func
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     // terminate type
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
+
+    module->endType();
 
     return result;
 }
@@ -1138,10 +1147,7 @@ void TypeUse::parse(SourceContext& context, TypeUse* result)
                     "Type index ", *index, " out of bounds.");
         }
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-            return;
-        }
+        requiredCloseParenthesis(context);
     }
 
     if (auto* sig = Signature::parse(context); sig != nullptr) {
@@ -1209,10 +1215,7 @@ FunctionImport* FunctionImport::parse(SourceContext& context)
 
     TypeUse::parse(context, result);
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1286,20 +1289,7 @@ MemoryImport* MemoryImport::parse(SourceContext& context)
         }
     }
 
-    while (startClause(context, "export")) {
-        auto* _export = context.makeTreeNode<ExportDeclaration>();
-
-        _export->setKind(ExternalType::memory);
-        _export->setNumber(module->nextExportCount());
-        _export->setName(requiredString(context));
-        _export->setIndex(result->number);
-
-        module->addExportEntry(_export);
-
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
-    }
+    makeExport(context, ExternalType::memory, result->number);
 
     if (auto limits = requiredLimits(context)) {
         result->limits = *limits;
@@ -1308,10 +1298,7 @@ MemoryImport* MemoryImport::parse(SourceContext& context)
         return result;
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1384,20 +1371,7 @@ EventImport* EventImport::parse(SourceContext& context)
         }
     }
 
-    while (startClause(context, "export")) {
-        auto* _export = context.makeTreeNode<ExportDeclaration>();
-
-        _export->setKind(ExternalType::event);
-        _export->setNumber(module->nextExportCount());
-        _export->setName(requiredString(context));
-        _export->setIndex(result->number);
-
-        module->addExportEntry(_export);
-
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
-    }
+    makeExport(context, ExternalType::event, result->number);
 
     result->setAttribute(EventType(requiredU8(context)));
 
@@ -1407,10 +1381,7 @@ EventImport* EventImport::parse(SourceContext& context)
         msgs.error(tokens.peekToken(), "Missing or invalid Type index.");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1497,13 +1468,10 @@ TableImport* TableImport::parse(SourceContext& context)
     if (auto elementType = parseElementType(context)) {
         result->type = *elementType;
     } else {
-        msgs.expected(tokens.peekToken(), "funcref");
+        msgs.expected(tokens.peekToken(), "ref type");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1584,9 +1552,7 @@ GlobalImport* GlobalImport::parse(SourceContext& context)
         result->mut = Mut::var;
         if (auto valueType = parseValueType(context)) {
             result->type = *valueType;
-            if (!requiredParenthesis(context, ')')) {
-                tokens.recover();
-            }
+            requiredCloseParenthesis(context);
         } else {
             msgs.error(tokens.peekToken(), "Missing or invalid value type.");
         }
@@ -1598,10 +1564,7 @@ GlobalImport* GlobalImport::parse(SourceContext& context)
         }
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1671,15 +1634,17 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
 
     auto id = tokens.getId();
 
-    if (!startClause(context, "import")) {
-        tokens.setPos(startPos);
-        return nullptr;
-    }
-
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<FunctionImport>();
 
     result->number = module->nextFunctionCount();
+
+    makeExport(context, ExternalType::function, result->number);
+
+    if (!requiredStartClause(context, "import")) {
+        tokens.setPos(startPos);
+        return result;
+    }
 
     if (id) {
         result->setId(*id);
@@ -1704,17 +1669,11 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     TypeUse::parse(context, result);
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1732,15 +1691,17 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
 
     auto id = tokens.getId();
 
-    if (!startClause(context, "import")) {
-        tokens.setPos(startPos);
-        return nullptr;
-    }
-
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<TableImport>();
 
     result->number = module->nextTableCount();
+
+    makeExport(context, ExternalType::table, result->number);
+
+    if (!requiredStartClause(context, "import")) {
+        tokens.setPos(startPos);
+        return nullptr;
+    }
 
     if (id) {
         result->setId(*id);
@@ -1764,10 +1725,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     if (auto limits = requiredLimits(context)) {
         result->setLimits(*limits);
@@ -1782,10 +1740,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "funcref");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1803,15 +1758,17 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
 
     auto id = tokens.getId();
 
-    if (!startClause(context, "import")) {
-        tokens.setPos(startPos);
-        return nullptr;
-    }
-
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<MemoryImport>();
 
     result->number = module->nextMemoryCount();
+
+    makeExport(context, ExternalType::memory, result->number);
+
+    if (!requiredStartClause(context, "import")) {
+        tokens.setPos(startPos);
+        return nullptr;
+    }
 
     if (id) {
         result->setId(*id);
@@ -1835,10 +1792,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     if (auto limits = requiredLimits(context)) {
         result->setLimits(*limits);
@@ -1847,10 +1801,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
         return result;
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1868,15 +1819,17 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
 
     auto id = tokens.getId();
 
-    if (!startClause(context, "import")) {
-        tokens.setPos(startPos);
-        return nullptr;
-    }
-
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<EventImport>();
 
     result->number = module->nextEventCount();
+
+    makeExport(context, ExternalType::event, result->number);
+
+    if (!requiredStartClause(context, "import")) {
+        tokens.setPos(startPos);
+        return nullptr;
+    }
 
     if (id) {
         result->setId(*id);
@@ -1900,10 +1853,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     if (auto index = parseTypeIndex(context)) {
         result->setIndex(*index);
@@ -1911,10 +1861,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
         msgs.error(tokens.peekToken(), "Missing or invalid Type index.");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -1932,15 +1879,17 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
 
     auto id = tokens.getId();
 
-    if (!startClause(context, "import")) {
-        tokens.setPos(startPos);
-        return nullptr;
-    }
-
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<GlobalImport>();
 
     result->number = module->nextGlobalCount();
+
+    makeExport(context, ExternalType::global, result->number);
+
+    if (!requiredStartClause(context, "import")) {
+        tokens.setPos(startPos);
+        return nullptr;
+    }
 
     if (id) {
         result->setId(*id);
@@ -1964,18 +1913,13 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
         msgs.expected(tokens.peekToken(), "name");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     if (startClause(context, "mut")) {
         result->setMut(Mut::var);
         if (auto valueType = parseValueType(context)) {
             result->setType(*valueType);
-            if (!requiredParenthesis(context, ')')) {
-                tokens.recover();
-            }
+            requiredCloseParenthesis(context);
         } else {
             msgs.error(tokens.peekToken(), "Missing or invalid value type.");
         }
@@ -1987,10 +1931,7 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
         }
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -2061,10 +2002,7 @@ ImportDeclaration* ImportDeclaration::parse(SourceContext& context)
     result->setModuleName(moduleName);
     result->setName(name);
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -2192,20 +2130,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
         }
     }
 
-    while (startClause(context, "export")) {
-        auto* _export = context.makeTreeNode<ExportDeclaration>();
-
-        _export->setKind(ExternalType::function);
-        _export->setNumber(module->nextExportCount());
-        _export->setName(requiredString(context));
-        _export->setIndex(result->number);
-
-        module->addExportEntry(_export);
-
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
-    }
+    makeExport(context, ExternalType::function, result->number);
 
     TypeUse::parse(context, result);
     module->endFunction();
@@ -2356,40 +2281,30 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
         }
     }
 
-    while (startClause(context, "export")) {
-        auto* _export = context.makeTreeNode<ExportDeclaration>();
-
-        _export->setKind(ExternalType::table);
-        _export->setNumber(module->nextExportCount());
-        _export->setName(requiredString(context));
-        _export->setIndex(result->number);
-
-        module->addExportEntry(_export);
-
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
-    }
+    makeExport(context, ExternalType::table, result->number);
 
     if (auto elementType = parseElementType(context)) {
         result->type = *elementType;
 
         if (startClause(context, "elem")) {
             auto element = context.makeTreeNode<ElementDeclaration>();
-            uint32_t functionIndexCount = 0;
 
             element->setNumber(module->nextElementCount());
             element->setTableIndex(result->getNumber());
-            while (auto index = parseFunctionIndex(context)) {
-                element->addFunctionIndex(*index);
-                ++functionIndexCount;
+
+            uint32_t functionIndexCount = element->parseFunctionIndexExpressions(context); 
+
+            if (functionIndexCount == 0) {
+                functionIndexCount = element->parseFunctionIndexes(context); 
+            }
+
+            if (functionIndexCount == 0) {
+                msgs.error(tokens.peekToken(), "Missing or invalid function index.");
             }
 
             element->setExpression(makeI32Const0(context));
 
-            if (!requiredParenthesis(context, ')')) {
-                tokens.recover();
-            }
+            requiredCloseParenthesis(context);
 
             module->addElementEntry(element);
 
@@ -2411,10 +2326,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
         return result;
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -2554,6 +2466,8 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
         }
     }
 
+    makeExport(context, ExternalType::memory, result->number);
+
     if (startClause(context, "data")) {
         auto dataEntry = context.makeTreeNode<DataSegment>();
 
@@ -2580,9 +2494,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
 
         module->addDataEntry(dataEntry);
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
+        requiredCloseParenthesis(context);
     } else {
         if (auto limits = requiredLimits(context)) {
             result->limits = *limits;
@@ -2591,10 +2503,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
         }
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -2734,28 +2643,13 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
         }
     }
 
-    while (startClause(context, "export")) {
-        auto* _export = context.makeTreeNode<ExportDeclaration>();
-
-        _export->setKind(ExternalType::global);
-        _export->setNumber(module->nextExportCount());
-        _export->setName(requiredString(context));
-        _export->setIndex(result->number);
-
-        module->addExportEntry(_export);
-
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
-    }
+    makeExport(context, ExternalType::global, result->number);
 
     if (startClause(context, "mut")) {
         result->mut = Mut::var;
         if (auto valueType = parseValueType(context)) {
             result->type = *valueType;
-            if (!requiredParenthesis(context, ')')) {
-                tokens.recover();
-            }
+            requiredCloseParenthesis(context);
         } else {
             msgs.error(tokens.peekToken(), "Missing or invalid value type.");
         }
@@ -2774,15 +2668,9 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
 
     result->expression.reset(requiredExpression(context));
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -2983,15 +2871,9 @@ ExportDeclaration* ExportDeclaration::parse(SourceContext& context)
         msgs.error(tokens.peekToken(), "Missing or invalid export kind.");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -3136,10 +3018,7 @@ StartSection* StartSection::parse(SourceContext& context)
         context.msgs().error(tokens.peekToken(), "Missing or invalid function index.");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -3344,6 +3223,62 @@ void ElementDeclaration::write(BinaryContext& context) const
     }
 }
 
+uint32_t ElementDeclaration::parseFunctionIndexExpressions(SourceContext context)
+{
+    auto& tokens = context.tokens();
+    uint32_t result = 0;
+
+    while (tokens.getParenthesis('(')) {
+        ++result;
+
+        bool extraParenthesis = false;
+
+        if (tokens.getKeyword("item")) {
+            extraParenthesis = tokens.getParenthesis('(');
+        }
+
+        if (auto* expression = requiredExpression(context, true); expression != nullptr) {
+            refExpressions.emplace_back(expression);
+
+            if ((flags & SegmentFlagElemExpr) == 0) {
+                auto* instruction = refExpressions.back()->getInstructions()[0].get();
+                auto opcode = instruction->getOpcode();
+
+                if (opcode == Opcode::ref__null) {
+                    flags = SegmentFlags(flags | SegmentFlagElemExpr);
+                } else if (opcode == Opcode::ref__func) {
+                    auto *f = static_cast<InstructionFunctionIdx*>(instruction);
+
+                    functionIndexes.push_back(f->getIndex());
+                }
+            }
+        }
+
+        if (extraParenthesis) {
+            requiredCloseParenthesis(context);
+        }
+
+        requiredCloseParenthesis(context);
+    }
+
+    return result;
+}
+
+uint32_t ElementDeclaration::parseFunctionIndexes(SourceContext context)
+{
+    auto& tokens = context.tokens();
+    uint32_t result = 0;
+
+    (void) tokens.getKeyword("func");
+
+    while (auto index = parseFunctionIndex(context)) {
+        ++result;
+        functionIndexes.push_back(*index);
+    }
+
+    return result;
+}
+
 ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
@@ -3379,9 +3314,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
             msgs.error(tokens.peekToken(), "Missing or invalid table index.");
         }
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
+        requiredCloseParenthesis(context);
     }
 
     if (result->flags != SegmentFlagDEclared) {
@@ -3390,9 +3323,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
         } else if (tokens.getParenthesis('(')) {
             result->expression.reset(requiredExpression(context, true));
 
-            if (!requiredParenthesis(context, ')')) {
-                tokens.recover();
-            }
+            requiredCloseParenthesis(context);
         } else {
             result->flags = SegmentFlagPassive;
         }
@@ -3401,54 +3332,15 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
     if (auto type = parseValueType(context)) {
         result->elementType = *type;
 
-        while (tokens.getParenthesis('(')) {
-            bool extraParenthesis = false;
-
-            if (tokens.getKeyword("item")) {
-                extraParenthesis = tokens.getParenthesis('(');
-            }
-
-            if (auto* expression = requiredExpression(context, true); expression != nullptr) {
-                result->refExpressions.emplace_back(expression);
-
-                if ((result->flags & SegmentFlagElemExpr) == 0) {
-                    auto* instruction = result->refExpressions.back()->getInstructions()[0].get();
-                    auto opcode = instruction->getOpcode();
-
-                    if (opcode == Opcode::ref__null) {
-                        result->flags = SegmentFlags(result->flags | SegmentFlagElemExpr);
-                    } else if (opcode == Opcode::ref__func) {
-                        auto *f = static_cast<InstructionFunctionIdx*>(instruction);
-
-                        result->functionIndexes.push_back(f->getIndex());
-                    }
-                }
-            }
-
-            if (extraParenthesis) {
-                if (!requiredParenthesis(context, ')')) {
-                    tokens.recover();
-                }
-            }
-
-            if (!requiredParenthesis(context, ')')) {
-                tokens.recover();
-            }
-        }
+        result->parseFunctionIndexExpressions(context);
+    } else if (result->flags == SegmentFlagNone && result->parseFunctionIndexExpressions(context) != 0) {
+        result->elementType = ValueType::funcref;
     } else {
         result->elementType = ValueType::funcref;
-
-        (void) tokens.getKeyword("func");
-
-        while (auto index = parseFunctionIndex(context)) {
-            result->functionIndexes.push_back(*index);
-        }
+        result->parseFunctionIndexes(context);
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -3730,9 +3622,7 @@ void CodeEntry::write(BinaryContext& context) const
         data.putU32leb(0u);
     }
 
-    if (expression.get() != nullptr) {
-        expression->write(context);
-    }
+    expression->write(context);
 
     auto text = data.pop();
 
@@ -3755,17 +3645,19 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
             result->locals.emplace_back(Local::parse(context));
         }
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
+        requiredCloseParenthesis(context);
     }
 
-    result->expression.reset(Expression::parse(context));
+    auto* expression = Expression::parse(context);
+
+    if (expression == nullptr) {
+        expression = context.makeTreeNode<Expression>();
+    }
+
+    result->expression.reset(expression);
 
     // close the '(func' clause.
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -3800,9 +3692,7 @@ void CodeEntry::check(CheckContext& context)
         local->check(context);
     }
 
-    if (expression.get() != nullptr) {
-        expression->check(context);
-    }
+    expression->check(context);
 }
 
 void CodeEntry::generate(std::ostream& os, Module* module)
@@ -4006,9 +3896,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
             msgs.error(tokens.peekToken(), "Missing or invalid memory index.");
         }
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
+        requiredCloseParenthesis(context);
     }
 
     if (startClause(context, "offset")) {
@@ -4016,9 +3904,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
     } else if (tokens.getParenthesis('(')) {
         result->expression.reset(requiredExpression(context, true));
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
-        }
+        requiredCloseParenthesis(context);
     }
 
     while (auto str = tokens.getString()) {
@@ -4043,10 +3929,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
 
     result->flags = flags;
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }
@@ -4282,10 +4165,7 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
         msgs.error(tokens.peekToken(), "Missing or invalid Type index.");
     }
 
-    if (!requiredParenthesis(context, ')')) {
-        tokens.recover();
-        return result;
-    }
+    requiredCloseParenthesis(context);
 
     return result;
 }

@@ -45,6 +45,7 @@ class Validator
         void check(Instruction* instruction);
         bool underflow();
         void checkSpecial();
+        void checkTable();
         void checkBlock();
         void checkLocal();
         void checkGlobal();
@@ -53,6 +54,8 @@ class Validator
         void checkBrTable();
         void checkCall();
         void checkCallIndirect();
+        void checkReturnCall();
+        void checkReturnCallIndirect();
 
         void pushOperand(ValueType type);
         ValueType popOperand();

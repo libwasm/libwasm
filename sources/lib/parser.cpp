@@ -13,7 +13,7 @@ std::optional<ValueType> parseElementType(SourceContext& context)
 
     if (auto value = tokens.getKeyword()) {
         if (auto encoding = ValueType::getEncoding(*value)) {
-            if (*encoding == ValueType::funcref) {
+            if (encoding->isValidRef()) {
                 return encoding;
             }
         }
@@ -42,21 +42,19 @@ std::optional<uint32_t> parseTableIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getTableCount()) {
-            return {};
+        if (*value < module->getTableCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getTableIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -64,21 +62,19 @@ std::optional<uint32_t> parseTypeIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getTypeCount()) {
-            return {};
+        if (*value < module->getTypeCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getTypeIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -86,21 +82,19 @@ std::optional<uint32_t> parseFunctionIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getFunctionCount()) {
-            return {};
+        if (*value < module->getFunctionCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getFunctionIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -108,21 +102,19 @@ std::optional<uint32_t> parseMemoryIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getMemoryCount()) {
-            return {};
+        if (*value < module->getMemoryCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getMemoryIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -130,21 +122,19 @@ std::optional<uint32_t> parseEventIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getEventCount()) {
-            return {};
+        if (*value < module->getEventCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getEventIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -152,21 +142,19 @@ std::optional<uint32_t> parseSegmentIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getSegmentCount()) {
-            return {};
+        if (*value < module->getSegmentCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getSegmentIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -174,21 +162,19 @@ std::optional<uint32_t> parseElementIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getElementCount()) {
-            return {};
+        if (*value < module->getElementCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getElementIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -196,21 +182,19 @@ std::optional<uint32_t> parseGlobalIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getGlobalCount()) {
-            return {};
+        if (*value < module->getGlobalCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getGlobalIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -218,21 +202,19 @@ std::optional<uint32_t> parseLocalIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value >= module->getLocalCount()) {
-            return {};
+        if (*value < module->getLocalCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getLocalIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
@@ -240,27 +222,26 @@ std::optional<uint32_t> parseLabelIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto* module = context.getModule();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
-        if (*value > module->getLabelCount()) {
-            return {};
+        if (*value <= module->getLabelCount()) {
+            return *value;
         }
-
-        return *value;
-    }
-
-    if (auto id = tokens.getId()) {
+    } else if (auto id = tokens.getId()) {
         if (auto index = module->getLabelIndex(*id); index != invalidIndex) {
             return index;
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
 std::optional<uint32_t> parseLane2Index(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
         if (*value < 2) {
@@ -268,12 +249,14 @@ std::optional<uint32_t> parseLane2Index(SourceContext& context)
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
 std::optional<uint32_t> parseLane4Index(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
         if (*value < 4) {
@@ -281,12 +264,14 @@ std::optional<uint32_t> parseLane4Index(SourceContext& context)
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
 std::optional<uint32_t> parseLane8Index(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
         if (*value < 8) {
@@ -294,12 +279,14 @@ std::optional<uint32_t> parseLane8Index(SourceContext& context)
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
 std::optional<uint32_t> parseLane16Index(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
         if (*value < 16) {
@@ -307,12 +294,14 @@ std::optional<uint32_t> parseLane16Index(SourceContext& context)
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
 std::optional<uint32_t> parseLane32Index(SourceContext& context)
 {
     auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
 
     if (auto value = tokens.getU32()) {
         if (*value < 32) {
@@ -320,6 +309,7 @@ std::optional<uint32_t> parseLane32Index(SourceContext& context)
         }
     }
 
+    tokens.setPos(pos);
     return{};
 }
 
