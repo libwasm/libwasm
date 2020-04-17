@@ -100,6 +100,7 @@ class SourceContext : public Context
             return errorHandler;
         }
 
+        std::string unEscape(std::string_view chars);
         void write(std::ostream& os);
 
         template<typename T, typename... Ts>

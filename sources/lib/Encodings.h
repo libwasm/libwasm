@@ -969,7 +969,7 @@ enum SegmentFlags : uint8_t {
   SegmentFlagNone = 0,
   SegmentFlagPassive = 1,
   SegmentFlagExplicitIndex = 2,
-  SegmentFlagDEclared = SegmentFlags(SegmentFlagPassive | SegmentFlagExplicitIndex),
+  SegmentFlagDeclared = SegmentFlags(SegmentFlagPassive | SegmentFlagExplicitIndex),
   SegmentFlagElemExpr = 4,
 
   SegmentFlagMax = (SegmentFlagElemExpr << 1) - 1,

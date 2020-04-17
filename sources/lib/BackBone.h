@@ -1547,6 +1547,16 @@ class StartSection : public Section
 class ElementDeclaration : public TreeNode
 {
     public:
+        auto getFlags() const
+        {
+            return flags;
+        }
+
+        void setFlags(SegmentFlags value)
+        {
+            flags = value;
+        }
+
         auto getTableIndex() const
         {
             return tableIndex;
@@ -1555,6 +1565,10 @@ class ElementDeclaration : public TreeNode
         void setTableIndex(uint32_t value)
         {
             tableIndex = value;
+
+            if (tableIndex != 0) {
+                flags = SegmentFlags(flags | SegmentFlagExplicitIndex);
+            }
         }
 
         auto getNumber() const

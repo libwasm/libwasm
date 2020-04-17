@@ -103,6 +103,15 @@ void BinaryContext::write(std::ostream& os)
     writeFile(os);
 }
 
+std::string SourceContext::unEscape(std::string_view chars)
+{
+    auto [error, data] = libwasm::unEscape(chars);
+
+    errorHandler.errorWhen((!error.empty()), tokenBuffer.peekToken(-1), "Invalid string; ", error);
+
+    return data;
+}
+
 void SourceContext::write(std::ostream& os)
 {
     BinaryErrorHandler error;

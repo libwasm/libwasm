@@ -1310,11 +1310,13 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
                 }
 
                 if (startClause(context, "else")) {
-                    instructions.push_back(context.makeTreeNode<InstructionNone>(Opcode(Opcode::else_)));
-                    parse(context, instructions);
+                    if (!tokens.getParenthesis(')')) {
+                        instructions.push_back(context.makeTreeNode<InstructionNone>(Opcode(Opcode::else_)));
+                        parse(context, instructions);
 
-                    if (!requiredParenthesis(context, ')')) {
-                        tokens.recover();
+                        if (!requiredParenthesis(context, ')')) {
+                            tokens.recover();
+                        }
                     }
                 }
 

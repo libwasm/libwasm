@@ -150,7 +150,7 @@ static void makeExport(SourceContext& context, ExternalType type, uint32_t index
 
         _export->setKind(type);
         _export->setNumber(module->nextExportCount());
-        _export->setName(requiredString(context));
+        _export->setName(context.unEscape(requiredString(context)));
         _export->setIndex(index);
 
         module->addExportEntry(_export);
@@ -1658,13 +1658,13 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
     module->startFunction();
 
     if (auto value = tokens.getString()) {
-        result->setModuleName(*value);
+        result->setModuleName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
     if (auto value = tokens.getString()) {
-        result->setName(*value);
+        result->setName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1714,13 +1714,13 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
     module->addTable(result);
 
     if (auto value = tokens.getString()) {
-        result->setModuleName(*value);
+        result->setModuleName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
     if (auto value = tokens.getString()) {
-        result->setName(*value);
+        result->setName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1781,13 +1781,13 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
     module->addMemory(result);
 
     if (auto value = tokens.getString()) {
-        result->setModuleName(*value);
+        result->setModuleName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
     if (auto value = tokens.getString()) {
-        result->setName(*value);
+        result->setName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1842,13 +1842,13 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
     module->addEvent(result);
 
     if (auto value = tokens.getString()) {
-        result->setModuleName(*value);
+        result->setModuleName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
     if (auto value = tokens.getString()) {
-        result->setName(*value);
+        result->setName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1902,13 +1902,13 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
     module->addGlobal(result);
 
     if (auto value = tokens.getString()) {
-        result->setModuleName(*value);
+        result->setModuleName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
     if (auto value = tokens.getString()) {
-        result->setName(*value);
+        result->setName(context.unEscape(*value));
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1970,13 +1970,13 @@ ImportDeclaration* ImportDeclaration::parse(SourceContext& context)
     std::string moduleName;
 
     if (auto value = tokens.getString()) {
-        moduleName = *value;
+        moduleName = context.unEscape(*value);
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
     if (auto value = tokens.getString()) {
-        name = *value;
+        name = context.unEscape(*value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -2290,7 +2290,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
             auto element = context.makeTreeNode<ElementDeclaration>();
 
             element->setNumber(module->nextElementCount());
-            element->setTableIndex(result->getNumber());
+            element->setTableIndex(result->number);
 
             uint32_t functionIndexCount = element->parseFunctionIndexExpressions(context); 
 
@@ -2476,13 +2476,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
         std::string init;
 
         while (auto str = tokens.getString()) {
-            auto [error, data] = unEscape(*str);
-
-            if (!error.empty()) {
-                msgs.error(tokens.peekToken(-1), "Invalid string; ", error);
-            }
-
-            init.append(data);
+            init.append(context.unEscape(*str));
         }
 
         uint32_t m = uint32_t((init.size() + 0x10000 - 1) / 0x10000);
@@ -3192,7 +3186,7 @@ void ElementDeclaration::write(BinaryContext& context) const
 
     data.putU32leb(flags);
 
-    if ((flags & (SegmentFlagPassive | SegmentFlagExplicitIndex)) == SegmentFlagExplicitIndex) {
+    if ((flags & SegmentFlagDeclared) == SegmentFlagExplicitIndex) {
         data.putU32leb(tableIndex);
     }
 
@@ -3200,7 +3194,7 @@ void ElementDeclaration::write(BinaryContext& context) const
         expression->write(context);
     }
 
-    if (flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+    if ((flags & SegmentFlagDeclared) != 0) {
         if ((flags & SegmentFlagElemExpr) != 0) {
             writeValueType(context, elementType);
         } else {
@@ -3302,7 +3296,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
     }
 
     if (tokens.getKeyword("declare")) {
-        result->flags = SegmentFlagDEclared;
+        result->flags = SegmentFlagDeclared;
     }
 
     if (auto index = parseTableIndex(context)) {
@@ -3317,9 +3311,15 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
         requiredCloseParenthesis(context);
     }
 
-    if (result->flags != SegmentFlagDEclared) {
+    if (result->tableIndex != 0) {
+        result->flags = SegmentFlags(result->flags | SegmentFlagExplicitIndex);
+    }
+
+    if (result->flags != SegmentFlagDeclared) {
         if (startClause(context, "offset")) {
             result->expression.reset(requiredExpression(context));
+
+            requiredCloseParenthesis(context);
         } else if (tokens.getParenthesis('(')) {
             result->expression.reset(requiredExpression(context, true));
 
@@ -3333,8 +3333,6 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
         result->elementType = *type;
 
         result->parseFunctionIndexExpressions(context);
-    } else if (result->flags == SegmentFlagNone && result->parseFunctionIndexExpressions(context) != 0) {
-        result->elementType = ValueType::funcref;
     } else {
         result->elementType = ValueType::funcref;
         result->parseFunctionIndexes(context);
@@ -3357,7 +3355,7 @@ ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
     result->flags = SegmentFlags(data.getU32leb());
     msgs.errorWhen((result->flags > SegmentFlagMax), "Invalid segment flags.");
 
-    if ((result->flags & (SegmentFlagPassive | SegmentFlagExplicitIndex)) == SegmentFlagExplicitIndex) {
+    if ((result->flags & SegmentFlagDeclared) == SegmentFlagExplicitIndex) {
         result->tableIndex = data.getU32leb();
     }
 
@@ -3367,7 +3365,7 @@ ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
         result->expression.reset(Expression::readInit(context));
     }
 
-    if (result->flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+    if ((result->flags & SegmentFlagDeclared) != 0) {
         if ((result->flags & SegmentFlagElemExpr) != 0) {
             result->elementType = readValueType(context);
             msgs.errorWhen((!result->elementType.isValidRef()), "Element type must be a referncetype.");
@@ -3901,6 +3899,8 @@ DataSegment* DataSegment::parse(SourceContext& context)
 
     if (startClause(context, "offset")) {
         result->expression.reset(requiredExpression(context));
+
+        requiredCloseParenthesis(context);
     } else if (tokens.getParenthesis('(')) {
         result->expression.reset(requiredExpression(context, true));
 
@@ -3908,13 +3908,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
     }
 
     while (auto str = tokens.getString()) {
-        auto [error, data] = unEscape(*str);
-
-        if (!error.empty()) {
-            msgs.error(tokens.peekToken(-1), "Invalid string; ", error);
-        }
-
-        result->init.append(data);
+        result->init.append(context.unEscape(*str));
     }
 
     auto flags = SegmentFlagNone;

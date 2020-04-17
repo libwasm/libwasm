@@ -2,7 +2,9 @@
 
 #include "Assembler.h"
 
+#include <algorithm>
 #include <cctype>
+#include <tuple>
 
 namespace libwasm
 {
@@ -653,6 +655,23 @@ bool Assembler::doParse()
     }
 
     return msgs.getErrorCount() == 0;
+}
+
+void Assembler::write(std::ostream& os)
+{
+    if (auto* exportSection = module->getExportSection(); exportSection != nullptr) {
+        auto& exports = exportSection->getExports();
+
+        using exporType = std::unique_ptr<ExportDeclaration>;
+
+        std::sort(exports.begin(), exports.end(),
+                [](const exporType& x, const exporType& y) {
+                    return std::tuple(x->getLineNumber(), x->getColumnNumber()) <
+                           std::tuple(y->getLineNumber(), y->getColumnNumber());
+                });
+    }
+
+    context.write(os);
 }
 
 };

@@ -45,10 +45,7 @@ class Assembler
             module->generate(os);
         }
 
-        void write(std::ostream& os)
-        {
-            context.write(os);
-        }
+        void write(std::ostream& os);
 
         auto getErrorCount() const
         {
