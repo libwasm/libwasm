@@ -2701,6 +2701,7 @@ void GlobalDeclaration::check(CheckContext& context)
     context.checkValueType(this, type);
     context.checkMut(this, mut);
     expression->check(context);
+    context.checkInitExpression(expression.get(), type);
 }
 
 void GlobalDeclaration::generate(std::ostream& os, Module* module)
@@ -3389,13 +3390,24 @@ ElementDeclaration* ElementDeclaration::read(BinaryContext& context)
 
 void ElementDeclaration::check(CheckContext& context)
 {
+    context.msgs().errorWhen((flags > SegmentFlagMax), this, "Invalid segment flags.");
+
     if ((flags & SegmentFlagPassive) == 0) {
         context.checkTableIndex(this,tableIndex);
     }
 
-    context.msgs().errorWhen((flags > SegmentFlagMax), this, "Invalid segment flags.");
+    if (elementType != 0) {
+        context.checkValueType(this, elementType);
+    }
+
     if (expression) {
         expression->check(context);
+        context.checkInitExpression(expression.get(), ValueType::i32);
+    }
+
+    for (auto& expression : refExpressions) {
+        expression->check(context);
+        context.checkInitExpression(expression.get(), ValueType::anyref);
     }
 
     for (auto index : functionIndexes) {
@@ -3955,9 +3967,13 @@ DataSegment* DataSegment::read(BinaryContext& context)
 
 void DataSegment::check(CheckContext& context)
 {
+    context.msgs().errorWhen((flags > SegmentFlagMax), this, "Invalid segment flags.");
+
     context.checkMemoryIndex(this, memoryIndex);
+
     if (expression) {
         expression->check(context);
+        context.checkInitExpression(expression.get(), ValueType::i32);
     }
 }
 

@@ -15,6 +15,7 @@
 namespace libwasm
 {
 class Module;
+class Expression;
 
 class Context
 {
@@ -150,6 +151,7 @@ class CheckContext : public Context
         void checkTableIndex(TreeNode* node, uint32_t index);
         void checkTypeIndex(TreeNode* node, uint32_t count);
         void checkValueType(TreeNode* node, const ValueType& type);
+        void checkInitExpression(Expression* expression, const ValueType& expect);
 
     private:
         CheckErrorHandler& errorHandler;

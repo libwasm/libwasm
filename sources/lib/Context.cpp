@@ -214,4 +214,58 @@ void CheckContext::checkMut(TreeNode* node, Mut& mut)
             "Invalid mut");
 }
 
+void CheckContext::checkInitExpression(Expression* expression, const ValueType& expect)
+{
+    auto& instructions = expression->getInstructions();
+
+    if (instructions.size() != 1) {
+        errorHandler.error(expression, "Expression must have exactly one instruction.");
+        return;
+    }
+
+    auto* instruction = instructions[0].get();
+    ValueType actual = ValueType(0);
+    auto opcode = instruction->getOpcode();
+
+    switch (opcode) {
+        case Opcode::i32__const: actual = ValueType::i32; break;
+        case Opcode::i64__const: actual = ValueType::i64; break;
+        case Opcode::f32__const: actual = ValueType::f32; break;
+        case Opcode::f64__const: actual = ValueType::f64; break;
+        case Opcode::v128__const: actual = ValueType::v128; break;
+        case Opcode::ref__null: actual = ValueType::nullref; break;
+        case Opcode::ref__func: actual = ValueType::funcref; break;
+
+        case Opcode::global__get:
+            {
+                auto globalIndex = static_cast<InstructionGlobalIdx*>(instruction)->getIndex();
+                auto* global = module->getGlobal(globalIndex);
+
+                actual = global->getType();
+
+                break;
+            }
+
+        default:
+            errorHandler.error(expression, "Inavlid opcode in constant expression '", opcode, "'.");
+            return;
+    }
+
+    if (actual == expect) {
+        return;
+    }
+
+    if (expect == ValueType::anyref) {
+        if (actual == ValueType::nullref || actual == ValueType::funcref) {
+            return;
+        }
+    }
+
+    if (expect.isValidRef() && actual == ValueType::nullref) {
+        return;
+    }
+
+    errorHandler.error(expression, "Invalid expression type '", actual, "'. expected '", expect, "'.");
+}
+
 };
