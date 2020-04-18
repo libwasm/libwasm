@@ -489,7 +489,7 @@ std::vector<size_t> Assembler::findSectionPositions(
 
 bool Assembler::checkSemantics()
 {
-    CheckErrorHandler error;
+    CheckErrorHandler error(msgs.getErrorStream());
     CheckContext checkContext(context, error);
 
     if (!checkContext.checkSemantics()) {

@@ -142,7 +142,7 @@ bool Disassembler::checkSemantics()
 {
     context.getModule()->makeDataCountSection();
 
-    CheckErrorHandler error;
+    CheckErrorHandler error(msgs.getErrorStream());
     CheckContext checkContext(context, error);
 
     if (!checkContext.checkSemantics()) {

@@ -15,6 +15,12 @@ namespace libwasm
 class ErrorHandler
 {
     public:
+        ErrorHandler() = default;
+        ErrorHandler(std::ostream& es)
+          : errorStream(es)
+        {
+        }
+
         auto getErrorCount() const
         {
             return errorCount;
@@ -25,21 +31,33 @@ class ErrorHandler
             return warningCount;
         }
 
+        auto& getErrorStream()
+        {
+            return errorStream;
+        }
+
     protected:
         unsigned errorCount = 0;
         unsigned warningCount = 0;
+        std::ostream& errorStream = std::cerr;
 };
 
 class BinaryErrorHandler : public ErrorHandler
 {
     public:
+        BinaryErrorHandler() = default;
+        BinaryErrorHandler(std::ostream& es)
+           : ErrorHandler(es)
+        {
+        }
+
         template<typename... Ts>
         void error(const Ts&... ts)
         {
             showHeader("Error");
 
-            ((std::cerr << ts), ...);
-            std::cerr << std::endl;
+            ((errorStream << ts), ...);
+            errorStream << std::endl;
             errorCount++;
         }
 
@@ -56,8 +74,8 @@ class BinaryErrorHandler : public ErrorHandler
         {
             showHeader("Warning");
 
-            ((std::cerr << ts), ...);
-            std::cerr << std::endl;
+            ((errorStream << ts), ...);
+            errorStream << std::endl;
             warningCount++;
         }
 
@@ -88,12 +106,12 @@ class BinaryErrorHandler : public ErrorHandler
     private:
         void showHeader(std::string_view type)
         {
-            std::cerr << type << ' ';
+            errorStream << type << ' ';
             if (!sectionName.empty()) {
-                std::cerr << "in " << sectionName << " section at entry " << entryNumber;
+                errorStream << "in " << sectionName << " section at entry " << entryNumber;
             }
 
-            std::cerr << ":\n    ";
+            errorStream << ":\n    ";
         }
 
         std::string sectionName;
@@ -103,13 +121,19 @@ class BinaryErrorHandler : public ErrorHandler
 class SourceErrorHandler : public ErrorHandler
 {
     public:
+        SourceErrorHandler() = default;
+        SourceErrorHandler(std::ostream& es)
+            : ErrorHandler(es)
+        {
+        }
+
         template<typename... Ts>
         void error(size_t lineNumber, size_t columnNumber, const Ts&... ts)
         {
             showHeader("Error", lineNumber, columnNumber);
 
-            ((std::cerr << ts), ...);
-            std::cerr << std::endl;
+            ((errorStream << ts), ...);
+            errorStream << std::endl;
             errorCount++;
         }
 
@@ -140,8 +164,8 @@ class SourceErrorHandler : public ErrorHandler
         {
             showHeader("Warning", lineNumber, columnNumber);
 
-            ((std::cerr << ts), ...);
-            std::cerr << std::endl;
+            ((errorStream << ts), ...);
+            errorStream << std::endl;
             warningCount++;
         }
 
@@ -170,20 +194,26 @@ class SourceErrorHandler : public ErrorHandler
     private:
         void showHeader(std::string_view type, size_t lineNumber, size_t columnNumber)
         {
-            std::cerr << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
+            errorStream << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
         }
 };
 
 class CheckErrorHandler : public ErrorHandler
 {
     public:
+        CheckErrorHandler() = default;
+        CheckErrorHandler(std::ostream& es)
+          : ErrorHandler(es)
+        {
+        }
+
         template<typename... Ts>
         void error(size_t lineNumber, size_t columnNumber, const Ts&... ts)
         {
             showHeader("Error", lineNumber, columnNumber);
 
-            ((std::cerr << ts), ...);
-            std::cerr << std::endl;
+            ((errorStream << ts), ...);
+            errorStream << std::endl;
             errorCount++;
         }
 
@@ -206,8 +236,8 @@ class CheckErrorHandler : public ErrorHandler
         {
             showHeader("Warning", lineNumber, columnNumber);
 
-            ((std::cerr << ts), ...);
-            std::cerr << std::endl;
+            ((errorStream << ts), ...);
+            errorStream << std::endl;
             warningCount++;
         }
 
@@ -229,9 +259,9 @@ class CheckErrorHandler : public ErrorHandler
         void showHeader(std::string_view type, size_t lineNumber, size_t columnNumber)
         {
             if (lineNumber == 0) {
-                std::cerr << type << " at position 0x" << std::hex << columnNumber << std::dec << ":\n    ";
+                errorStream << type << " at position 0x" << std::hex << columnNumber << std::dec << ":\n    ";
             } else {
-                std::cerr << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
+                errorStream << type << " at line " << lineNumber << '(' << columnNumber << "):\n    ";
             }
         }
 };

@@ -28,6 +28,12 @@ class Assembler
             good = readWat(stream);
         }
 
+        Assembler(std::istream& stream, std::ostream& errorStream)
+          : msgs(errorStream), context(tokens, msgs), module(context.getModule())
+        {
+            good = readWat(stream);
+        }
+
         ~Assembler() = default;
 
         bool isGood() const

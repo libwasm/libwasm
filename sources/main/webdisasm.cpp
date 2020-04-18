@@ -199,6 +199,8 @@ int main(int argc, char*argv[])
             errors = disassembler.getErrorCount();
             warnings = disassembler.getWarningCount();
         } else {
+            errors = disassembler.getErrorCount() + 1;
+            warnings = disassembler.getWarningCount();
             std::cerr << "Error: Failed to process input file " << inputFile << '\n';
             errors = 1;
         }

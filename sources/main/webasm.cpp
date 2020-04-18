@@ -182,8 +182,9 @@ int main(int argc, char*argv[])
             warnings = assembler.getWarningCount();
 
         } else {
+            errors = assembler.getErrorCount() + 1;
+            warnings = assembler.getWarningCount();
             std::cerr << "Error: Failed to process input file " << inputFile << '\n';
-            errors = 1;
         }
     }
 
