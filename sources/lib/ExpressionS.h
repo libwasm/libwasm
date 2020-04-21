@@ -62,7 +62,7 @@ struct MetaInstruction
 struct ExpressionS
 {
     ExpressionS(MetaInstruction* meta);
-    void generate(std::ostream& os, InstructionContext& context);
+    void generate(std::ostream& os, InstructionContext& context, bool inBox = false);
 
     ExpressionS(ExpressionS&& other) = default;
 
@@ -71,7 +71,6 @@ struct ExpressionS
     size_t size = 1;
     bool isEnd = false;
     bool isBlock = false;
-    bool isElse = false;
     bool isIf = false;
     bool isThen = false;
     bool barrier = false;

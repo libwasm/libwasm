@@ -35,11 +35,15 @@ ExpressionS::ExpressionS(MetaInstruction* meta)
 {
 }
 
-void ExpressionS::generate(std::ostream& os, InstructionContext& context)
+void ExpressionS::generate(std::ostream& os, InstructionContext& context, bool inBlock)
 {
     if (isEnd) {
         context.leaveBlock();
         return;
+    }
+
+    if (inBlock || isBlock || isIf) {
+        os << "\n " << context.getIndent();
     }
 
     os << " (";
@@ -50,30 +54,8 @@ void ExpressionS::generate(std::ostream& os, InstructionContext& context)
         meta->instruction->generate(os, context);
     }
 
-    if (isBlock || isIf) {
-        for (auto& expressionS : expressionSs) {
-            os << "\n " << context.getIndent();
-            expressionS.generate(os, context);
-        }
-    } else {
-        size_t totalSize = 0;
-
-        for (auto& expressionS : expressionSs) {
-            if (totalSize == 0) {
-                totalSize = expressionS.size;
-            } else {
-                totalSize += expressionS.size;
-
-                if (totalSize > 8) {
-                    totalSize = 0;
-                    os << "\n   " << context.getIndent();
-                }
-
-                totalSize += expressionS.size;
-            }
-
-            expressionS.generate(os, context);
-        }
+    for (auto& expressionS : expressionSs) {
+        expressionS.generate(os, context, isBlock || isIf);
     }
 
     os << ')';
@@ -584,7 +566,7 @@ void ExpressionSBuilder::buildExpressionSs(std::vector<ExpressionS>& result, boo
                 if (nextOpcode == Opcode::else_) {
                     currentMetaIndex++;
                     expressionS.expressionSs.emplace_back(&nextMeta);
-                    expressionS.expressionSs.back().isElse = true;
+                    expressionS.expressionSs.back().isBlock = true;
                     buildExpressionSs(expressionS.expressionSs.back().expressionSs, true);
                 }
             } else {
@@ -614,8 +596,10 @@ void ExpressionSBuilder::generateExpressionSs(std::ostream& os, std::vector<Expr
 {
     InstructionContext context;
 
+    context.enterBlock();
+
     for (auto& expressionS : result) {
-        expressionS.generate(os, context);
+        expressionS.generate(os, context, true);
     }
 }
 
