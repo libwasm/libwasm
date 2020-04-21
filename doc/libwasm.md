@@ -296,11 +296,13 @@ The code will be emitted in S-expression format.
 The name of the output file must be given with thw *-o* option.
 
 ##### Example
+
      $ bin/convertS sample.wat -s -o sample.wats
      $ cat sample.wats
      (module
        (type (;0;) (func (param i32 i32) (result i32)))
-       (func (;0;) (type 0) (param $lhs i32) (param $rhs i32) (result i32) (i32.add (local.get 0) (local.get 1))))
+       (func (;0;) (type 0) (param $lhs i32) (param $rhs i32) (result i32)
+         (i32.add (local.get 0) (local.get 1))))
 
 
 ## Library.

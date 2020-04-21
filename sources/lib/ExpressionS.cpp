@@ -31,8 +31,11 @@ void MetaInstruction::addOperands(const std::vector<std::unique_ptr<Local>>& loc
 }
 
 ExpressionS::ExpressionS(MetaInstruction* meta)
-  : meta(meta), barrier(meta->barrier)
+  : meta(meta)
 {
+    if (meta != nullptr) {
+        barrier = meta->barrier;
+    }
 }
 
 void ExpressionS::generate(std::ostream& os, InstructionContext& context, bool inBlock)

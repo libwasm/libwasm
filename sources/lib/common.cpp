@@ -123,21 +123,21 @@ std::pair<std::string, std::string> unEscape(std::string_view chars)
 void generateChars(std::ostream& os, std::string_view chars)
 {
     for (auto c : chars) {
-        if (std::isprint(c)) {
-            os << c;
-        } else {
-            switch(c) {
-                case '\n' : os << "\\n"; break;
-                case '\r' : os << "\\r"; break;
-                case '\t' : os << "\\t"; break;
-                case '\"' : os << "\\\""; break;
-                case '\'' : os << "\\'"; break;
-                case '\\' : os << "\\\\"; break;
-                default:
+        switch(c) {
+            case '\n' : os << "\\n"; break;
+            case '\r' : os << "\\r"; break;
+            case '\t' : os << "\\t"; break;
+            case '\"' : os << "\\\""; break;
+            case '\'' : os << "\\'"; break;
+            case '\\' : os << "\\\\"; break;
+            default:
+                if (std::isprint(c)) {
+                    os << c;
+                } else {
                     os << '\\';
                     os << hexChar((c >> 4) & 0xf);
                     os << hexChar(c & 0xf);
-            }
+                }
         }
     }
 }
