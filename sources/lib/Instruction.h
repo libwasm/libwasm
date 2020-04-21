@@ -20,6 +20,7 @@ class InstructionContext
     public:
         unsigned enterBlock()
         {
+            indent.append("  ");
             return ++blockDepth;
         }
 
@@ -27,6 +28,9 @@ class InstructionContext
         {
             if (blockDepth > 0) {
                 --blockDepth;
+                if (indent.size() > 1) {
+                    indent.resize(indent.size() - 2);
+                }
             }
         }
 
@@ -35,8 +39,13 @@ class InstructionContext
             return blockDepth;
         }
 
+        std::string_view getIndent() {
+            return indent;
+        }
+
     private:
         unsigned blockDepth = 0;
+        std::string indent;
 };
 
 class Instruction : public TreeNode

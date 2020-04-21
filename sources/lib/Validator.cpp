@@ -137,8 +137,8 @@ void Validator::pushOperands(const std::vector<ValueType>& types)
 
 void Validator::popOperands(const std::vector<ValueType>& types)
 {
-    for (auto i = types.size(); i-- > 0; ) {
-        popOperand(types[i]);
+    for (auto type : types) {
+        popOperand(type);
     }
 }
 
@@ -310,7 +310,7 @@ void Validator::checkBlock()
         types.push_back(resultType);
     }
 
-    switch(uint32_t(currentInstruction->getOpcode())) {
+    switch(currentInstruction->getOpcode()) {
         case Opcode::block:
             pushFrame(types, types);
 
@@ -350,7 +350,7 @@ void Validator::checkLocal()
         type = currentCodeEntry->getLocals()[localIndex - parameters.size()]->getType();
     }
 
-    switch(uint32_t(currentInstruction->getOpcode())) {
+    switch(currentInstruction->getOpcode()) {
         case Opcode::local__get:
             pushOperand(type);
 
@@ -378,7 +378,7 @@ void Validator::checkGlobal()
     auto globalIndex = globalInstruction->getIndex();
     auto type = module->getGlobal(globalIndex)->getType();
 
-    switch(uint32_t(currentInstruction->getOpcode())) {
+    switch(currentInstruction->getOpcode()) {
         case Opcode::global__get:
             pushOperand(type);
 
@@ -400,7 +400,7 @@ void Validator::checkTable()
     auto tableIndex = tableInstruction->getIndex();
     auto type = module->getTable(tableIndex)->getType();
 
-    switch(uint32_t(currentInstruction->getOpcode())) {
+    switch(currentInstruction->getOpcode()) {
         case Opcode::table__get:
             popOperand(ValueType::i32);
 
@@ -448,7 +448,7 @@ void Validator::checkSpecial()
         return;
     }
 
-    switch(uint32_t(currentInstruction->getOpcode())) {
+    switch(currentInstruction->getOpcode()) {
         case Opcode::drop:
             popOperand();
             break;

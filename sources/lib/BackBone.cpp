@@ -2,6 +2,7 @@
 
 #include "BackBone.h"
 
+#include "ExpressionS.h"
 #include "Instruction.h"
 #include "Module.h"
 #include "common.h"
@@ -3724,29 +3725,24 @@ void CodeEntry::generate(std::ostream& os, Module* module)
         os << ')';
     }
 
-    std::string indent = "";
+    if (module->getUseExpressionS()) {
+        ExpressionSBuilder builder(module);
 
-    auto count = expression->getInstructions().size();
-    InstructionContext instructionContext;
+        builder.generate(os, this);
+    } else {
+        auto count = expression->getInstructions().size();
+        InstructionContext instructionContext;
 
-    for (auto& instruction : expression->getInstructions()) {
-        if (--count == 0 && instruction->getOpcode() == Opcode::end) {
-            break;
-        }
+        for (auto& instruction : expression->getInstructions()) {
+            if (--count == 0 && instruction->getOpcode() == Opcode::end) {
+                break;
+            }
 
-        if (indent.size() > 1 && instruction->getOpcode() == Opcode::end) {
-            indent.resize(indent.size() - 2);
-        }
+            os << "\n    " << instructionContext.getIndent();
 
-        os << "\n    " << indent;
-
-        instruction->generate(os, instructionContext);
-
-        if (instruction->getImmediateType() == ImmediateType::block) {
-            indent.append("  ");
+            instruction->generate(os, instructionContext);
         }
     }
-
 
     os << ")";
 }
@@ -3991,6 +3987,7 @@ void DataSegment::generate(std::ostream& os, Module* module)
         os << ')';
     }
 
+    os << " \"";
     generateChars(os, init);
     os << '\"';
 

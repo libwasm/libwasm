@@ -3,6 +3,16 @@
 Linwasm is a library to manipulate webassembly files from C++.
 It also contains an assembler (converting .wat to .wasm) and a dissassembler (converting .wasm to .wat).
 
+## New feature.
+The Assembler and Disassembler classes now have a 'generateS' method to generate a text file with code in
+S-expression format.
+
+The 'webdisasm' program now has an option (-s) to generate an S-expression file.
+
+There is a new program (convertS) that converts text files from sequential code format to S-expression and back.
+
+See the documentation for more information.
+
 ## Installation
 You require a c++17 compliant C++compiler.
 

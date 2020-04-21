@@ -597,9 +597,10 @@ bool ValueType::isValid() const
         case nullref:
         case void_:
             return true;
-    }
 
-    return false;
+        default:
+            return false;
+    }
 }
 
 bool ValueType::isValidNumeric() const
@@ -613,10 +614,8 @@ bool ValueType::isValidNumeric() const
             return true;
 
         default:
-            break;
+            return false;
     }
-
-    return false;
 }
 
 bool ValueType::isValidRef() const
@@ -629,10 +628,8 @@ bool ValueType::isValidRef() const
             return true;
 
         default:
-            break;
+            return false;;
     }
-
-    return false;
 }
 
 std::string_view ValueType::getName() const
@@ -648,9 +645,9 @@ std::string_view ValueType::getName() const
         case nullref:      return "nullref";
         case funcref:      return "funcref";
         case void_:        return "void";
-    }
 
-    return std::string_view();
+        default:           return std::string_view();
+    }
 }
 
 struct ValueTypeEntry

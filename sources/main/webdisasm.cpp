@@ -21,10 +21,12 @@ static void usage(const char* programName)
          "  -o <file>   specify output file.\n"
          "  -p          print formatted file content\n"
          "  -P          print formatted file content with disassembled code\n"
+         "  -s          generate source file, using S-expressions for code\n"
          "  -S          print statistics\n"
          "\n"
          "The '-a' option cannot be combined with either '-d', '-p' or '-P' options.\n"
-         "The '-a' option requires an output file and allows only one wasm_file.\n"
+         "The '-s' option implies the '-a' option.\n"
+         "The '-a' or '-s' option requires an output file and allows only one wasm_file.\n"
          "\n"
          "If the '-o' option is given then only one input file is allowed.\n"
          "\n"
@@ -38,6 +40,7 @@ int main(int argc, char*argv[])
 
     bool wantDump = false;
     bool wantGenerate = false;
+    bool wantGenerateS = false;
     bool wantShow = false;
     bool wantShowDisassemble = false;
     bool wantStatistics = false;
@@ -101,6 +104,11 @@ int main(int argc, char*argv[])
 
                     break;
 
+                case 's':
+                    wantGenerateS = true;
+                    wantGenerate = true;
+                    break;
+
                 case 'S':
                     wantStatistics = true;
                     break;
@@ -126,19 +134,19 @@ int main(int argc, char*argv[])
 
     if (wantGenerate) {
         if (wantShow || wantDump) {
-            std::cerr << "Error: The '-a' options can not be used with the '-d','-p' or '-P' options\n";
+            std::cerr << "Error: The '-a' or '-s' option can not be used with the '-d','-p' or '-P' options\n";
             usage(argv[0]);
             exit(-1);
         }
 
         if (outputFile == nullptr) {
-            std::cerr << "Error: The '-a' option requires an output file\n";
+            std::cerr << "Error: The '-a' or '-s' option requires an output file\n";
             usage(argv[0]);
             exit(-1);
         }
 
         if (inputFiles.size() > 1) {
-            std::cerr << "Error: The '-a' option allows only one input file\n";
+            std::cerr << "Error: The '-a' or '-s' option allows only one input file\n";
             usage(argv[0]);
             exit(-1);
         }
@@ -179,7 +187,11 @@ int main(int argc, char*argv[])
                     }
 
                     if (wantGenerate) {
-                        disassembler.generate(outputStream);
+                        if (wantGenerateS) {
+                            disassembler.generateS(outputStream);
+                        } else {
+                            disassembler.generate(outputStream);
+                        }
                     }
                 } else {
                     if (wantShow) {

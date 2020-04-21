@@ -40,7 +40,7 @@ The *-h* option shows the help page.
 ##### Example
      $ bin/webasm -h
 
-     Usage: /home/jvd/projects/libwasm/bin/webasm [options] wat_files
+     Usage: bin/webasm [options] wat_files
      Options:
        -a          generate binary file
        -h          print this help message and exit
@@ -113,7 +113,7 @@ The *-P* produces the same output as the *-p* option, but adds the code to each 
        data count: 0
 
 
-#### The *-s* option.
+#### The *-S* option.
 The *-S* option prints assembler statistics.
 
 
@@ -138,29 +138,43 @@ The *-h* option shows the help page.
 
 ##### Example
 
-     webdisasm -h
+     $ bin/webdisasm -h
 
-     Usage: /home/jvd/projects/libwasm/bin/webdisasm [options] wasm_files
+     Usage: bin/webdisasm [options] wasm_files
      Options:
-       -a          generate source file
-       -d          dump raw file content
-       -h          print this help message and exit
-       -o <file>   specify output file.
-       -p          print formatted file content
-       -P          print formatted file content with disassembled code
-       -S          print statistics
+       Options:
+         -a          generate source file
+         -d          dump raw file content
+         -h          print this help message and exit
+         -o <file>   specify output file.
+         -p          print formatted file content
+         -P          print formatted file content with disassembled code
+         -s          generate source file, using S-expressions for code
+         -S          print statistics
 
-     The '-a' option cannot be combined with either '-d', '-p' or '-P' options.
-     The '-a' option requires an output file and allows only one wasm_file.
+      The '-a' option cannot be combined with either '-d', '-p' or '-P' options.
+      The '-s' option implies the '-a' option.
+      The '-a' or '-s' option requires an output file and allows only one wasm_file.
 
-     If the '-o' option is given then only one input file is allowed.
-
-     For the '-d', '-p' and '-P' options the output file defaults to 'std::cout'.
+      If the '-o' option is given then only one input file is allowed.
 
 
 #### The *-a* option.
 The *-a* option specifies that a source ouput file (usually a *.wat* file) must be produced.
 The name of the output file must be given with thw *-o* option.
+
+#### The *-s* option.
+The *-s* option specifies that a source ouput file (usually a *.wat* file) must be produced.
+The code will be emitted in S-expression format.
+The name of the output file must be given with thw *-o* option.
+
+##### Example
+     $ bin/webdisasm -s -o sample.wats sample.wasm
+
+     $ cat sample.wats
+     (module
+       (type (;0;) (func (param i32 i32) (result i32)))
+       (func (;0;) (type 0) (param i32 i32) (result i32) (i32.add (local.get 0) (local.get 1))))
 
 
 #### The *-o* option.
@@ -197,7 +211,7 @@ their content parsed from the inout file.
 The *-P* produces the same output as the *-p* option, but adds the code to each function.
 
 ##### Example
-     $bin/webidisasm sample.wasm -P
+     $ bin/webidisasm sample.wasm -P
      Type section:
        Type 0:  (i32, i32) -> i32
 
@@ -235,10 +249,59 @@ the *-d* option specifies that the raw content of all sections must be dumped.
 The *-d* option can be combined with the *-p* or *-P* option
 
 
-#### The *-s* option.
+#### The *-S* option.
 The *-S* option prints assembler statistics.
 
 <P style="page-break-before: always">
+
+## The convertS program.
+
+The convertS program converts a text file into a new text file.
+This new text file can either be in sequential format or in S-expression format.
+
+The start the disassembler use the command
+
+     $ bin/convertS [*options*] -o *new_wat_file* *wat_file*
+
+*wat_file* is the text file to convert.
+
+*new_wat_file* is the generated file.
+
+*options* is a list of options.
+
+#### The *-h* option.
+The *-h* option shows the help page.
+
+##### Example
+
+     $ bin/convertS -h
+
+     Usage: ../bin/convertS [options] wat_file
+     Options:
+       -a          generate sequential assmbler file
+       -s          generate S-expression assmbler file
+       -h          print this help message and exit
+       -o <file>   specify output file.
+       -S          print statistics
+
+     Exactly one of '-a' or '-s' must be given.
+
+#### The *-a* option.
+The *-a* option specifies that a source ouput file (usually a *.wat* file) must be produced.
+The name of the output file must be given with thw *-o* option.
+
+#### The *-s* option.
+The *-s* option specifies that a source ouput file (usually a *.wat* file) must be produced.
+The code will be emitted in S-expression format.
+The name of the output file must be given with thw *-o* option.
+
+##### Example
+     $ bin/convertS sample.wat -s -o sample.wats
+     $ cat sample.wats
+     (module
+       (type (;0;) (func (param i32 i32) (result i32)))
+       (func (;0;) (type 0) (param $lhs i32) (param $rhs i32) (result i32) (i32.add (local.get 0) (local.get 1))))
+
 
 ## Library.
 
@@ -268,6 +331,7 @@ The Interface for the *Assembler* class is:
              bool isGood() const
              void show(std::ostream& os, unsigned flags)
              void generate(std::ostream& os)
+             void generateS(std::ostream& os)
              void write(std::ostream& os)
              auto getErrorCount() const;
              auto getWarningCount() const;
@@ -285,8 +349,12 @@ Once the *Assembler* is instantiated, the *isGood* method returns true if the in
 successfuly read, false otherwise.
 
 
-#### The *generate* method.
+#### The *generate* and *generateS* methods.
 The *generate* method generates webassembly text code from the backbone into the given output stream.
+Code will be in sequential format.
+
+The *generateS* method generates webassembly text code from the backbone into the given output stream.
+Code will be in S_expression format.
 
 
 #### The *show* method.

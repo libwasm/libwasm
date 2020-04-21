@@ -66,10 +66,11 @@ void InstructionNone::check(CheckContext& context)
 
 void InstructionNone::generate(std::ostream& os, InstructionContext& context)
 {
-    os << opcode;
     if (opcode == Opcode::end) {
         context.leaveBlock();
     }
+
+    os << opcode;
 }
 
 InstructionI32* InstructionI32::parse(SourceContext& context, Opcode opcode)

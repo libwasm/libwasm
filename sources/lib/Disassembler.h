@@ -57,6 +57,11 @@ class Disassembler
             module->generate(os);
         }
 
+        void generateS(std::ostream& os)
+        {
+            module->generateS(os);
+        }
+
         void write(std::ostream& os)
         {
             context.write(os);

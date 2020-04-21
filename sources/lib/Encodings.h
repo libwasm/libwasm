@@ -89,7 +89,6 @@ class OpcodePrefix
 
 enum class SignatureCode
 {
-    void_,
     f32_,
     f32__f32,
     f32__f32_f32,
@@ -138,6 +137,7 @@ enum class SignatureCode
     v128__v128_i64,
     v128__v128_v128,
     v128__v128_v128_v128,
+    void_,
     void__i32,
     void__i32_f32,
     void__i32_f64,
@@ -776,6 +776,7 @@ class ValueType
             nullref = -0x12,  // 0c6e
             exnref = -0x18,   // 0x68
             void_ = -0x40,    // 0x40
+            any = 0
         };
 
         ValueType() = default;

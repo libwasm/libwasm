@@ -577,6 +577,12 @@ void Module::generate(std::ostream& os)
     os << ")\n";
 }
 
+void Module::generateS(std::ostream& os)
+{
+    useExpressionS = true;
+    generate(os);
+}
+
 void Module::makeDataCountSection()
 {
     if (dataCountSectionIndex == invalidSection) {

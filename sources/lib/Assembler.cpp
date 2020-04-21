@@ -515,6 +515,10 @@ bool Assembler::doParse()
 
     if (tokens.peekToken().isParenthesis('(') && tokens.peekToken(1).isKeyword("module")) {
         tokens.bump(2);
+        if (auto id = tokens.getId()) {
+            module->setId(*id);
+        }
+
         isModule = true;
     }
 

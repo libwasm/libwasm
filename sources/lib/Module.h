@@ -498,6 +498,7 @@ class Module
 
         void show(std::ostream& os, unsigned flags);
         void generate(std::ostream& os);
+        void generateS(std::ostream& os);
 
         void makeDataCountSection();
 
@@ -511,8 +512,24 @@ class Module
             dataCountFlag = true;
         }
 
+        std::string_view getId() const
+        {
+            return id;
+        }
+
+        void setId(std::string_view value)
+        {
+            id = value;
+        }
+
+        auto getUseExpressionS() const
+        {
+            return useExpressionS;
+        }
+
     protected:
         bool dataCountFlag = false;
+        bool useExpressionS = false;
 
         uint32_t codeCount = 0;
         uint32_t elementCount = 0;
@@ -567,10 +584,12 @@ class Module
         DataBuffer dataBuffer;
         std::vector<IndexMap> localMaps;
         std::vector<uint32_t> localCounts;
+        std::string id;
 
         void showSections(std::ostream& os, unsigned flags);
         void generateSections(std::ostream& os);
 };
+
 };
 
 #endif
