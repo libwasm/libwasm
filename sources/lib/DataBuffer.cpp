@@ -76,7 +76,7 @@ int64_t DataBuffer::getSleb()
         shift += 7;
     } while ((byte & 0x80) != 0);
 
-    if (shift < sizeof(int64_t) && (byte & 0x40) != 0) {
+    if (shift < sizeof(int64_t) * 8 && (byte & 0x40) != 0) {
         result |= (~0LL << shift);
     }
 
