@@ -134,10 +134,6 @@ void ExpressionSBuilder::addSpecial()
     }
 
     switch(currentInstruction->getOpcode()) {
-        case Opcode::drop:
-            currentMeta->addOperand(ValueType::any);
-            break;
-
         case Opcode::ref__func:
             currentMeta->addResult(ValueType::funcref);
             break;
@@ -544,9 +540,42 @@ void ExpressionSBuilder::buildExpressionSs(std::vector<ExpressionS>& result, boo
 
         if (opcode == Opcode::end) {
             expressionS.isEnd = true;
-        }
+        } else if (opcode  == Opcode::drop) {
+            if (!result.empty()) {
+                auto* meta = result.back().meta;
 
-        if (checkOperands(result, metaInstruction.operands)) {
+                if (!meta->results.empty()) {
+                    expressionS.expressionSs.push_back(std::move(result.back()));
+                    result.pop_back();
+                }
+            }
+        } else if (opcode  == Opcode::select) {
+            auto size = result.size();
+
+            if (size >= 3) {
+                if (checkOperand(result, ValueType::i32, 0)) {
+                    if (auto* meta1 = result[size - 2].meta; !meta1->results.empty()) {
+                        auto type1 = meta1->results[0] ;
+
+                        if (auto* meta2 = result[size - 3].meta; !meta2->results.empty()) {
+                            auto type2 = meta2->results[0] ;
+
+                            if (type1 == type2) {
+                                for (auto i = 3; i-- > 0;) {
+                                    expressionS.expressionSs.push_back(std::move(result[result.size() - i - 1]));
+                                }
+
+                                for (auto i = 3; i-- > 0;) {
+                                    result.pop_back();
+                                }
+
+                                expressionS.meta->results.push_back(type1);
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (checkOperands(result, metaInstruction.operands)) {
             for (auto i = metaInstruction.operands.size(); i-- > 0;) {
                 expressionS.expressionSs.push_back(std::move(result[result.size() - i - 1]));
             }
@@ -632,7 +661,7 @@ bool ExpressionSBuilder::checkOperand(std::vector<ExpressionS>& result, ValueTyp
         return false;
     }
 
-    auto& meta = result[size - index - 1].meta;
+    auto* meta = result[size - index - 1].meta;
 
     if (meta->results.empty()) {
         return false;

@@ -776,7 +776,6 @@ class ValueType
             nullref = -0x12,  // 0c6e
             exnref = -0x18,   // 0x68
             void_ = -0x40,    // 0x40
-            any = 0
         };
 
         ValueType() = default;
