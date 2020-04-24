@@ -57,8 +57,22 @@ void ExpressionS::generate(std::ostream& os, InstructionContext& context, bool i
         meta->instruction->generate(os, context);
     }
 
-    for (auto& expressionS : expressionSs) {
-        expressionS.generate(os, context, isBlock || isIf);
+    if (size > 7) {
+        if (!(isBlock || isIf)) {
+            context.enter();
+        }
+
+        for (auto& expressionS : expressionSs) {
+            expressionS.generate(os, context, true);
+        }
+
+        if (!(isBlock || isIf)) {
+            context.leave();
+        }
+    } else {
+        for (auto& expressionS : expressionSs) {
+            expressionS.generate(os, context);
+        }
     }
 
     os << ')';
@@ -628,11 +642,14 @@ void ExpressionSBuilder::generateExpressionSs(std::ostream& os, std::vector<Expr
 {
     InstructionContext context;
 
-    context.enterBlock();
+    context.setComments(false);
+    context.enter();
 
     for (auto& expressionS : result) {
         expressionS.generate(os, context, true);
     }
+
+    context.leave();
 }
 
 void ExpressionSBuilder::addMeta()

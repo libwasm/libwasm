@@ -402,6 +402,15 @@ uint32_t Module::getTypeCount() const
     }
 }
 
+uint32_t Module::getImportCount() const
+{
+    if (auto* section = getImportSection(); section != nullptr) {
+        return uint32_t(section->getImports().size());
+    } else {
+        return 0;
+    }
+}
+
 uint32_t Module::getSegmentCount() const
 {
     if (auto* section = getDataSection(); section != nullptr) {
@@ -597,6 +606,72 @@ void Module::makeDataCountSection()
         dataCountSectionIndex = sections.size();
         sections.emplace_back(section);
     }
+}
+
+Module::Statistics Module::getStatistics()
+{
+    Statistics result;
+
+    result.elementCount = getElementCount();
+    result.eventCount = getEventCount();
+    result.exportCount = getExportCount();
+    result.functionCount = getFunctionCount();
+    result.globalCount = getGlobalCount();
+    result.importCount = getImportCount();
+    result.memoryCount = getMemoryCount();
+    result.tableCount = getTableCount();
+    result.typeCount = getTypeCount();
+    result.dataSegmentCount = getSegmentCount();
+    result.sectionCount = uint32_t(sections.size());
+
+    if (auto* codeSection = getCodeSection(); codeSection != nullptr) {
+        for (auto& code : codeSection->getCodes()) {
+            result.instructionCount += code->getExpression()->getInstructions().size();
+        }
+    }
+
+    if (auto* globalSection = getGlobalSection(); globalSection != nullptr) {
+        for (auto& global : globalSection->getGlobals()) {
+            result.initInstructionCount += global->getExpression()->getInstructions().size();
+        }
+    }
+
+    if (auto* elementSection = getElementSection(); elementSection != nullptr) {
+        for (auto& element : elementSection->getElements()) {
+            result.initInstructionCount += element->getExpression()->getInstructions().size();
+
+            for (auto& expression : element->getRefExpressions()) {
+                result.initInstructionCount += expression->getInstructions().size();
+            }
+        }
+    }
+
+    if (auto* dataSection = getDataSection(); dataSection != nullptr) {
+        for (auto& data : dataSection->getSegments()) {
+            if (auto* expression = data->getExpression(); expression != nullptr) {
+                result.initInstructionCount += expression->getInstructions().size();
+            }
+        }
+    }
+
+    return result;
+}
+
+void Module::Statistics::show(std::ostream& os, std::string_view indent)
+{
+    os << indent << "Number of sections         " << sectionCount << '\n';
+    os << indent << "Number of types            " << typeCount << '\n';
+    os << indent << "Number of imports          " << importCount << '\n';
+    os << indent << "Number of functions        " << functionCount << '\n';
+    os << indent << "Number of tables           " << tableCount << '\n';
+    os << indent << "Number of memories         " << memoryCount << '\n';
+    os << indent << "Number of globals          " << globalCount << '\n';
+    os << indent << "Number of exports          " << exportCount << '\n';
+    os << indent << "Number of elements         " << elementCount << '\n';
+    os << indent << "Number of data segments    " << dataSegmentCount << '\n';
+    os << indent << "Number of instructions     " << (instructionCount + initInstructionCount) << '\n';
+    os << indent << "              in code      " << instructionCount << '\n';
+    os << indent << "              in inits     " << initInstructionCount << '\n';
 }
 
 };

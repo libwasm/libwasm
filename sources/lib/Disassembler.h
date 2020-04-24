@@ -77,6 +77,11 @@ class Disassembler
             return warningCount + msgs.getWarningCount();
         }
 
+        auto& getContext()
+        {
+            return context;
+        }
+
     private:
         bool readWasm(std::istream& stream);
         bool readFile(std::istream& stream);

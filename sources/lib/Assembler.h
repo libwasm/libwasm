@@ -68,7 +68,7 @@ class Assembler
             return warningCount + msgs.getWarningCount();
         }
 
-        SourceContext& getContext()
+        auto& getContext()
         {
             return context;
         }

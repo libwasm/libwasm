@@ -210,6 +210,13 @@ int main(int argc, char*argv[])
 
             errors = disassembler.getErrorCount();
             warnings = disassembler.getWarningCount();
+
+            if (wantStatistics) {
+                std::cout << "Statistic for " << inputFile << ":\n";
+                disassembler.getContext().getModule()->getStatistics().show(std::cout, "    ");
+
+                std::cout << '\n';
+            }
         } else {
             errors = disassembler.getErrorCount() + 1;
             warnings = disassembler.getWarningCount();

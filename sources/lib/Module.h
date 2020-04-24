@@ -88,12 +88,33 @@ class Module
         };
 
     public:
+        struct Statistics
+        {
+            uint32_t elementCount = 0;
+            uint32_t eventCount = 0;
+            uint32_t exportCount = 0;
+            uint32_t functionCount = 0;
+            uint32_t globalCount = 0;
+            uint32_t importCount = 0;
+            uint32_t memoryCount = 0;
+            uint32_t tableCount = 0;
+            uint32_t typeCount = 0;
+            uint32_t dataSegmentCount = 0;
+            uint32_t sectionCount = 0;
+            uint32_t instructionCount = 0;
+            uint32_t initInstructionCount = 0;
+
+            void show(std::ostream& os, std::string_view indent = "");
+        };
+
         Module() = default;
 
         auto& getSections()
         {
             return sections;
         }
+
+        Statistics getStatistics();
 
         void setFunctionInfo(uint32_t index, std::string_view name, uint32_t signatureIndex);
         void setFunctionName(uint32_t index, std::string_view name);
@@ -109,6 +130,7 @@ class Module
         }
 
         uint32_t getTypeCount() const;
+        uint32_t getImportCount() const;
         TypeDeclaration* getType(uint32_t index) const;
 
         bool addTypeId(std::string_view id, uint32_t index)

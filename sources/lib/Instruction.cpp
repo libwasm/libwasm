@@ -12,6 +12,36 @@
 namespace libwasm
 {
 
+unsigned InstructionContext::enterBlock()
+{
+    indent.append("  ");
+    return ++blockDepth;
+}
+
+void InstructionContext::leaveBlock()
+{
+    if (blockDepth > 0) {
+        --blockDepth;
+        if (indent.size() > 1) {
+            indent.resize(indent.size() - 2);
+        }
+    }
+}
+
+void InstructionContext::enter()
+{
+    indent.append("  ");
+}
+
+void InstructionContext::leave()
+{
+    if (indent.size() > 1) {
+        if (indent.size() > 1) {
+            indent.resize(indent.size() - 2);
+        }
+    }
+}
+
 void Instruction::writeOpcode(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -180,7 +210,12 @@ void InstructionF32::generate(std::ostream& os, InstructionContext& context)
 {
     auto flags = os.flags();
 
-    os << opcode << " " << std::hexfloat << imm << std::defaultfloat << " (;=" << imm << ";)";
+    os << opcode << " " << std::hexfloat << imm << std::defaultfloat;
+
+    if (context.getComments()) {
+        os << " (;=" << imm << ";)";
+    }
+
     os.flags(flags);
 }
 
@@ -219,7 +254,12 @@ void InstructionF64::generate(std::ostream& os, InstructionContext& context)
 {
     auto flags = os.flags();
 
-    os << opcode << " " << std::hexfloat << imm << std::defaultfloat << " (;=" << imm << ";)";
+    os << opcode << " " << std::hexfloat << imm << std::defaultfloat;
+
+    if (context.getComments()) {
+        os << " (;=" << imm << ";)";
+    }
+
     os.flags(flags);
 }
 
@@ -343,7 +383,11 @@ void InstructionBlock::generate(std::ostream& os, InstructionContext& context)
         os << " (result " << imm << ')';
     }
 
-    os << "  ;; label = @" << context.enterBlock();
+    if (context.getComments()) {
+        os << "  ;; label = @" << context.enterBlock();
+    } else {
+        context.enterBlock();
+    }
 }
 
 InstructionIdx* InstructionIdx::parse(SourceContext& context, Opcode opcode)

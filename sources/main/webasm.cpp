@@ -181,6 +181,12 @@ int main(int argc, char*argv[])
             errors = assembler.getErrorCount();
             warnings = assembler.getWarningCount();
 
+            if (wantStatistics) {
+                std::cout << "Statistic for " << inputFile << ":\n";
+                assembler.getContext().getModule()->getStatistics().show(std::cout, "    ");
+
+                std::cout << '\n';
+            }
         } else {
             errors = assembler.getErrorCount() + 1;
             warnings = assembler.getWarningCount();

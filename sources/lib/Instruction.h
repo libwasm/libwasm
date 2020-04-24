@@ -18,21 +18,11 @@ namespace libwasm
 class InstructionContext
 {
     public:
-        unsigned enterBlock()
-        {
-            indent.append("  ");
-            return ++blockDepth;
-        }
+        unsigned enterBlock();
+        void leaveBlock();
 
-        void leaveBlock()
-        {
-            if (blockDepth > 0) {
-                --blockDepth;
-                if (indent.size() > 1) {
-                    indent.resize(indent.size() - 2);
-                }
-            }
-        }
+        void enter();
+        void leave();
 
         unsigned getBlockDepth() const
         {
@@ -43,9 +33,20 @@ class InstructionContext
             return indent;
         }
 
+        void setComments(bool v)
+        {
+            comments = v;
+        }
+
+        auto getComments() const
+        {
+            return comments;
+        }
+
     private:
         unsigned blockDepth = 0;
         std::string indent;
+        bool comments = true;
 };
 
 class Instruction : public TreeNode

@@ -1385,6 +1385,11 @@ class GlobalDeclaration : public Global, public TreeNode
             number = i;
         }
 
+        auto* getExpression()
+        {
+            return expression.get();
+        }
+
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
         void check(CheckContext& context);
@@ -1609,6 +1614,11 @@ class ElementDeclaration : public TreeNode
         void setId(std::string_view value)
         {
             id = value;
+        }
+
+        auto& getRefExpressions()
+        {
+            return refExpressions;
         }
 
         void show(std::ostream& os, Module* module);
