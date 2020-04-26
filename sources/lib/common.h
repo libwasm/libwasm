@@ -29,6 +29,11 @@ inline bool isAlpha(char c)
            (c >= 'A' && c <= 'Z');
 }
 
+inline bool isLowerAlpha(char c)
+{
+    return (c >= 'a' && c <= 'z');
+}
+
 inline bool isNumeric(char c)
 {
     return (c >= '0' && c <= '9');
@@ -44,6 +49,12 @@ inline bool isHex(char c)
     return isNumeric(c) ||
            (c >= 'a' && c <= 'f') ||
            (c >= 'A' && c <= 'F');
+}
+
+inline bool isIdChar(char c)
+{
+    return (c > ' ' && c <= '~' &&
+                c != '(' && c != ')' && c != ',' && c != ';' && c != '[' && c != ']' && c != '{' && c != '}');
 }
 
 unsigned fromHex(char c);

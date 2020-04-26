@@ -210,10 +210,36 @@ void InstructionF32::generate(std::ostream& os, InstructionContext& context)
 {
     auto flags = os.flags();
 
-    os << opcode << " " << std::hexfloat << imm << std::defaultfloat;
+    union
+    {
+        uint32_t i;
+        float f;
+    };
 
-    if (context.getComments()) {
-        os << " (;=" << imm << ";)";
+    os << opcode << ' ';
+
+    f = imm;
+
+    if ((i & 0x7f800000) == 0x7f800000) {
+        if ((i & 0x80000000) != 0) {
+            os << '-';
+            i &= 0x7fffffff;
+        }
+
+        if (i  == 0x7f800000) {
+            os << "inf";
+        } else {
+            os << "nan";
+            if (i != 0x7fc00000) {
+                os << ":0x" << std::hex << (i & 0x7fffff) << std::dec;
+            }
+        }
+    } else  {
+        os << std::hexfloat << imm << std::defaultfloat;
+
+        if (context.getComments()) {
+            os << " (;=" << imm << ";)";
+        }
     }
 
     os.flags(flags);
@@ -254,10 +280,36 @@ void InstructionF64::generate(std::ostream& os, InstructionContext& context)
 {
     auto flags = os.flags();
 
-    os << opcode << " " << std::hexfloat << imm << std::defaultfloat;
+    union
+    {
+        uint64_t i;
+        double f;
+    };
 
-    if (context.getComments()) {
-        os << " (;=" << imm << ";)";
+    os << opcode << ' ';
+
+    f = imm;
+
+    if ((i & 0x7ff0000000000000ull) == 0x7ff0000000000000ull) {
+        if ((i & 0x8000000000000000) != 0) {
+            os << '-';
+            i &= 0x7fffffffffffffff;
+        }
+
+        if (i  == 0x7ff0000000000000ull) {
+            os << "inf";
+        } else {
+            os << "nan";
+            if (i != 0x7ff8000000000000ull) {
+                os << ":0x" << std::hex << (i & 0xfffffffffffffull) << std::dec;
+            }
+        }
+    } else  {
+        os << std::hexfloat << imm << std::defaultfloat;
+
+        if (context.getComments()) {
+            os << " (;=" << imm << ";)";
+        }
     }
 
     os.flags(flags);

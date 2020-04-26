@@ -13,9 +13,8 @@ char Assembler::nextChar()
 {
     char c = data.nextChar();
 
-    columnNumber++;
     if (c == '\n') {
-        columnNumber = 1;
+        lastNlPos = data.getPos();
         lineNumber++;
     }
 
@@ -24,15 +23,7 @@ char Assembler::nextChar()
 
 bool Assembler::readFile(std::istream& stream)
 {
-    stream.seekg(0, std::ios::end);
-
-    size_t fileSize = stream.tellg();
-
-    stream.seekg(0, std::ios::beg);
-
-    data.resize(fileSize);
-    stream.read(data.data(), fileSize);
-    return (size_t(stream.gcount()) == fileSize);
+    return data.readFile(stream);
 }
 
 bool Assembler::readWat(std::istream& stream)
@@ -41,19 +32,9 @@ bool Assembler::readWat(std::istream& stream)
         parse();
 };
 
-bool isFormatChar(char c)
-{
-    return c == '\t' || c == '\n' || c == '\r';
-}
-
-bool isIdChar(char c)
-{
-    return std::isprint(c) && c != ' ' && c != '?' && c != ',' && c != ';' && c != '(' && c != ')';
-}
-
 bool Assembler::lineComment()
 {
-    if (peekChar() == ';' && peekChar(1) == ';') {
+    if (peekChars(";;")) {
         bump();
         bump();
 
@@ -69,13 +50,13 @@ bool Assembler::lineComment()
 
 bool Assembler::blockComment()
 {
-    if (peekChar() == '(' && peekChar(1) == ';') {
+    if (peekChars("(;")) {
         bump();
         bump();
 
         for (;;) {
             if (atEnd()) {
-                msgs.error(lineNumber, columnNumber, "Block comment not terminated.");
+                msgs.error(lineNumber, getColumnNumber(), "Block comment not terminated.");
                 break;
             }
 
@@ -102,18 +83,23 @@ bool Assembler::whiteSpace()
 {
     bool result = false;
 
-    while (!atEnd()) {
-        char c = peekChar();
-
-        if (c == ' ' || isFormatChar(c)) {
+    for (;;) {
+        while (peekChar() == ' ') {
             bump();
-        } else if (c != ';' && c != '(') {
-            break;
-        } else if (!comment()) {
-            break;
         }
 
-        result = true;
+        char c = peekChar();
+
+        if (c == '\n' || c == '\t' || c == '\r') {
+            bump();
+            result = true;
+        } else if (c == ';' && peekChar(1) == ';' && lineComment()) {
+            result = true;
+        } else if (c == '(' && peekChar(1) == ';' && blockComment()) {
+            result = true;
+        } else {
+            return result;
+        }
     }
 
     return result;
@@ -124,7 +110,7 @@ bool Assembler::parseHex()
     char c = peekChar();
 
     if (!isHex(c)) {
-        msgs.error(lineNumber, columnNumber, "Invalid hexadecimal character '", c, "'.");
+        msgs.error(lineNumber, getColumnNumber(), "Invalid hexadecimal character '", c, "'.");
         return false;
     }
 
@@ -132,10 +118,10 @@ bool Assembler::parseHex()
         bump();
         if (c == '_') {
             if (peekChar() == '_') {
-                msgs.error(lineNumber, columnNumber, "Consecutive underscoes are not allowed in numbers.");
+                msgs.error(lineNumber, getColumnNumber(), "Consecutive underscoes are not allowed in numbers.");
                 return false;
             } else if (!isHex(peekChar())) {
-                msgs.error(lineNumber, columnNumber, "Underscores can only separate digits.");
+                msgs.error(lineNumber, getColumnNumber(), "Underscores can only separate digits.");
             }
         }
 
@@ -152,6 +138,7 @@ bool Assembler::parseHex()
 bool Assembler::parseInteger(bool allowHex)
 {
     char c = peekChar();
+    auto startPos = tokens.getPos();
 
     if (c == '-' || c == '+') {
         bump();
@@ -163,7 +150,7 @@ bool Assembler::parseInteger(bool allowHex)
         bump();
         c = peekChar();
 
-        if (allowHex && c1 == '0' && (c == 'x' || c == 'X')) {
+        if (allowHex && c1 == '0' && c == 'x') {
             bump();
 
             if (atEnd()) {
@@ -176,10 +163,10 @@ bool Assembler::parseInteger(bool allowHex)
                 bump();
                 if (c == '_') {
                     if (peekChar() == '_') {
-                        msgs.error(lineNumber, columnNumber, "Consecutive underscoes are not allowed in numbers.");
+                        msgs.error(lineNumber, getColumnNumber(), "Consecutive underscoes are not allowed in numbers.");
                         return false;
                     } else if (!isNumeric(peekChar())) {
-                        msgs.error(lineNumber, columnNumber, "Underscores can only separate digits.");
+                        msgs.error(lineNumber, getColumnNumber(), "Underscores can only separate digits.");
                     }
                 }
 
@@ -194,6 +181,7 @@ bool Assembler::parseInteger(bool allowHex)
         return true;
     }
 
+    tokens.setPos(startPos);
     return false;
 }
 
@@ -207,7 +195,7 @@ bool Assembler::parseString()
 
     while (!atEnd()) {
         if (peekChar() == '\n' || atEnd()) {
-            msgs.error(lineNumber, columnNumber, "Unterminated string.");
+            msgs.error(lineNumber, getColumnNumber(), "Unterminated string.");
             return false;
         }
 
@@ -223,7 +211,7 @@ bool Assembler::parseString()
                 if (isHex(peekChar())) {
                     bump();
                 } else {
-                    msgs.error(lineNumber, columnNumber, "Invalid hexadecomal escape.");
+                    msgs.error(lineNumber, getColumnNumber(), "Invalid hexadecomal escape.");
                     return false;
                 }
             }
@@ -236,9 +224,8 @@ bool Assembler::parseString()
 Token::TokenKind Assembler::parseNumber()
 {
     Token::TokenKind kind = Token::none;
-    size_t startpos = (peekChar() == '-' || peekChar() == '+') ? 1 : 0;
 
-    if (peekChar(startpos) == '0' && (peekChar(startpos + 1) == 'x' || peekChar(startpos + 1) == 'X')) {
+    if (peekChars("0x")) {
         parseInteger();
         kind = Token::integer;
 
@@ -282,26 +269,30 @@ Token::TokenKind Assembler::parseNumber()
     return kind;
 }
 
-bool Assembler::parseNanOrInf()
+bool Assembler::parseNan()
 {
-    size_t startpos = (peekChar() == '-' || peekChar() == '+') ? 1 : 0;
-
-    if (peekChar(startpos) == 'n' && peekChar(startpos + 1) == 'a' && peekChar(startpos + 2) == 'n' &&
-            (peekChar(startpos + 3) == ':' || !isIdChar(peekChar(startpos + 3)))) {
-        bump(startpos + 3);
-
-        if (peekChar() == ':') {
-            bump();
+    if (peekChars("nan")) {
+        if (peekChar(3) == ':') {
+            bump(4);
             (void) parseInteger();
+            return true;
+        } else if (!isIdChar(peekChar(3))) {
+            bump(3);
+            return true;
         }
-    } else if (peekChar(startpos) == 'i' && peekChar(startpos + 1) == 'n' && peekChar(startpos + 2) == 'f' &&
-            !isIdChar(peekChar(startpos + 3))) {
-        bump(startpos + 3);
-    } else {
-        return false;
     }
 
-    return true;
+    return false;
+}
+
+bool Assembler::parseInf()
+{
+    if (peekChars("inf") && !isIdChar(peekChar(3))) {
+        bump(3);
+        return true;
+    }
+
+    return false;
 }
 
 bool Assembler::tokenize()
@@ -313,30 +304,55 @@ bool Assembler::tokenize()
         auto* startPointer = data.getPointer();
         auto kind = Token::none;
         auto line = lineNumber;
-        auto column = columnNumber;
-        bool ok = true;
+        auto column = getColumnNumber();
         bool isSeparator = false;
 
         const char c = peekChar();
 
-        if (parseNanOrInf()) {
-            kind = Token::floating;
-        } else if (isAlpha(c)) {
-            kind = Token::keyword;
+        if (isLowerAlpha(c)) {
+            if ((c == 'n' && parseNan()) || ( c == 'i' && parseInf())) {
+                kind = Token::floating;
+            } else {
+                kind = Token::keyword;
 
-            bump();
-
-            while (isIdChar(peekChar())) {
                 bump();
-                if (peekChar(-1) == '=') {
-                    isSeparator = true;
-                    break;
+
+                while (isIdChar(peekChar())) {
+                    bump();
+                    if (peekChar(-1) == '=') {
+                        isSeparator = true;
+                        break;
+                    }
                 }
             }
         } else  if (c == '(' || c == ')') {
             kind = Token::parenthesis;
             bump();
             isSeparator = true;
+        } else if (c == '-' || c == '+') {
+            bump();
+
+            if (auto c1 = peekChar(); (c1 == 'n' && parseNan()) || ( c1 == 'i' && parseInf())) {
+                kind = Token::floating;
+            } else if (kind = parseNumber(); kind != Token::none) {
+                if (isIdChar(peekChar())) {
+                    kind = Token::reserved;
+
+                    while (isIdChar(peekChar())) {
+                        bump();
+                    }
+                }
+            }
+        } else if (kind = parseNumber(); kind != Token::none) {
+            if (isIdChar(peekChar())) {
+                kind = Token::reserved;
+
+                while (isIdChar(peekChar())) {
+                    bump();
+                }
+            }
+        } else if (parseString()) {
+            kind = Token::string;
         } else  if (c == '$') {
             bump();
             kind = Token::id;
@@ -344,29 +360,19 @@ bool Assembler::tokenize()
             while (isIdChar(peekChar())) {
                 bump();
             }
-        } else if (kind = parseNumber(); kind != Token::none) {
-            //nop
-        } else if (parseString()) {
-            kind = Token::string;
+        } else if (isIdChar(c)) {
+            bump();
+            kind = Token::reserved;
+
+            while (isIdChar(peekChar())) {
+                bump();
+            }
         } else {
-            ok = false;
+            msgs.error(line, column, "Invalid character '", c, '\'');
+            bump();
         }
 
         auto* endPointer = data.getPointer();
-
-        if (!isSeparator) {
-            if (!ok || (peekChar() != '(' && peekChar() != ')' && !whiteSpace())) {
-                (void) nextChar();
-                while (isIdChar(peekChar())) {
-                    bump();
-                    endPointer++;
-                }
-
-                size_t size = endPointer - startPointer;
-
-                msgs.error(line, column, "Invalid token '", std::string_view(startPointer, size), '\'');
-            }
-        }
 
         if (kind == Token::string) {
             ++startPointer;

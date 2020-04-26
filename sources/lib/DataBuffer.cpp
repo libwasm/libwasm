@@ -14,17 +14,35 @@ DataBuffer::DataBuffer()
     reset();
 }
 
+bool DataBuffer::readFile(std::istream& stream)
+{
+    stream.seekg(0, std::ios::end);
+
+    size_t fileSize = stream.tellg();
+
+    stream.seekg(0, std::ios::beg);
+
+    container->resize(fileSize);
+    stream.read(container->data(), fileSize);
+    containerSize = fileSize;
+
+    return (size_t(stream.gcount()) == fileSize);
+}
+
 void DataBuffer::reset()
 {
+    pos = 0;
     containers.clear();
     containers.emplace_back();
     container = &containers.back();
+    containerSize = container->size();
 }
 
 void DataBuffer::push()
 {
     containers.emplace_back();
     container = &containers.back();
+    containerSize = container->size();
 }
 
 std::string DataBuffer::pop()
@@ -36,6 +54,7 @@ std::string DataBuffer::pop()
 
     containers.pop_back();
     container = &containers.back();
+    containerSize = container->size();
 
     return result;
 }

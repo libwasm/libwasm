@@ -19,6 +19,7 @@ class Token
             string,
             id,
             parenthesis,
+            reserved,
         };
 
         Token() = default;

@@ -7,15 +7,7 @@ namespace libwasm
 
 bool Disassembler::readFile(std::istream& stream)
 {
-    stream.seekg(0, std::ios::end);
-
-    size_t fileSize = stream.tellg();
-
-    stream.seekg(0, std::ios::beg);
-
-    data.resize(fileSize);
-    stream.read(data.data(), fileSize);
-    return (size_t(stream.gcount()) == fileSize);
+    return data.readFile(stream);
 }
 
 bool Disassembler::checkHeader()

@@ -108,6 +108,11 @@ class Assembler
             return data.peekChar(n);
         }
 
+        char peekChars(std::string_view chars) const
+        {
+            return data.peekChars(chars);
+        }
+
         void bump(size_t count = 1)
         {
             for (size_t i = 0; i < count; ++i) {
@@ -115,18 +120,19 @@ class Assembler
             }
         }
 
+        size_t getColumnNumber() const
+        {
+            return data.getPos() - lastNlPos + 1;
+        }
+
         bool whiteSpace();
         bool blockComment();
         bool lineComment();
-        bool comment()
-        {
-            return lineComment() || blockComment();
-        }
-
         bool parse();
         bool doParse();
         bool parseInteger(bool allowHex = true);
-        bool parseNanOrInf();
+        bool parseNan();
+        bool parseInf();
         bool parseString();
         bool parseHex();
         bool checkSemantics();
@@ -136,7 +142,7 @@ class Assembler
         unsigned warningCount = 0;
 
         bool good = false;
-        size_t columnNumber = 1;
+        size_t lastNlPos = 0;
         size_t lineNumber = 1;
         DataBuffer data;
         TokenBuffer tokens;

@@ -17,12 +17,14 @@ class DataBuffer
     public:
         DataBuffer();
 
+        bool readFile(std::istream& stream);
+
         size_t getPos() const
         {
             return pos;
         }
 
-        const char* getPointer()
+        const char* getPointer() const
         {
             return container->data() + pos;
         }
@@ -41,13 +43,14 @@ class DataBuffer
         {
             container->clear();
             pos = 0;
+            containerSize = 0;
         }
 
         void reset();
 
         bool atEnd() const
         {
-            return pos == container->size();
+            return pos == containerSize;
         }
 
         void resize(size_t newSize)
@@ -67,23 +70,32 @@ class DataBuffer
 
         char peekChar(size_t n = 0) const
         {
-            if (pos + n >= size()) {
+            if (pos + n >= containerSize) {
                 return '\0';
             }
 
-            return containers.back()[pos + n];
+            return (*container)[pos + n];
+        }
+
+        bool peekChars(std::string_view chars) const
+        {
+            if (pos + chars.size() >= containerSize) {
+                return false;
+            }
+
+            return std::string_view(getPointer(), chars.size()) == chars;
         }
 
         void bump(int count = 1)
         {
-            assert(pos + count <= size());
+            assert(pos + count <= containerSize);
             pos += count;
         }
 
         uint8_t getU8()
         {
             assert(!atEnd());
-            return containers.back()[pos++];
+            return  (*container)[pos++];
         }
 
         void putU8(uint8_t value)
@@ -94,7 +106,7 @@ class DataBuffer
         int8_t getI8()
         {
             assert(!atEnd());
-            return containers.back()[pos++];
+            return  (*container)[pos++];
         }
 
         void putI8(int8_t value)
@@ -233,6 +245,7 @@ class DataBuffer
 
     private:
         size_t pos = 0;
+        size_t containerSize = 0;
         std::vector<std::string> containers;
         std::string *container;
 };

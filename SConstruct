@@ -20,7 +20,7 @@ gcc = Environment(CC='gcc',
 if DEBUG == '1':
     gcc.Append(CCFLAGS=' -g')
 else:
-    gcc.Append(CCFLAGS=' -O3 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses')
+    gcc.Append(CCFLAGS=' -g -O3 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses')
 
 if NDEBUG == '1':
     gcc.Append(CCFLAGS=' -DNDEBUG')
@@ -32,7 +32,7 @@ clang = Environment(CC='clang',
 if DEBUG == '1':
     clang.Append(CCFLAGS=' -g')
 else:
-    clang.Append(CCFLAGS=' -O3 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-lambda-capture')
+    clang.Append(CCFLAGS=' -g -O3 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-lambda-capture')
 
 if NDEBUG == '1':
     clang.Append(CCFLAGS=' -DNDEBUG')
