@@ -25,7 +25,7 @@ static Expression* requiredExpression(SourceContext& context, bool oneInstructio
     return nullptr;
 }
 
-bool requiredCloseParenthesis(SourceContext& context)
+static bool requiredCloseParenthesis(SourceContext& context)
 {
     if (requiredParenthesis(context, ')')) {
         return true;

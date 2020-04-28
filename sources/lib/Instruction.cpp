@@ -1426,7 +1426,7 @@ bool Instruction::parseFolded(SourceContext& context, std::vector<Instruction*>&
 
                 instructions.push_back(instruction0);
             }
-        } else if (auto key = tokens.getKeyword("then")) {
+        } else if (tokens.getKeyword("then")) {
             tokens.bump(-2);
             return false;
         } else {

@@ -24,25 +24,29 @@ bool DataBuffer::readFile(std::istream& stream)
 
     container->resize(fileSize);
     stream.read(container->data(), fileSize);
-    containerSize = fileSize;
+
+    pointer = container->data();
+    endPointer = pointer + container->size();
 
     return (size_t(stream.gcount()) == fileSize);
 }
 
 void DataBuffer::reset()
 {
-    pos = 0;
+    pointer = nullptr;
+    endPointer = nullptr;
+
     containers.clear();
     containers.emplace_back();
     container = &containers.back();
-    containerSize = container->size();
 }
 
 void DataBuffer::push()
 {
+    assert(pointer == nullptr);
+
     containers.emplace_back();
     container = &containers.back();
-    containerSize = container->size();
 }
 
 std::string DataBuffer::pop()
@@ -54,7 +58,6 @@ std::string DataBuffer::pop()
 
     containers.pop_back();
     container = &containers.back();
-    containerSize = container->size();
 
     return result;
 }

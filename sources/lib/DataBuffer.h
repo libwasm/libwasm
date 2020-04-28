@@ -21,17 +21,17 @@ class DataBuffer
 
         size_t getPos() const
         {
-            return pos;
+            return pointer - container->data();
         }
 
         const char* getPointer() const
         {
-            return container->data() + pos;
+            return pointer;
         }
 
         void setPos(size_t p)
         {
-            pos = p;
+            pointer = container->data() + p;
         }
 
         auto size() const
@@ -42,20 +42,15 @@ class DataBuffer
         void clear()
         {
             container->clear();
-            pos = 0;
-            containerSize = 0;
+            pointer = nullptr;
+            endPointer = nullptr;
         }
 
         void reset();
 
         bool atEnd() const
         {
-            return pos == containerSize;
-        }
-
-        void resize(size_t newSize)
-        {
-            container->resize(newSize);
+            return pointer == endPointer;
         }
 
         char* data()
@@ -68,18 +63,40 @@ class DataBuffer
             return getU8();
         }
 
-        char peekChar(size_t n = 0) const
+        // since thw container is a string and is null terminated, we don't
+        // need to check for overflow.
+        char peekChar() const
         {
-            if (pos + n >= containerSize) {
+            return *pointer;
+        }
+
+        char bumpPeekChar()
+        {
+            return *(++pointer);
+        }
+
+        void skipChars(char c) {
+            while (*pointer == c) {
+                ++pointer;
+            }
+        }
+
+        char peekChar(int n) const
+        {
+            if (n < 0) {
+                if (-n > pointer - container->data()) {
+                    return '\0';
+                }
+            } else if (size_t(n) >= size_t(endPointer - pointer)) {
                 return '\0';
             }
 
-            return (*container)[pos + n];
+            return *(pointer + n);
         }
 
         bool peekChars(std::string_view chars) const
         {
-            if (pos + chars.size() >= containerSize) {
+            if (chars.size() >= size_t(endPointer - pointer)) {
                 return false;
             }
 
@@ -88,14 +105,14 @@ class DataBuffer
 
         void bump(int count = 1)
         {
-            assert(pos + count <= containerSize);
-            pos += count;
+            assert (count < (endPointer - pointer));
+            pointer += count;
         }
 
         uint8_t getU8()
         {
             assert(!atEnd());
-            return  (*container)[pos++];
+            return *(pointer++);
         }
 
         void putU8(uint8_t value)
@@ -106,7 +123,7 @@ class DataBuffer
         int8_t getI8()
         {
             assert(!atEnd());
-            return  (*container)[pos++];
+            return *(pointer++);
         }
 
         void putI8(int8_t value)
@@ -244,8 +261,8 @@ class DataBuffer
         void append(std::string_view str);
 
     private:
-        size_t pos = 0;
-        size_t containerSize = 0;
+        char* pointer = nullptr;
+        char* endPointer = nullptr;
         std::vector<std::string> containers;
         std::string *container;
 };

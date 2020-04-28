@@ -53,8 +53,19 @@ inline bool isHex(char c)
 
 inline bool isIdChar(char c)
 {
-    return (c > ' ' && c <= '~' &&
-                c != '(' && c != ')' && c != ',' && c != ';' && c != '[' && c != ']' && c != '{' && c != '}');
+    if (c >= '^' && c <= 'z') {
+        return true;
+    }
+
+    if (c >= '*' && c <= 'Z') {
+        return c != ',' && c != ';';
+    }
+
+    if (c >= '!' && c <= '\'') {
+        return true;
+    }
+
+    return c == '\\' || c == '|' || c == '~';
 }
 
 unsigned hash(std::string_view value);

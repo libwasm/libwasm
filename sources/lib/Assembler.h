@@ -97,13 +97,15 @@ class Assembler
             return data.atEnd();
         }
 
+        void skipIdChars();
+
         char nextChar();
         char peekChar() const
         {
             return data.peekChar();
         }
 
-        char peekChar(size_t n) const
+        char peekChar(int n) const
         {
             return data.peekChar(n);
         }
@@ -113,19 +115,17 @@ class Assembler
             return data.peekChars(chars);
         }
 
-        void bump(size_t count = 1)
+        void bump(int count = 1)
         {
-            for (size_t i = 0; i < count; ++i) {
-                (void) nextChar();
-            }
+            data.bump(count);
         }
 
         size_t getColumnNumber() const
         {
-            return data.getPos() - lastNlPos + 1;
+            return data.getPointer() - lastNlPointer + 1;
         }
 
-        bool whiteSpace();
+        void whiteSpace();
         bool blockComment();
         bool lineComment();
         bool parse();
@@ -142,7 +142,7 @@ class Assembler
         unsigned warningCount = 0;
 
         bool good = false;
-        size_t lastNlPos = 0;
+        const char* lastNlPointer = nullptr;
         size_t lineNumber = 1;
         DataBuffer data;
         TokenBuffer tokens;

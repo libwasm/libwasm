@@ -14,7 +14,7 @@ char Assembler::nextChar()
     char c = data.nextChar();
 
     if (c == '\n') {
-        lastNlPos = data.getPos();
+        lastNlPointer = data.getPointer();
         lineNumber++;
     }
 
@@ -35,8 +35,7 @@ bool Assembler::readWat(std::istream& stream)
 bool Assembler::lineComment()
 {
     if (peekChars(";;")) {
-        bump();
-        bump();
+        bump(2);
 
         while (!atEnd() && peekChar() != '\n') {
             bump();
@@ -51,8 +50,7 @@ bool Assembler::lineComment()
 bool Assembler::blockComment()
 {
     if (peekChars("(;")) {
-        bump();
-        bump();
+        bump(2);
 
         for (;;) {
             if (atEnd()) {
@@ -63,8 +61,7 @@ bool Assembler::blockComment()
             char c = peekChar();
 
             if (c == ';' && peekChar(1) == ')') {
-                bump();
-                bump();
+                bump(2);
                 break;
             } else if (c == '(' && peekChar(1) == ';' && blockComment()) {
                 //nop
@@ -79,30 +76,25 @@ bool Assembler::blockComment()
     return false;
 }
 
-bool Assembler::whiteSpace()
+void Assembler::whiteSpace()
 {
-    bool result = false;
-
     for (;;) {
-        while (peekChar() == ' ') {
-            bump();
-        }
+        data.skipChars(' ');
 
         char c = peekChar();
 
-        if (c == '\n' || c == '\t' || c == '\r') {
-            bump();
-            result = true;
+        if (c == '\n') {
+            nextChar();
         } else if (c == ';' && peekChar(1) == ';' && lineComment()) {
-            result = true;
+            // nop
         } else if (c == '(' && peekChar(1) == ';' && blockComment()) {
-            result = true;
+            // nop
+        } else if (c == '\t' || c == '\r') {
+            bump();
         } else {
-            return result;
+            return;
         }
     }
-
-    return result;
 }
 
 bool Assembler::parseHex()
@@ -138,17 +130,15 @@ bool Assembler::parseHex()
 bool Assembler::parseInteger(bool allowHex)
 {
     char c = peekChar();
-    auto startPos = tokens.getPos();
+    auto startPos = data.getPos();
 
     if (c == '-' || c == '+') {
-        bump();
-        c = peekChar();
+        c = data.bumpPeekChar();
     }
 
     if (isNumeric(c)) {
         char c1 = c;
-        bump();
-        c = peekChar();
+        c = data.bumpPeekChar();
 
         if (allowHex && c1 == '0' && c == 'x') {
             bump();
@@ -181,7 +171,7 @@ bool Assembler::parseInteger(bool allowHex)
         return true;
     }
 
-    tokens.setPos(startPos);
+    data.setPos(startPos);
     return false;
 }
 
@@ -295,40 +285,45 @@ bool Assembler::parseInf()
     return false;
 }
 
+void Assembler::skipIdChars()
+{
+    auto c = peekChar();
+
+    while (isIdChar(c)) {
+        c = data.bumpPeekChar();
+    }
+}
+
 bool Assembler::tokenize()
 {
     whiteSpace();
     std::vector<size_t> parenthesisStack;
 
-    while (!atEnd()) {
+    for (char c = peekChar(); c != 0; c = peekChar()) {
         auto* startPointer = data.getPointer();
         auto kind = Token::none;
         auto line = lineNumber;
         auto column = getColumnNumber();
-        bool isSeparator = false;
-
-        const char c = peekChar();
 
         if (isLowerAlpha(c)) {
             if ((c == 'n' && parseNan()) || ( c == 'i' && parseInf())) {
                 kind = Token::floating;
+            } else if (c == 'o' && peekChars("offset=")) {
+                kind = Token::keyword;
+                bump(7);
+            } else if (c == 'a' && peekChars("align=")) {
+                kind = Token::keyword;
+                bump(6);
             } else {
                 kind = Token::keyword;
 
                 bump();
 
-                while (isIdChar(peekChar())) {
-                    bump();
-                    if (peekChar(-1) == '=') {
-                        isSeparator = true;
-                        break;
-                    }
-                }
+                skipIdChars();
             }
         } else  if (c == '(' || c == ')') {
             kind = Token::parenthesis;
             bump();
-            isSeparator = true;
         } else if (c == '-' || c == '+') {
             bump();
 
@@ -338,18 +333,15 @@ bool Assembler::tokenize()
                 if (isIdChar(peekChar())) {
                     kind = Token::reserved;
 
-                    while (isIdChar(peekChar())) {
-                        bump();
-                    }
+                    skipIdChars();
                 }
             }
         } else if (kind = parseNumber(); kind != Token::none) {
             if (isIdChar(peekChar())) {
+                bump();
                 kind = Token::reserved;
 
-                while (isIdChar(peekChar())) {
-                    bump();
-                }
+                skipIdChars();
             }
         } else if (parseString()) {
             kind = Token::string;
@@ -357,16 +349,12 @@ bool Assembler::tokenize()
             bump();
             kind = Token::id;
 
-            while (isIdChar(peekChar())) {
-                bump();
-            }
+            skipIdChars();
         } else if (isIdChar(c)) {
             bump();
             kind = Token::reserved;
 
-            while (isIdChar(peekChar())) {
-                bump();
-            }
+            skipIdChars();
         } else {
             msgs.error(line, column, "Invalid character '", c, '\'');
             bump();
