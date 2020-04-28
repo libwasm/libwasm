@@ -10,8 +10,11 @@ GCC = ARGUMENTS.get('GCC', '0')
 
 CacheDir(CACHE_DIR)
 
-libSources=glob.glob("sources/lib/*.cpp")
-mainSources=glob.glob("sources/main/*.cpp")
+libSources=glob.glob('sources/lib/*.cpp')
+mainSources=glob.glob('sources/main/*.cpp')
+
+if ('sources/lib/OpcodeTables.cpp' not in libSources):
+    libSources.append('sources/lib/OpcodeTables.cpp')
 
 gcc = Environment(CC='gcc',
                   CXX='g++',
@@ -47,9 +50,18 @@ wasmlib=compiler.Library('lib/libwasm', libSources)
 for source in mainSources:
     executable = os.path.split(source)[1]
     executable = executable.replace('.cpp', '')
+    if executable == 'makeOpcodeMap':
+        continue
     executable = 'bin/' + executable
  
     compiler.Program(executable, source,
-         LIBS=['libwasm'], LIBPATH='lib',
-         CPPPATH=['.', 'sources/lib'])
+            LIBS=['libwasm'], LIBPATH='lib',
+            CPPPATH=['.', 'sources/lib'])
 
+Depends('bin/makeOpcodeMap', ['sources/lib/Encodings.h', 'sources/lib/common.h'])
+
+compiler.Program('bin/makeOpcodeMap', ['sources/main/makeOpcodeMap.cpp', 'sources/lib/common.o'],
+        CPPPATH=['.', 'sources/lib'])
+
+Command('sources/lib/OpcodeTables.cpp', 'bin/makeOpcodeMap',
+        'bin/makeOpcodeMap > sources/lib/OpcodeTables.cpp')

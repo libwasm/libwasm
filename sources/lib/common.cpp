@@ -335,4 +335,16 @@ float toF32(std::string_view chars)
     return f;
 }
 
+unsigned hash(std::string_view value)
+{
+    const unsigned int factor = 37;
+    unsigned int h = 0;
+
+    for (auto c : value) {
+        h = h * factor + unsigned(c);
+    }
+
+    return h * factor + unsigned(value.size());
+}
+
 };

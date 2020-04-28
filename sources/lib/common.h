@@ -57,6 +57,8 @@ inline bool isIdChar(char c)
                 c != '(' && c != ')' && c != ',' && c != ';' && c != '[' && c != ']' && c != '{' && c != '}');
 }
 
+unsigned hash(std::string_view value);
+
 unsigned fromHex(char c);
 
 void dumpChars(std::ostream& os, std::string_view chars, size_t startOffset);

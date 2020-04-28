@@ -34,7 +34,7 @@ class DataBuffer
             pos = p;
         }
 
-        size_t size() const
+        auto size() const
         {
             return container->size();
         }
