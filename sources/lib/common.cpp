@@ -225,36 +225,41 @@ static std::string normalize(std::string_view chars)
     return result;
 }
 
+// The strings pased to this function have been validated by the parser.
+// Therefore, we can cut some corners here.
 int64_t toI64(std::string_view chars)
 {
-    auto string = normalize(chars);
+    bool negative = false;
+    uint64_t u64 = 0;
 
-    if (string[0] == '-') {
-        return strtoll(string.data(), nullptr, 0);
-    } else {
-        return strtoull(string.data(), nullptr, 0);
+    if (chars[0] == '+') {
+        chars.remove_prefix(1);
+    } else if (chars[0] == '-') {
+        negative = true;
+        chars.remove_prefix(1);
     }
-}
 
-int32_t toI32(std::string_view chars)
-{
-    auto string = normalize(chars);
+    if (chars.size() > 1 && chars[1] == 'x') {
+        chars.remove_prefix(2);
 
-    if (string[0] == '-') {
-        return int32_t(strtol(string.data(), nullptr, 0));
+        for (char c : chars) {
+            if (c != '_') {
+                u64 = (u64 << 4) + fromHex(c);
+            }
+        }
     } else {
-        return int32_t(strtoul(string.data(), nullptr, 0));
+        for (char c : chars) {
+            if (c != '_') {
+                u64 = (u64 * 10) + (c - '0');
+            }
+        }
     }
-}
 
-int16_t toI16(std::string_view chars)
-{
-    return int16_t(toI32(chars));
-}
-
-int8_t toI8(std::string_view chars)
-{
-    return int8_t(toI32(chars));
+    if (negative) {
+        return -int64_t(u64);
+    } else {
+        return int64_t(u64);
+    }
 }
 
 double toF64(std::string_view chars)
@@ -278,7 +283,7 @@ double toF64(std::string_view chars)
 
     if (string[0] == 'n') {
         if (string.size() > 3) {
-            i = strtol(string.c_str() + 4, nullptr, 0);
+            i = strtoll(string.c_str() + 4, nullptr, 0);
             i |= 0x7ff0000000000000;
         } else {
             i = 0x7ff8000000000000ull;
@@ -337,7 +342,7 @@ float toF32(std::string_view chars)
 
 unsigned hash(std::string_view value)
 {
-    const unsigned int factor = 37;
+    const unsigned int factor = 9;
     unsigned int h = 0;
 
     for (auto c : value) {

@@ -81,11 +81,14 @@ void Assembler::whiteSpace()
     for (;;) {
         data.skipChars(' ');
 
+        while (peekChar() == '\n') {
+            nextChar();
+            data.skipChars(' ');
+        }
+
         char c = peekChar();
 
-        if (c == '\n') {
-            nextChar();
-        } else if (c == ';' && peekChar(1) == ';' && lineComment()) {
+        if (c == ';' && peekChar(1) == ';' && lineComment()) {
             // nop
         } else if (c == '(' && peekChar(1) == ';' && blockComment()) {
             // nop
@@ -309,17 +312,16 @@ bool Assembler::tokenize()
             if ((c == 'n' && parseNan()) || ( c == 'i' && parseInf())) {
                 kind = Token::floating;
             } else if (c == 'o' && peekChars("offset=")) {
-                kind = Token::keyword;
                 bump(7);
+                kind = Token::keyword;
             } else if (c == 'a' && peekChars("align=")) {
-                kind = Token::keyword;
                 bump(6);
-            } else {
                 kind = Token::keyword;
-
+            } else {
                 bump();
-
                 skipIdChars();
+
+                kind = Token::keyword;
             }
         } else  if (c == '(' || c == ')') {
             kind = Token::parenthesis;
@@ -330,6 +332,8 @@ bool Assembler::tokenize()
             if (auto c1 = peekChar(); (c1 == 'n' && parseNan()) || ( c1 == 'i' && parseInf())) {
                 kind = Token::floating;
             } else if (kind = parseNumber(); kind != Token::none) {
+                //nop
+            } else {
                 if (isIdChar(peekChar())) {
                     kind = Token::reserved;
 

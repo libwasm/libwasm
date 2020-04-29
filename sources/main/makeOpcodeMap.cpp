@@ -70,7 +70,7 @@ int main()
         }
 
         std::cout <<
-            "\nOpcode::Index Opcode::nameIndexes[" << bucketCount << "] = {";
+            "\nOpcode::Index const Opcode::nameIndexes[" << bucketCount << "] = {";
 
         int count = 8;
 
@@ -88,7 +88,7 @@ int main()
             "\n";
 
         std::cout <<
-            "\nOpcode::NameEntry Opcode::nameEntries [" << entries.size() << "] = {";
+            "\nOpcode::NameEntry const Opcode::nameEntries [" << entries.size() << "] = {";
 
         for (const auto& entry : entries) {
             std::cout << "\n    { \"" << entry.name << "\", Opcode::" << opcodeName(entry.name) << " },";
@@ -125,7 +125,7 @@ int main()
         }
 
         std::cout <<
-            "\nOpcode::Index Opcode::opcodeIndexes[" << bucketCount << "] = {";
+            "\nOpcode::Index const Opcode::opcodeIndexes[" << bucketCount << "] = {";
 
         int count = 8;
 
@@ -143,7 +143,7 @@ int main()
             "\n";
 
         std::cout <<
-            "\nOpcode::OpcodeEntry Opcode::opcodeEntries [" << entries.size() << "] = {";
+            "\nOpcode::OpcodeEntry const Opcode::opcodeEntries [" << entries.size() << "] = {";
 
         for (const auto& entry : entries) {
             std::cout << "\n    { 0x" << std::hex << entry.opcode << std::dec << ", " << entry.infoIndex << " },";

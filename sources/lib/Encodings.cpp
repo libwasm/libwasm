@@ -12,7 +12,7 @@ std::optional<Opcode> Opcode::fromString(std::string_view name)
     auto hashValue = libwasm::hash(name) % std::size(nameIndexes);
     auto& index = nameIndexes[hashValue];
 
-    for (NameEntry* entry = nameEntries + index.index, *endEntry = entry + index.size;
+    for (const NameEntry* entry = nameEntries + index.index, *endEntry = entry + index.size;
             entry != endEntry; ++entry) {
         if (entry->name == name) {
             return entry->opcode;
@@ -27,7 +27,7 @@ const Opcode::Info* Opcode::getInfo() const
     auto hashValue = hash() % std::size(opcodeIndexes);
     auto& index = opcodeIndexes[hashValue];
 
-    for (OpcodeEntry* entry = opcodeEntries + index.index, *endEntry = entry + index.size;
+    for (const OpcodeEntry* entry = opcodeEntries + index.index, *endEntry = entry + index.size;
             entry != endEntry; ++entry) {
         if (entry->opcode == value) {
             return info + entry->infoIndex;

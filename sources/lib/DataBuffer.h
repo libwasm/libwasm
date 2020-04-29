@@ -72,10 +72,12 @@ class DataBuffer
 
         char bumpPeekChar()
         {
+            assert(!atEnd());
             return *(++pointer);
         }
 
         void skipChars(char c) {
+            assert(c != 0);
             while (*pointer == c) {
                 ++pointer;
             }

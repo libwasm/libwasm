@@ -77,10 +77,12 @@ std::pair<std::string, std::string> unEscape(std::string_view chars);
 void generateChars(std::ostream& os, std::string_view chars);
 bool validUtf8(std::string_view string);
 
-int8_t toI8(std::string_view chars);
-int16_t toI16(std::string_view chars);
-int32_t toI32(std::string_view chars);
 int64_t toI64(std::string_view chars);
+inline int32_t toI32(std::string_view chars)
+{
+    return int32_t(toI64(chars));
+}
+
 float toF32(std::string_view chars);
 double toF64(std::string_view chars);
 };

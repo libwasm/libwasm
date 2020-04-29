@@ -720,14 +720,14 @@ class Opcode
     private:
         Value value = Value(0);
 
-        static Info info[];
-        static Index nameIndexes[512];
-        static NameEntry nameEntries[];
-        static Index opcodeIndexes[512];
-        static OpcodeEntry opcodeEntries[];
+        static const Info info[];
+        static const Index nameIndexes[512];
+        static const NameEntry nameEntries[];
+        static const Index opcodeIndexes[512];
+        static const OpcodeEntry opcodeEntries[];
 };
 
-inline Opcode::Info Opcode::info[] =
+inline const Opcode::Info Opcode::info[] =
 {
     { Opcode::unreachable, ImmediateType::none, SignatureCode::special, "unreachable", 0 },
     { Opcode::nop, ImmediateType::none, SignatureCode::void_, "nop", 0 },
