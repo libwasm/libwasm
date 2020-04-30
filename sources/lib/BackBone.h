@@ -716,6 +716,16 @@ class TypeUse
             id = value;
         }
 
+        std::string_view getExternId() const
+        {
+            return externId;
+        }
+
+        void setExternId(std::string_view value)
+        {
+            externId = value;
+        }
+
         auto* getSignature() const
         {
             return signature.get();
@@ -739,6 +749,7 @@ class TypeUse
         uint32_t signatureIndex = invalidIndex;
         std::unique_ptr<Signature> signature;
         std::string id;
+        std::string externId;
 };
 
 class TypeDeclaration : public TreeNode
@@ -927,6 +938,16 @@ class Table
             id = value;
         }
 
+        std::string_view getExternId() const
+        {
+            return externId;
+        }
+
+        void setExternId(std::string_view value)
+        {
+            externId = value;
+        }
+
         auto getType() const
         {
             return type;
@@ -951,6 +972,7 @@ class Table
         ValueType type = 0;
         Limits limits;
         std::string id;
+        std::string externId;
 };
 
 class TableImport : public Table, public ImportDeclaration
@@ -983,6 +1005,16 @@ class Memory
             id = value;
         }
 
+        std::string_view getExternId() const
+        {
+            return externId;
+        }
+
+        void setExternId(std::string_view value)
+        {
+            externId = value;
+        }
+
         auto& getLimits()
         {
             return limits;
@@ -996,6 +1028,7 @@ class Memory
     protected:
         Limits limits;
         std::string id;
+        std::string externId;
 };
 
 class MemoryImport : public Memory, public ImportDeclaration
@@ -1028,6 +1061,16 @@ class Event
             id = value;
         }
 
+        std::string_view getExternId() const
+        {
+            return externId;
+        }
+
+        void setExternId(std::string_view value)
+        {
+            externId = value;
+        }
+
         auto& getAttribute()
         {
             return attribute;
@@ -1052,6 +1095,7 @@ class Event
         EventType attribute;
         uint32_t typeIndex;
         std::string id;
+        std::string externId;
 };
 
 class EventImport : public Event, public ImportDeclaration
@@ -1094,6 +1138,16 @@ class Global
             id = value;
         }
 
+        std::string_view getExternId() const
+        {
+            return externId;
+        }
+
+        void setExternId(std::string_view value)
+        {
+            externId = value;
+        }
+
         auto getMut() const
         {
             return mut;
@@ -1108,6 +1162,7 @@ class Global
         ValueType type = 0;
         Mut mut;
         std::string id;
+        std::string externId;
 };
 
 class GlobalImport : public Global, public ImportDeclaration

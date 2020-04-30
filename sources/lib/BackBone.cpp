@@ -1236,6 +1236,7 @@ FunctionImport* FunctionImport::read(BinaryContext& context)
 
 void FunctionImport::check(CheckContext& context)
 {
+    externId = name;
     context.checkTypeIndex(this, signatureIndex);
     signature->check(context);
 }
@@ -1317,6 +1318,7 @@ MemoryImport* MemoryImport::read(BinaryContext& context)
 
 void MemoryImport::check(CheckContext& context)
 {
+    externId = name;
     context.checkLimits(this, limits);
 }
 
@@ -1402,6 +1404,7 @@ EventImport* EventImport::read(BinaryContext& context)
 
 void EventImport::check(CheckContext& context)
 {
+    externId = name;
     context.checkEventType(this, attribute);
     context.checkTypeIndex(this, typeIndex);
 }
@@ -1492,6 +1495,7 @@ TableImport* TableImport::read(BinaryContext& context)
 
 void TableImport::check(CheckContext& context)
 {
+    externId = name;
     context.checkElementType(this, type);
     context.checkLimits(this, limits);
 }
@@ -1586,6 +1590,7 @@ GlobalImport* GlobalImport::read(BinaryContext& context)
 
 void GlobalImport::check(CheckContext& context)
 {
+    externId = name;
     context.checkValueType(this, type);
     context.checkMut(this, mut);
 }
@@ -2902,19 +2907,43 @@ void ExportDeclaration::check(CheckContext& context)
 
     switch(uint8_t(kind)) {
         case ExternalType::function:
+            if (auto* function = context.getModule()->getFunction(index); function != nullptr) {
+                function->setExternId(name);
+            }
+
             context.checkFunctionIndex(this, index);
             break;
 
         case ExternalType::table:
+            if (auto* table = context.getModule()->getTable(index); table != nullptr) {
+                table->setExternId(name);
+            }
+
             context.checkTableIndex(this, index);
             break;
 
         case ExternalType::memory:
+            if (auto* memory = context.getModule()->getMemory(index); memory != nullptr) {
+                memory->setExternId(name);
+            }
+
             context.checkMemoryIndex(this, index);
             break;
 
         case ExternalType::global:
+            if (auto* global = context.getModule()->getGlobal(index); global != nullptr) {
+                global->setExternId(name);
+            }
+
             context.checkGlobalIndex(this, index);
+            break;
+
+        case ExternalType::event:
+            if (auto* event = context.getModule()->getEvent(index); event != nullptr) {
+                event->setExternId(name);
+            }
+
+            context.checkEventIndex(this, index);
             break;
 
         default:
@@ -3163,7 +3192,7 @@ void Expression::check(CheckContext& context)
 void Expression::generate(std::ostream& os, Module* module)
 {
     const char* separator = "";
-    InstructionContext instructionContext;
+    InstructionContext instructionContext(module);
     auto count = getInstructions().size();
 
     for (auto& instruction : instructions) {
@@ -3711,7 +3740,18 @@ void CodeEntry::generate(std::ostream& os, Module* module)
     auto* function = module->getFunction(number);
     auto signatureIndex = function->getSignatureIndex();
 
-    os << "\n  (func (;" << number << ";) (type " << signatureIndex << ')';
+    os << "\n  (func ";
+    if (!function->getId().empty()) {
+        os << '$' << function->getId();
+    }
+
+    os << "(;" << number;
+
+    if (!function->getExternId().empty()) {
+        os << ' ' << function->getExternId();
+    }
+
+    os << ";) (type " << signatureIndex << ')';
 
     function->getSignature()->generate(os, module);
 
@@ -3731,7 +3771,7 @@ void CodeEntry::generate(std::ostream& os, Module* module)
         builder.generate(os, this);
     } else {
         auto count = expression->getInstructions().size();
-        InstructionContext instructionContext;
+        InstructionContext instructionContext(module);
 
         for (auto& instruction : expression->getInstructions()) {
             if (--count == 0 && instruction->getOpcode() == Opcode::end) {
@@ -3754,7 +3794,7 @@ void CodeEntry::show(std::ostream& os, Module* module)
     }
 
     std::string indent = "";
-    InstructionContext instructionContext;
+    InstructionContext instructionContext(module);
 
     for (auto& instruction : expression->getInstructions()) {
         if (indent.size() > 1 && instruction->getOpcode() == Opcode::end) {

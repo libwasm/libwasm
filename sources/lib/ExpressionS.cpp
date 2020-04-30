@@ -163,6 +163,7 @@ void ExpressionSBuilder::addSpecial()
             break;
 
         case Opcode::br_if:
+        case Opcode::if_:
             currentMeta->addOperand(ValueType::i32);
 
             break;
@@ -177,6 +178,10 @@ void ExpressionSBuilder::addSpecial()
 
             break;
 
+        case Opcode::return_:
+            currentMeta->addOperands(currentSignature->getResults());
+
+            break;
         default:
             currentMeta->barrier = true;
 
@@ -640,7 +645,7 @@ void ExpressionSBuilder::buildExpressionSs(std::vector<ExpressionS>& result, boo
 
 void ExpressionSBuilder::generateExpressionSs(std::ostream& os, std::vector<ExpressionS>& result)
 {
-    InstructionContext context;
+    InstructionContext context(module);
 
     context.setComments(false);
     context.enter();

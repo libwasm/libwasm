@@ -18,6 +18,11 @@ namespace libwasm
 class InstructionContext
 {
     public:
+        InstructionContext(Module* module)
+          : module(module)
+        {
+        }
+
         unsigned enterBlock();
         void leaveBlock();
 
@@ -43,10 +48,16 @@ class InstructionContext
             return comments;
         }
 
+        auto* getModule()
+        {
+            return module;
+        }
+
     private:
         unsigned blockDepth = 0;
         std::string indent;
         bool comments = true;
+        Module* module = nullptr;
 };
 
 class Instruction : public TreeNode
@@ -258,14 +269,14 @@ class InstructionIdx : public Instruction
         {
         }
 
-        void setIndex(uint32_t index)
+        void setIndex(uint32_t i)
         {
-            imm = index;
+            index = i;
         }
 
         auto getIndex() const
         {
-            return imm;
+            return index;
         }
 
         virtual void write(BinaryContext& context) override;
@@ -280,7 +291,7 @@ class InstructionIdx : public Instruction
         {
         }
 
-        uint32_t imm = 0;
+        uint32_t index = 0;
 };
 
 class InstructionLocalIdx : public InstructionIdx
@@ -304,6 +315,8 @@ class InstructionFunctionIdx : public InstructionIdx
         {
         }
 
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+
         static InstructionFunctionIdx* parse(SourceContext& context, Opcode opcode);
         static InstructionFunctionIdx* read(BinaryContext& context);
 };
@@ -315,6 +328,8 @@ class InstructionGlobalIdx : public InstructionIdx
           : InstructionIdx(ImmediateType::globalIdx)
         {
         }
+
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
 
         static InstructionGlobalIdx* parse(SourceContext& context, Opcode opcode);
         static InstructionGlobalIdx* read(BinaryContext& context);
@@ -339,6 +354,8 @@ class InstructionEventIdx : public InstructionIdx
           : InstructionIdx(ImmediateType::eventIdx)
         {
         }
+
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
 
         static InstructionEventIdx* parse(SourceContext& context, Opcode opcode);
         static InstructionEventIdx* read(BinaryContext& context);

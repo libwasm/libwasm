@@ -446,7 +446,7 @@ InstructionIdx* InstructionIdx::parse(SourceContext& context, Opcode opcode)
 {
     auto result = context.makeTreeNode<InstructionIdx>();
 
-    result->imm = requiredU32(context);
+    result->index = requiredU32(context);
 
     return result;
 }
@@ -455,7 +455,7 @@ InstructionIdx* InstructionIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -465,12 +465,12 @@ void InstructionIdx::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putU32leb(imm);
+    data.putU32leb(index);
 }
 
 void InstructionIdx::generate(std::ostream& os, InstructionContext& context)
 {
-    os << opcode << " " << imm;
+    os << opcode << " " << index;
 }
 
 InstructionLocalIdx* InstructionLocalIdx::parse(SourceContext& context, Opcode opcode)
@@ -478,7 +478,7 @@ InstructionLocalIdx* InstructionLocalIdx::parse(SourceContext& context, Opcode o
     auto result = context.makeTreeNode<InstructionLocalIdx>();
 
     if (auto index = parseLocalIndex(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid local index.");
     }
@@ -490,7 +490,7 @@ InstructionLocalIdx* InstructionLocalIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLocalIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -501,7 +501,7 @@ InstructionFunctionIdx* InstructionFunctionIdx::parse(SourceContext& context, Op
     auto result = context.makeTreeNode<InstructionFunctionIdx>();
 
     if (auto index = parseFunctionIndex(context)) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(tokens.peekToken(), "Missing or invalid function index.");
     }
@@ -509,11 +509,26 @@ InstructionFunctionIdx* InstructionFunctionIdx::parse(SourceContext& context, Op
     return result;
 }
 
+void InstructionFunctionIdx::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode << " ";
+
+    auto* function = context.getModule()->getFunction(index);
+
+    if (!function->getId().empty()) {
+        os << '$' << function->getId();
+    } else if (!function->getExternId().empty()) {
+        os << index << " (;" << function->getExternId() << ";)";
+    } else {
+        os << index;
+    }
+}
+
 InstructionFunctionIdx* InstructionFunctionIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionFunctionIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -523,7 +538,7 @@ InstructionGlobalIdx* InstructionGlobalIdx::parse(SourceContext& context, Opcode
     auto result = context.makeTreeNode<InstructionGlobalIdx>();
 
     if (auto index = parseGlobalIndex(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid global index.");
     }
@@ -531,11 +546,26 @@ InstructionGlobalIdx* InstructionGlobalIdx::parse(SourceContext& context, Opcode
     return result;
 }
 
+void InstructionGlobalIdx::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode << " ";
+
+    auto* global = context.getModule()->getGlobal(index);
+
+    if (!global->getId().empty()) {
+        os << '$' << global->getId();
+    } else if (!global->getExternId().empty()) {
+        os << index << " (;" << global->getExternId() << ";)";
+    } else {
+        os << index;
+    }
+}
+
 InstructionGlobalIdx* InstructionGlobalIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionGlobalIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -545,7 +575,7 @@ InstructionLabelIdx* InstructionLabelIdx::parse(SourceContext& context, Opcode o
     auto result = context.makeTreeNode<InstructionLabelIdx>();
 
     if (auto index = parseLabelIndex(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid label index.");
     }
@@ -557,7 +587,7 @@ InstructionLabelIdx* InstructionLabelIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLabelIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -567,7 +597,7 @@ InstructionEventIdx* InstructionEventIdx::parse(SourceContext& context, Opcode o
     auto result = context.makeTreeNode<InstructionEventIdx>();
 
     if (auto index = parseEventIndex(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid event index.");
     }
@@ -579,9 +609,24 @@ InstructionEventIdx* InstructionEventIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionEventIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
+}
+
+void InstructionEventIdx::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode << " ";
+
+    auto* event = context.getModule()->getEvent(index);
+
+    if (!event->getId().empty()) {
+        os << '$' << event->getId();
+    } else if (!event->getExternId().empty()) {
+        os << index << " (;" << event->getExternId() << ";)";
+    } else {
+        os << index;
+    }
 }
 
 InstructionSegmentIdx* InstructionSegmentIdx::parse(SourceContext& context, Opcode opcode)
@@ -589,7 +634,7 @@ InstructionSegmentIdx* InstructionSegmentIdx::parse(SourceContext& context, Opco
     auto result = context.makeTreeNode<InstructionSegmentIdx>();
 
     if (auto index = parseSegmentIndex(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid data segment index.");
     }
@@ -601,7 +646,7 @@ InstructionSegmentIdx* InstructionSegmentIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionSegmentIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -611,7 +656,7 @@ InstructionElementIdx* InstructionElementIdx::parse(SourceContext& context, Opco
     auto result = context.makeTreeNode<InstructionElementIdx>();
 
     if (auto index = parseElementIndex(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid element index.");
     }
@@ -623,7 +668,7 @@ InstructionElementIdx* InstructionElementIdx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionElementIdx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -633,7 +678,7 @@ InstructionLane2Idx* InstructionLane2Idx::parse(SourceContext& context, Opcode o
     auto result = context.makeTreeNode<InstructionLane2Idx>();
 
     if (auto index = parseLane2Index(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
     }
@@ -645,7 +690,7 @@ InstructionLane2Idx* InstructionLane2Idx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLane2Idx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -655,7 +700,7 @@ InstructionLane4Idx* InstructionLane4Idx::parse(SourceContext& context, Opcode o
     auto result = context.makeTreeNode<InstructionLane4Idx>();
 
     if (auto index = parseLane4Index(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
     }
@@ -667,7 +712,7 @@ InstructionLane4Idx* InstructionLane4Idx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLane4Idx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -677,7 +722,7 @@ InstructionLane8Idx* InstructionLane8Idx::parse(SourceContext& context, Opcode o
     auto result = context.makeTreeNode<InstructionLane8Idx>();
 
     if (auto index = parseLane8Index(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
     }
@@ -689,7 +734,7 @@ InstructionLane8Idx* InstructionLane8Idx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLane8Idx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -699,7 +744,7 @@ InstructionLane16Idx* InstructionLane16Idx::parse(SourceContext& context, Opcode
     auto result = context.makeTreeNode<InstructionLane16Idx>();
 
     if (auto index = parseLane16Index(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
     }
@@ -711,7 +756,7 @@ InstructionLane16Idx* InstructionLane16Idx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLane16Idx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
@@ -721,7 +766,7 @@ InstructionLane32Idx* InstructionLane32Idx::parse(SourceContext& context, Opcode
     auto result = context.makeTreeNode<InstructionLane32Idx>();
 
     if (auto index = parseLane32Index(context); index) {
-        result->imm = *index;
+        result->index = *index;
     } else {
         context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
     }
@@ -733,7 +778,7 @@ InstructionLane32Idx* InstructionLane32Idx::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionLane32Idx>();
 
-    result->imm = context.data().getU32leb();
+    result->index = context.data().getU32leb();
 
     return result;
 }
