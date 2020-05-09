@@ -59,21 +59,22 @@ struct MetaInstruction
     std::vector<ValueType> results;
 };
 
-struct ExpressionS
+class ExpressionS
 {
-    ExpressionS(MetaInstruction* meta);
-    void generate(std::ostream& os, InstructionContext& context, bool inBlock = false);
+    public:
+        ExpressionS(MetaInstruction* meta);
+        ExpressionS(ExpressionS&& other) = default;
 
-    ExpressionS(ExpressionS&& other) = default;
+        void generate(std::ostream& os, InstructionContext& context, bool inBlock = false);
 
-    MetaInstruction* meta;
-    std::vector<ExpressionS> expressionSs;
-    size_t size = 1;
-    bool isEnd = false;
-    bool isBlock = false;
-    bool isIf = false;
-    bool isThen = false;
-    bool barrier = false;
+        MetaInstruction* meta;
+        std::vector<ExpressionS> expressionSs;
+        size_t size = 1;
+        bool isEnd = false;
+        bool isBlock = false;
+        bool isIf = false;
+        bool isThen = false;
+        bool barrier = false;
 };
 
 class ExpressionSBuilder
@@ -99,17 +100,16 @@ class ExpressionSBuilder
 
         void addMeta();
         void addMeta(Instruction* instruction);
-        void addSpecial();
-        void addCall();
-        void addCallIndirect();
-        void addGlobal();
-        void addLocal();
+        void addSpecial(MetaInstruction* meta);
+        void addCall(MetaInstruction* meta);
+        void addCallIndirect(MetaInstruction* meta);
+        void addGlobal(MetaInstruction* meta);
+        void addLocal(MetaInstruction* meta);
 
         void buildExpressionSs(std::vector<ExpressionS>& result, bool inBlock = false);
         void generateExpressionSs(std::ostream& os, std::vector<ExpressionS>& result);
 
         Instruction* currentInstruction = nullptr;
-        MetaInstruction* currentMeta = nullptr;
         CodeEntry* currentCodeEntry = nullptr;
         Signature* currentSignature = nullptr;
         size_t currentMetaIndex = 0;

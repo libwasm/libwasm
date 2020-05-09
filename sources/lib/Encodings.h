@@ -1289,6 +1289,7 @@ class ValueType
         bool isValidNumeric() const;
         bool isValidRef() const;
         std::string_view getName() const;
+        std::string_view getCName() const;
         
         static std::optional<ValueType> getEncoding(std::string_view v);
 

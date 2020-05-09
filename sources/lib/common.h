@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string_view>
+#include <string>
 
 namespace libwasm
 {
@@ -16,6 +17,7 @@ const uint32_t wasmMagic = 0x6d736100;
 const uint32_t wasmVersion = 1;
 const uint32_t wasmLinkingVersion = 2;
 const uint32_t invalidIndex = ~uint32_t(0);
+const uint32_t memoryPageSize = 65536;
 const auto invalidSection = ~size_t(0);
 
 inline char hexChar(unsigned c)
@@ -85,6 +87,14 @@ inline int32_t toI32(std::string_view chars)
 
 float toF32(std::string_view chars);
 double toF64(std::string_view chars);
+
+std::string toString(uint32_t value);
+std::string toHexString(uint64_t value);
+std::string toString(float value);
+std::string toString(double value);
+
+std::string cName(std::string_view name);
+
 };
 
 #endif

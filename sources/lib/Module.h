@@ -521,6 +521,7 @@ class Module
         void show(std::ostream& os, unsigned flags);
         void generate(std::ostream& os);
         void generateS(std::ostream& os);
+        void generateC(std::ostream& os);
 
         void makeDataCountSection();
 
@@ -610,6 +611,7 @@ class Module
 
         void showSections(std::ostream& os, unsigned flags);
         void generateSections(std::ostream& os);
+        void generateCPreamble(std::ostream& os);
 };
 
 };

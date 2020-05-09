@@ -15,11 +15,14 @@
 
 namespace libwasm
 {
+
+class CodeEntry;
+
 class InstructionContext
 {
     public:
-        InstructionContext(Module* module)
-          : module(module)
+        InstructionContext(Module* module, CodeEntry* code = nullptr)
+          : module(module), code(code)
         {
         }
 
@@ -53,11 +56,17 @@ class InstructionContext
             return module;
         }
 
+        auto* getCode()
+        {
+            return code;
+        }
+
     private:
         unsigned blockDepth = 0;
-        std::string indent;
         bool comments = true;
         Module* module = nullptr;
+        CodeEntry* code = nullptr;
+        std::string indent;
 };
 
 class Instruction : public TreeNode
@@ -145,6 +154,11 @@ class InstructionI32 : public Instruction
         {
         }
 
+        auto getValue() const
+        {
+            return value;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -153,7 +167,7 @@ class InstructionI32 : public Instruction
         static InstructionI32* read(BinaryContext& context);
 
     protected:
-        int32_t imm = 0;
+        int32_t value = 0;
 };
 
 class InstructionI64 : public Instruction
@@ -164,6 +178,11 @@ class InstructionI64 : public Instruction
         {
         }
 
+        auto getValue() const
+        {
+            return value;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -172,7 +191,7 @@ class InstructionI64 : public Instruction
         static InstructionI64* read(BinaryContext& context);
 
     protected:
-        int64_t imm = 0;
+        int64_t value = 0;
 };
 
 class InstructionF32 : public Instruction
@@ -183,15 +202,21 @@ class InstructionF32 : public Instruction
         {
         }
 
+        auto getValue() const
+        {
+            return value;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        void generateCValue(std::ostream& os, InstructionContext& context);
         virtual void check(CheckContext& context) override;
 
         static InstructionF32* parse(SourceContext& context, Opcode opcode);
         static InstructionF32* read(BinaryContext& context);
 
     protected:
-        float imm = 0;
+        float value = 0;
 };
 
 class InstructionF64 : public Instruction
@@ -202,15 +227,21 @@ class InstructionF64 : public Instruction
         {
         }
 
+        auto getValue() const
+        {
+            return value;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
+        void generateCValue(std::ostream& os, InstructionContext& context);
         virtual void check(CheckContext& context) override;
 
         static InstructionF64* parse(SourceContext& context, Opcode opcode);
         static InstructionF64* read(BinaryContext& context);
 
     protected:
-        double imm = 0;
+        double value = 0;
 };
 
 class InstructionV128 : public Instruction
@@ -246,7 +277,7 @@ class InstructionBlock : public Instruction
 
         auto getResultType() const
         {
-            return imm;
+            return resultType;
         }
 
         virtual void write(BinaryContext& context) override;
@@ -257,7 +288,7 @@ class InstructionBlock : public Instruction
         static InstructionBlock* read(BinaryContext& context);
 
     protected:
-        ValueType imm = ValueType::void_;
+        ValueType resultType = ValueType::void_;
         std::string label;
 };
 
@@ -507,6 +538,11 @@ class InstructionMemory : public Instruction
         {
         }
 
+        auto getOffset() const
+        {
+            return offset;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -543,7 +579,7 @@ class InstructionIndirect : public Instruction
         {
         }
 
-        auto getIndex() const
+        auto getTypeIndex() const
         {
             return typeIndex;
         }

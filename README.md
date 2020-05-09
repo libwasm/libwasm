@@ -1,8 +1,59 @@
 # libwasm
 
 Linwasm is a library to manipulate webassembly files from C++.
-It also contains an assembler (converting .wat to .wasm), a dissassembler (converting .wasm to .wat) and
-a coonverter between sequential code and folded code.
+It also contains an assembler (converting .wat to .wasm), a dissassembler (converting .wasm to .wat), 
+a coonverter between sequential code and folded code and a coonverter from a text file to a C file.
+
+## New feature: generating c code.
+
+The generation of c-code can be enabled with the '-c' option in convertS.
+
+### Example:
+
+The following webassemly code
+
+     (export "fib" (func $fib))
+      (func $fib (param $n i32) (result i32)
+       (if
+        (i32.lt_s
+         (local.get $n)
+         (i32.const 2)
+        )
+        (then (return
+         (i32.const 1))
+        )
+       )
+       (return
+        (i32.add
+         (call $fib
+          (i32.sub
+           (local.get $n)
+           (i32.const 2)
+          )
+         )
+         (call $fib
+          (i32.sub
+           (local.get $n)
+           (i32.const 1)
+          )
+         )
+        )
+       )
+      )
+
+is converted into the following C code:
+
+     int32_t fib(int32_t local0)
+     {
+       int32_t result0 = 0;
+       if (local0 < 2) {
+         return 1;
+       }
+       return fib(local0 - 2) + fib(local0 - 1);
+     
+     label0:;
+       return result0;
+     }
 
 ## Installation
 You require a c++17 compliant C++compiler.

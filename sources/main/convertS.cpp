@@ -16,12 +16,13 @@ static void usage(const char* programName)
     std::cerr << "\nUsage: " << programName << " [options] wat_file\n"
          "Options:\n"
          "  -a          generate sequential assmbler file\n"
+         "  -c          generate C file\n"
          "  -s          generate S-expression assmbler file\n"
          "  -h          print this help message and exit\n"
          "  -o <file>   specify output file.\n"
          "  -S          print statistics\n"
          "\n"
-         "Exactly one of '-a' or '-s' must be given.\n";
+         "Exactly one of '-a', '-s' or '-c' must be given.\n";
 }
 
 int main(int argc, char*argv[])
@@ -29,6 +30,7 @@ int main(int argc, char*argv[])
     char* p;
     char* parm = nullptr;
 
+    bool wantCCode = false;
     bool wantSequential = false;
     bool wantExpressionS = false;
     bool wantStatistics = false;
@@ -69,6 +71,10 @@ int main(int argc, char*argv[])
             switch (*(p++)) {
                 case 'a':
                     wantSequential = true;
+                    break;
+
+                case 'c':
+                    wantCCode = true;
                     break;
 
                 case 'h':
@@ -130,7 +136,9 @@ int main(int argc, char*argv[])
                 exit(1);
             }
 
-            if (wantSequential) {
+            if (wantCCode) {
+                assembler.generateC(outputStream);
+            } else if (wantSequential) {
                 assembler.generate(outputStream);
             } else {
                 assembler.generateS(outputStream);

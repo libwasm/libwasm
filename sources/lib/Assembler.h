@@ -56,6 +56,11 @@ class Assembler
             module->generateS(os);
         }
 
+        void generateC(std::ostream& os)
+        {
+            module->generateC(os);
+        }
+
         void write(std::ostream& os);
 
         auto getErrorCount() const

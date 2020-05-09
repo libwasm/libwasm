@@ -7,6 +7,7 @@
 #include <charconv>
 #include <cstdlib>
 #include <iomanip>
+#include <sstream>
 
 namespace libwasm
 {
@@ -350,6 +351,236 @@ unsigned hash(std::string_view value)
     }
 
     return h * factor + unsigned(value.size());
+}
+
+std::string cName(std::string_view name)
+{
+    static const std::string_view reserved[] = {
+        "alignas",
+        "alignof",
+        "and",
+        "and_eq",
+        "asm",
+        "auto",
+        "bitand",
+        "bitor",
+        "bool",
+        "break",
+        "case",
+        "catch",
+        "ceil",
+        "char",
+        "char16_t",
+        "char32_t",
+        "class",
+        "compl",
+        "concept",
+        "const",
+        "const_cast",
+        "constexpr",
+        "continue",
+        "decltype",
+        "default",
+        "delete",
+        "do",
+        "double",
+        "dynamic_cast",
+        "else",
+        "enum",
+        "explicit",
+        "export",
+        "extern",
+        "false",
+        "float",
+        "floor",
+        "for",
+        "friend",
+        "goto",
+        "if",
+        "inline",
+        "int",
+        "long",
+        "mutable",
+        "namespace",
+        "new",
+        "noexcept",
+        "not",
+        "not_eq",
+        "nullptr",
+        "operator",
+        "or",
+        "or_eq",
+        "private",
+        "protected",
+        "public",
+        "register",
+        "reinterpret_cast",
+        "requires",
+        "return",
+        "round",
+        "short",
+        "signed",
+        "sizeof",
+        "static",
+        "static_assert",
+        "static_cast",
+        "struct",
+        "switch",
+        "template",
+        "this",
+        "thread_local",
+        "throw",
+        "true",
+        "try",
+        "typedef",
+        "typeid",
+        "typename",
+        "union",
+        "unsigned",
+        "using",
+        "virtual",
+        "void",
+        "volatile",
+        "wchar_t",
+        "while",
+        "xor",
+        "xor_eq",
+    };
+
+    std::string result;
+
+    bool first = true;
+
+    if (!isAlpha(name[0])) {
+        result += '_';
+    }
+
+    for (auto c : name) {
+        if (!isAlphaNumeric(c)) {
+            c = '_';
+        }
+
+        result += c;
+    }
+
+    if (auto it = std::lower_bound(std::begin(reserved), std::end(reserved), result);
+            it != std::end(reserved) && result == *it) {
+        result += '_';
+    }
+
+    return result;
+}
+
+std::string toString(uint32_t value)
+{
+    std::string result;
+
+    if (value == 0) {
+        result = '0';
+    } else {
+        while (value != 0) {
+            result += char((value % 10) + '0');
+            value /= 10;
+        }
+
+        std::reverse(result.begin(), result.end());
+    }
+
+    return result;
+}
+
+std::string toHexString(uint64_t value)
+{
+    std::string result;
+
+    if (value == 0) {
+        result = '0';
+    } else {
+        while (value != 0) {
+            auto digit = value & 0xf;
+            value >>= 4;
+            
+            result += char((digit < 1) ? (digit + '0') : (digit - 10 + 'a'));
+        }
+
+        std::reverse(result.begin(), result.end());
+    }
+
+    return result;
+}
+
+std::string toString(float value)
+{
+    std::string result;
+
+    union
+    {
+        uint32_t i;
+        float f;
+    };
+
+    f = value;
+
+    if ((i & 0x7f800000) == 0x7f800000) {
+        if ((i & 0x80000000) != 0) {
+            result =  '-';
+            i &= 0x7fffffff;
+        }
+
+        if (i  == 0x7f800000) {
+            result +=  "INFINITY";
+        } else {
+            if (i != 0x7fc00000) {
+                result +=  "nan(";
+                result +=  "\"0x" + toHexString(i & 0x7fffff) + "\")";
+            } else {
+                result +=  "NAN";
+            }
+        }
+    } else  {
+        std::stringstream stream;
+
+        stream << value;
+        result += stream.str();
+    }
+
+    return result;
+}
+
+std::string toString(double value)
+{
+    std::string result;
+
+    union
+    {
+        uint64_t i;
+        double f;
+    };
+
+    f = value;
+
+    if ((i & 0x7ff0000000000000ull) == 0x7ff0000000000000ull) {
+        if ((i & 0x8000000000000000) != 0) {
+            result =  '-';
+            i &= 0x7fffffffffffffff;
+        }
+
+        if (i  == 0x7ff0000000000000ull) {
+            result +=  "INFINITY";
+        } else {
+            if (i != 0x7ff8000000000000ull) {
+                result +=  "nan(";
+                result +=  "\"0x" + toHexString(i & 0xfffffffffffffull) + "\")";
+            }
+        }
+    } else  {
+        std::stringstream stream;
+
+        stream << value;
+        result += stream.str();
+    }
+
+    return result;
 }
 
 };

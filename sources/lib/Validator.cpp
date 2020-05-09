@@ -268,7 +268,7 @@ void Validator::checkCallIndirect()
 {
     auto& types = module->getTypeSection()->getTypes();
     auto* indirectInstruction = static_cast<InstructionIndirect*>(currentInstruction);
-    size_t typeIndex = indirectInstruction->getIndex();
+    size_t typeIndex = indirectInstruction->getTypeIndex();
     auto* signature = types[typeIndex]->getSignature();
 
     popOperand(ValueType::i32);
@@ -291,7 +291,7 @@ void Validator::checkReturnCallIndirect()
 {
     auto& types = module->getTypeSection()->getTypes();
     auto* indirectInstruction = static_cast<InstructionIndirect*>(currentInstruction);
-    size_t typeIndex = indirectInstruction->getIndex();
+    size_t typeIndex = indirectInstruction->getTypeIndex();
     auto* signature = types[typeIndex]->getSignature();
 
     popOperand(ValueType::i32);

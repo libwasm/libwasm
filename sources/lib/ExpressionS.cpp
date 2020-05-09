@@ -78,7 +78,7 @@ void ExpressionS::generate(std::ostream& os, InstructionContext& context, bool i
     os << ')';
 }
 
-void ExpressionSBuilder::addLocal()
+void ExpressionSBuilder::addLocal(MetaInstruction* meta)
 {
     auto* localInstruction = static_cast<InstructionLocalIdx*>(currentInstruction);
     auto localIndex = localInstruction->getIndex();
@@ -93,18 +93,18 @@ void ExpressionSBuilder::addLocal()
 
     switch(currentInstruction->getOpcode()) {
         case Opcode::local__get:
-            currentMeta->addResult(type);
+            meta->addResult(type);
 
             break;
 
         case Opcode::local__set:
-            currentMeta->addOperand(type);
+            meta->addOperand(type);
 
             break;
 
         case Opcode::local__tee:
-            currentMeta->addOperand(type);
-            currentMeta->addResult(type);
+            meta->addOperand(type);
+            meta->addResult(type);
 
             break;
 
@@ -113,7 +113,7 @@ void ExpressionSBuilder::addLocal()
     }
 }
 
-void ExpressionSBuilder::addGlobal()
+void ExpressionSBuilder::addGlobal(MetaInstruction* meta)
 {
     auto* globalInstruction = static_cast<InstructionGlobalIdx*>(currentInstruction);
     auto globalIndex = globalInstruction->getIndex();
@@ -121,12 +121,12 @@ void ExpressionSBuilder::addGlobal()
 
     switch(currentInstruction->getOpcode()) {
         case Opcode::global__get:
-            currentMeta->addResult(type);
+            meta->addResult(type);
 
             break;
 
         case Opcode::global__set:
-            currentMeta->addOperand(type);
+            meta->addOperand(type);
 
             break;
 
@@ -135,80 +135,80 @@ void ExpressionSBuilder::addGlobal()
     }
 }
 
-void ExpressionSBuilder::addSpecial()
+void ExpressionSBuilder::addSpecial(MetaInstruction* meta)
 {
     if (currentInstruction->getImmediateType() == ImmediateType::localIdx) {
-        addLocal();
+        addLocal(meta);
         return;
     }
 
     if (currentInstruction->getImmediateType() == ImmediateType::globalIdx) {
-        addGlobal();
+        addGlobal(meta);
         return;
     }
 
     switch(currentInstruction->getOpcode()) {
         case Opcode::ref__func:
-            currentMeta->addResult(ValueType::funcref);
+            meta->addResult(ValueType::funcref);
             break;
 
         case Opcode::ref__null:
-            currentMeta->addResult(ValueType::nullref);
+            meta->addResult(ValueType::nullref);
             break;
 
         case Opcode::ref__is_null:
-            currentMeta->addOperand(ValueType::anyref);
+            meta->addOperand(ValueType::anyref);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case Opcode::br_if:
+        case Opcode::br_table:
         case Opcode::if_:
-            currentMeta->addOperand(ValueType::i32);
+            meta->addOperand(ValueType::i32);
 
             break;
 
         case Opcode::call:
-            addCall();
+            addCall(meta);
 
             break;
 
         case Opcode::call_indirect:
-            addCallIndirect();
+            addCallIndirect(meta);
 
             break;
 
         case Opcode::return_:
-            currentMeta->addOperands(currentSignature->getResults());
+            meta->addOperands(currentSignature->getResults());
 
             break;
         default:
-            currentMeta->barrier = true;
+            meta->barrier = true;
 
             break;
     }
 }
 
-void ExpressionSBuilder::addCall()
+void ExpressionSBuilder::addCall(MetaInstruction* meta)
 {
     auto* callInstruction = static_cast<InstructionFunctionIdx*>(currentInstruction);
     auto* signature = module->getFunction(callInstruction->getIndex())->getSignature();
 
-    currentMeta->addOperands(signature->getParams());
-    currentMeta->addResults(signature->getResults());
+    meta->addOperands(signature->getParams());
+    meta->addResults(signature->getResults());
 }
 
-void ExpressionSBuilder::addCallIndirect()
+void ExpressionSBuilder::addCallIndirect(MetaInstruction* meta)
 {
-    auto& types = module->getTypeSection()->getTypes();
     auto* indirectInstruction = static_cast<InstructionIndirect*>(currentInstruction);
-    size_t typeIndex = indirectInstruction->getIndex();
-    auto* signature = types[typeIndex]->getSignature();
+    auto typeIndex = indirectInstruction->getTypeIndex();
+    auto* signature = module->getType(typeIndex)->getSignature();
 
-    currentMeta->addOperand(ValueType::i32);
+    meta->addOperand(ValueType::i32);
 
-    currentMeta->addOperands(signature->getParams());
-    currentMeta->addResults(signature->getResults());
+    meta->addOperands(signature->getParams());
+    meta->addResults(signature->getResults());
 }
 
 void ExpressionSBuilder::addMeta(Instruction* instruction)
@@ -219,321 +219,321 @@ void ExpressionSBuilder::addMeta(Instruction* instruction)
     currentInstruction = instruction;
     metaInstructions.emplace_back(instruction);
 
-    currentMeta = &metaInstructions.back();
+    auto* meta = &metaInstructions.back();
 
     switch(instructionInfo->signatureCode) {
         case SignatureCode::void_:
             break;
 
         case SignatureCode::f32_:
-            currentMeta->addResult(ValueType::f32);
+            meta->addResult(ValueType::f32);
             break;
 
         case SignatureCode::f32__f32:
-            currentMeta->addOperand(ValueType::f32);
+            meta->addOperand(ValueType::f32);
 
-            currentMeta->addResult(ValueType::f32);
+            meta->addResult(ValueType::f32);
             break;
 
         case SignatureCode::f32__f32_f32:
-            currentMeta->addOperands(ValueType::f32, ValueType::f32);
+            meta->addOperands(ValueType::f32, ValueType::f32);
 
-            currentMeta->addResult(ValueType::f32);
+            meta->addResult(ValueType::f32);
 
             break;
 
         case SignatureCode::f32__f64:
-            currentMeta->addOperand(ValueType::f64);
+            meta->addOperand(ValueType::f64);
 
-            currentMeta->addResult(ValueType::f32);
+            meta->addResult(ValueType::f32);
             break;
 
         case SignatureCode::f32__i32:
-            currentMeta->addOperand(ValueType::i32);
+            meta->addOperand(ValueType::i32);
 
-            currentMeta->addResult(ValueType::f32);
+            meta->addResult(ValueType::f32);
             break;
 
         case SignatureCode::f32__i64:
-            currentMeta->addOperand(ValueType::i64);
+            meta->addOperand(ValueType::i64);
 
-            currentMeta->addResult(ValueType::f32);
+            meta->addResult(ValueType::f32);
             break;
 
         case SignatureCode::f32__v128:
-            currentMeta->addOperand(ValueType::v128);
+            meta->addOperand(ValueType::v128);
 
-            currentMeta->addResult(ValueType::f32);
+            meta->addResult(ValueType::f32);
             break;
 
         case SignatureCode::f64_:
-            currentMeta->addResult(ValueType::f64);
+            meta->addResult(ValueType::f64);
             break;
 
         case SignatureCode::f64__f32:
-            currentMeta->addOperand(ValueType::f32);
+            meta->addOperand(ValueType::f32);
 
-            currentMeta->addResult(ValueType::f64);
+            meta->addResult(ValueType::f64);
             break;
 
         case SignatureCode::f64__f64:
-            currentMeta->addOperand(ValueType::f64);
+            meta->addOperand(ValueType::f64);
 
-            currentMeta->addResult(ValueType::f64);
+            meta->addResult(ValueType::f64);
             break;
 
         case SignatureCode::f64__f64_f64:
-            currentMeta->addOperands(ValueType::f64, ValueType::f64);
+            meta->addOperands(ValueType::f64, ValueType::f64);
 
-            currentMeta->addResult(ValueType::f64);
+            meta->addResult(ValueType::f64);
             break;
 
         case SignatureCode::f64__i32:
-            currentMeta->addOperand(ValueType::i32);
+            meta->addOperand(ValueType::i32);
 
-            currentMeta->addResult(ValueType::f64);
+            meta->addResult(ValueType::f64);
             break;
 
         case SignatureCode::f64__i64:
-            currentMeta->addOperand(ValueType::i64);
+            meta->addOperand(ValueType::i64);
 
-            currentMeta->addResult(ValueType::f64);
+            meta->addResult(ValueType::f64);
             break;
 
         case SignatureCode::f64__v128:
-            currentMeta->addOperand(ValueType::v128);
+            meta->addOperand(ValueType::v128);
 
-            currentMeta->addResult(ValueType::f64);
+            meta->addResult(ValueType::f64);
             break;
 
         case SignatureCode::i32_:
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__f32:
-            currentMeta->addOperand(ValueType::f32);
+            meta->addOperand(ValueType::f32);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__f32_f32:
-            currentMeta->addOperands(ValueType::f32, ValueType::f32);
+            meta->addOperands(ValueType::f32, ValueType::f32);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__f64:
-            currentMeta->addOperand(ValueType::f64);
+            meta->addOperand(ValueType::f64);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__f64_f64:
-            currentMeta->addOperands(ValueType::f64, ValueType::f64);
+            meta->addOperands(ValueType::f64, ValueType::f64);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__i32:
-            currentMeta->addOperand(ValueType::i32);
+            meta->addOperand(ValueType::i32);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__i32_i32:
-            currentMeta->addOperands(ValueType::i32, ValueType::i32);
+            meta->addOperands(ValueType::i32, ValueType::i32);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__i32_i32_i32:
-            currentMeta->addOperands(ValueType::i32, ValueType::i32, ValueType::i32);
+            meta->addOperands(ValueType::i32, ValueType::i32, ValueType::i32);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__i32_i32_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::i32, ValueType::i32);
+            meta->addOperands(ValueType::i64, ValueType::i32, ValueType::i32);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__i32_i64_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::i64, ValueType::i32);
+            meta->addOperands(ValueType::i64, ValueType::i64, ValueType::i32);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__i64:
-            currentMeta->addOperand(ValueType::i64);
+            meta->addOperand(ValueType::i64);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__i64_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::i64);
+            meta->addOperands(ValueType::i64, ValueType::i64);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i32__v128:
-            currentMeta->addOperand(ValueType::v128);
+            meta->addOperand(ValueType::v128);
 
-            currentMeta->addResult(ValueType::i32);
+            meta->addResult(ValueType::i32);
             break;
 
         case SignatureCode::i64_:
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__f32:
-            currentMeta->addOperand(ValueType::f32);
+            meta->addOperand(ValueType::f32);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__f64:
-            currentMeta->addOperand(ValueType::f64);
+            meta->addOperand(ValueType::f64);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__i32:
-            currentMeta->addOperand(ValueType::i32);
+            meta->addOperand(ValueType::i32);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__i32_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::i32);
+            meta->addOperands(ValueType::i64, ValueType::i32);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__i32_i64_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::i64, ValueType::i32);
+            meta->addOperands(ValueType::i64, ValueType::i64, ValueType::i32);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__i64:
-            currentMeta->addOperand(ValueType::i64);
+            meta->addOperand(ValueType::i64);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__i64_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::i64);
+            meta->addOperands(ValueType::i64, ValueType::i64);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::i64__v128:
-            currentMeta->addOperand(ValueType::v128);
+            meta->addOperand(ValueType::v128);
 
-            currentMeta->addResult(ValueType::i64);
+            meta->addResult(ValueType::i64);
             break;
 
         case SignatureCode::v128_:
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__f32:
-            currentMeta->addOperand(ValueType::f32);
+            meta->addOperand(ValueType::f32);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__f64:
-            currentMeta->addOperand(ValueType::f64);
+            meta->addOperand(ValueType::f64);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__i32:
-            currentMeta->addOperand(ValueType::i32);
+            meta->addOperand(ValueType::i32);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__i64:
-            currentMeta->addOperand(ValueType::i64);
+            meta->addOperand(ValueType::i64);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__v128:
-            currentMeta->addOperand(ValueType::v128);
+            meta->addOperand(ValueType::v128);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__v128_f32:
-            currentMeta->addOperands(ValueType::f32, ValueType::v128);
+            meta->addOperands(ValueType::f32, ValueType::v128);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__v128_f64:
-            currentMeta->addOperands(ValueType::f64, ValueType::v128);
+            meta->addOperands(ValueType::f64, ValueType::v128);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__v128_i32:
-            currentMeta->addOperands(ValueType::i32, ValueType::v128);
+            meta->addOperands(ValueType::i32, ValueType::v128);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__v128_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::v128);
+            meta->addOperands(ValueType::i64, ValueType::v128);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__v128_v128:
-            currentMeta->addOperands(ValueType::v128, ValueType::v128);
+            meta->addOperands(ValueType::v128, ValueType::v128);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::v128__v128_v128_v128:
-            currentMeta->addOperands(ValueType::v128, ValueType::v128, ValueType::v128);
+            meta->addOperands(ValueType::v128, ValueType::v128, ValueType::v128);
 
-            currentMeta->addResult(ValueType::v128);
+            meta->addResult(ValueType::v128);
             break;
 
         case SignatureCode::void__i32:
-            currentMeta->addOperand(ValueType::f32);
+            meta->addOperand(ValueType::f32);
             break;
 
         case SignatureCode::void__i32_f32:
-            currentMeta->addOperands(ValueType::f32, ValueType::i32);
+            meta->addOperands(ValueType::f32, ValueType::i32);
             break;
 
         case SignatureCode::void__i32_f64:
-            currentMeta->addOperands(ValueType::f64, ValueType::i32);
+            meta->addOperands(ValueType::f64, ValueType::i32);
             break;
 
         case SignatureCode::void__i32_i32:
-            currentMeta->addOperands(ValueType::i32, ValueType::i32);
+            meta->addOperands(ValueType::i32, ValueType::i32);
             break;
 
         case SignatureCode::void__i32_i32_i32:
-            currentMeta->addOperands(ValueType::i32, ValueType::i32, ValueType::i32);
+            meta->addOperands(ValueType::i32, ValueType::i32, ValueType::i32);
             break;
 
         case SignatureCode::void__i32_i64:
-            currentMeta->addOperands(ValueType::i64, ValueType::i32);
+            meta->addOperands(ValueType::i64, ValueType::i32);
             break;
 
         case SignatureCode::void__i32_v128:
-            currentMeta->addOperands(ValueType::v128, ValueType::i32);
+            meta->addOperands(ValueType::v128, ValueType::i32);
             break;
 
         case SignatureCode::special:
-            addSpecial();
+            addSpecial(meta);
             break;
 
         default:
@@ -589,6 +589,7 @@ void ExpressionSBuilder::buildExpressionSs(std::vector<ExpressionS>& result, boo
                                 }
 
                                 expressionS.meta->results.push_back(type1);
+                                expressionS.meta->addOperands(ValueType::i32, type1, type1);
                             }
                         }
                     }
@@ -629,8 +630,8 @@ void ExpressionSBuilder::buildExpressionSs(std::vector<ExpressionS>& result, boo
             auto nextOpcode = nextMeta.instruction->getOpcode();
 
             if (nextOpcode == Opcode::end) {
-                expressionS.expressionSs.back().expressionSs.emplace_back(&nextMeta);
-                expressionS.expressionSs.back().expressionSs.back().isEnd = true;
+                expressionS.expressionSs.emplace_back(&nextMeta);
+                expressionS.expressionSs.back().isEnd = true;
                 currentMetaIndex++;
             }
         }
@@ -645,7 +646,7 @@ void ExpressionSBuilder::buildExpressionSs(std::vector<ExpressionS>& result, boo
 
 void ExpressionSBuilder::generateExpressionSs(std::ostream& os, std::vector<ExpressionS>& result)
 {
-    InstructionContext context(module);
+    InstructionContext context(module, currentCodeEntry);
 
     context.setComments(false);
     context.enter();
@@ -672,6 +673,9 @@ void ExpressionSBuilder::generate(std::ostream& os, CodeEntry* code)
 
     addMeta();
     buildExpressionSs(expressionSs);
+
+    InstructionContext context(module, currentCodeEntry);
+
     generateExpressionSs(os, expressionSs);
 }
 
@@ -714,7 +718,6 @@ ExpressionSBuilder::ExpressionSBuilder(Module* module)
 void ExpressionSBuilder::clear()
 {
     currentInstruction = nullptr;
-    currentMeta = nullptr;
     currentCodeEntry = nullptr;
     currentSignature = nullptr;
     currentMetaIndex = 0;

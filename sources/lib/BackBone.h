@@ -37,6 +37,7 @@ class Expression : public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateValue(std::ostream& os, Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -636,6 +637,8 @@ class Local : public TreeNode
             return number;
         }
 
+        std::string getCName() const;
+        void printCName(std::ostream& os) const;
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
         void check(CheckContext& context);
@@ -736,10 +739,14 @@ class TypeUse
             signature.reset(value);
         }
 
+        std::string getCName(uint32_t number) const;
+        void printCName(std::ostream& os, size_t number) const;
+
         void checkSignature(SourceContext& context);
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module, size_t number = 0);
         void write(BinaryContext& context) const;
 
         static void parse(SourceContext& context, TypeUse* result);
@@ -788,6 +795,7 @@ class TypeDeclaration : public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -821,6 +829,7 @@ class TypeSection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        void generateC(std::ostream& os, Module* module);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -881,6 +890,10 @@ class ImportDeclaration : public TreeNode
         void generateNames(std::ostream& os);
         virtual void show(std::ostream& os, Module* module) = 0;
         virtual void generate(std::ostream& os, Module* module) = 0;
+        virtual void generateC(std::ostream& os, Module* module)
+        {
+        }
+
         virtual void check(CheckContext& context) = 0;
         virtual void write(BinaryContext& context) const = 0;
 
@@ -918,6 +931,7 @@ class FunctionImport : public TypeUse, public ImportDeclaration
 
         virtual void show(std::ostream& os, Module* module) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        virtual void generateC(std::ostream& os, Module* module) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -968,6 +982,8 @@ class Table
             limits = l;
         }
 
+        void printCName(std::ostream& os, size_t number) const;
+
     protected:
         ValueType type = 0;
         Limits limits;
@@ -985,6 +1001,7 @@ class TableImport : public Table, public ImportDeclaration
 
         virtual void show(std::ostream& os, Module* module) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        virtual void generateC(std::ostream& os, Module* module) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1025,6 +1042,8 @@ class Memory
             limits = l;
         }
 
+        void printCName(std::ostream& os, size_t number) const;
+
     protected:
         Limits limits;
         std::string id;
@@ -1041,6 +1060,7 @@ class MemoryImport : public Memory, public ImportDeclaration
 
         virtual void show(std::ostream& os, Module* module) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        virtual void generateC(std::ostream& os, Module* module) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1158,6 +1178,9 @@ class Global
             mut = m;
         }
 
+        std::string getCName(uint32_t number) const;
+        void printCName(std::ostream& os, size_t number) const;
+
     protected:
         ValueType type = 0;
         Mut mut;
@@ -1192,6 +1215,7 @@ class ImportSection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        void generateC(std::ostream& os, Module* module);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1226,6 +1250,7 @@ class FunctionDeclaration : public TypeUse, public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1256,6 +1281,7 @@ class FunctionSection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        void generateC(std::ostream& os, Module* module);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1280,6 +1306,7 @@ class TableDeclaration : public Table, public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1310,6 +1337,7 @@ class TableSection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        void generateC(std::ostream& os, Module* module);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1334,6 +1362,7 @@ class MemoryDeclaration : public Memory, public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1364,6 +1393,7 @@ class MemorySection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        void generateC(std::ostream& os, Module* module);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1447,6 +1477,7 @@ class GlobalDeclaration : public Global, public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1478,6 +1509,7 @@ class GlobalSection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        void generateC(std::ostream& os, Module* module);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 
@@ -1753,6 +1785,7 @@ class CodeEntry : public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1785,6 +1818,7 @@ class CodeSection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        void generateC(std::ostream& os, Module* module);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 

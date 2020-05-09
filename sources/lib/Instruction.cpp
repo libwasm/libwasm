@@ -7,6 +7,7 @@
 #include "TokenBuffer.h"
 #include "parser.h"
 
+#include <cassert>
 #include <iomanip>
 
 namespace libwasm
@@ -107,7 +108,7 @@ InstructionI32* InstructionI32::parse(SourceContext& context, Opcode opcode)
 {
     auto result = context.makeTreeNode<InstructionI32>();
 
-    result->imm = requiredI32(context);
+    result->value = requiredI32(context);
 
     return result;
 }
@@ -116,7 +117,7 @@ InstructionI32* InstructionI32::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionI32>();
 
-    result->imm = context.data().getI32leb();
+    result->value = context.data().getI32leb();
 
     return result;
 }
@@ -126,7 +127,7 @@ void InstructionI32::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putI32leb(imm);
+    data.putI32leb(value);
 }
 
 void InstructionI32::check(CheckContext& context)
@@ -136,14 +137,14 @@ void InstructionI32::check(CheckContext& context)
 
 void InstructionI32::generate(std::ostream& os, InstructionContext& context)
 {
-    os << opcode << " " << imm;
+    os << opcode << " " << value;
 }
 
 InstructionI64* InstructionI64::parse(SourceContext& context, Opcode opcode)
 {
     auto result = context.makeTreeNode<InstructionI64>();
 
-    result->imm = requiredI64(context);
+    result->value = requiredI64(context);
 
     return result;
 }
@@ -152,7 +153,7 @@ InstructionI64* InstructionI64::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionI64>();
 
-    result->imm = context.data().getI64leb();
+    result->value = context.data().getI64leb();
 
     return result;
 }
@@ -162,7 +163,7 @@ void InstructionI64::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putI64leb(imm);
+    data.putI64leb(value);
 }
 
 void InstructionI64::check(CheckContext& context)
@@ -172,14 +173,14 @@ void InstructionI64::check(CheckContext& context)
 
 void InstructionI64::generate(std::ostream& os, InstructionContext& context)
 {
-    os << opcode << " " << imm;
+    os << opcode << " " << value;
 }
 
 InstructionF32* InstructionF32::parse(SourceContext& context, Opcode opcode)
 {
     auto result = context.makeTreeNode<InstructionF32>();
 
-    result->imm = requiredF32(context);
+    result->value = requiredF32(context);
 
     return result;
 }
@@ -188,7 +189,7 @@ InstructionF32* InstructionF32::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionF32>();
 
-    result->imm = context.data().getF();
+    result->value = context.data().getF();
 
     return result;
 }
@@ -198,7 +199,7 @@ void InstructionF32::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putF(imm);
+    data.putF(value);
 }
 
 void InstructionF32::check(CheckContext& context)
@@ -218,7 +219,7 @@ void InstructionF32::generate(std::ostream& os, InstructionContext& context)
 
     os << opcode << ' ';
 
-    f = imm;
+    f = value;
 
     if ((i & 0x7f800000) == 0x7f800000) {
         if ((i & 0x80000000) != 0) {
@@ -235,21 +236,52 @@ void InstructionF32::generate(std::ostream& os, InstructionContext& context)
             }
         }
     } else  {
-        os << std::hexfloat << imm << std::defaultfloat;
+        os << std::hexfloat << value << std::defaultfloat;
 
         if (context.getComments()) {
-            os << " (;=" << imm << ";)";
+            os << " (;=" << value << ";)";
         }
     }
 
     os.flags(flags);
 }
 
+void InstructionF32::generateCValue(std::ostream& os, InstructionContext& context)
+{
+    union
+    {
+        uint32_t i;
+        float f;
+    };
+
+    f = value;
+
+    if ((i & 0x7f800000) == 0x7f800000) {
+        if ((i & 0x80000000) != 0) {
+            os << '-';
+            i &= 0x7fffffff;
+        }
+
+        if (i  == 0x7f800000) {
+            os << "INFINITY";
+        } else {
+            if (i != 0x7fc00000) {
+                os << "nan(";
+                os << "\"0x" << std::hex << (i & 0x7fffff) << std::dec << "\")";
+            } else {
+                os << "NAN";
+            }
+        }
+    } else  {
+        os << value;
+    }
+}
+
 InstructionF64* InstructionF64::parse(SourceContext& context, Opcode opcode)
 {
     auto result = context.makeTreeNode<InstructionF64>();
 
-    result->imm = requiredF64(context);
+    result->value = requiredF64(context);
 
     return result;
 }
@@ -258,7 +290,7 @@ InstructionF64* InstructionF64::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionF64>();
 
-    result->imm = context.data().getD();
+    result->value = context.data().getD();
 
     return result;
 }
@@ -268,7 +300,7 @@ void InstructionF64::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putD(imm);
+    data.putD(value);
 }
 
 void InstructionF64::check(CheckContext& context)
@@ -288,7 +320,7 @@ void InstructionF64::generate(std::ostream& os, InstructionContext& context)
 
     os << opcode << ' ';
 
-    f = imm;
+    f = value;
 
     if ((i & 0x7ff0000000000000ull) == 0x7ff0000000000000ull) {
         if ((i & 0x8000000000000000) != 0) {
@@ -305,14 +337,43 @@ void InstructionF64::generate(std::ostream& os, InstructionContext& context)
             }
         }
     } else  {
-        os << std::hexfloat << imm << std::defaultfloat;
+        os << std::hexfloat << value << std::defaultfloat;
 
         if (context.getComments()) {
-            os << " (;=" << imm << ";)";
+            os << " (;=" << value << ";)";
         }
     }
 
     os.flags(flags);
+}
+
+void InstructionF64::generateCValue(std::ostream& os, InstructionContext& context)
+{
+    union
+    {
+        uint64_t i;
+        double f;
+    };
+
+    f = value;
+
+    if ((i & 0x7ff0000000000000ull) == 0x7ff0000000000000ull) {
+        if ((i & 0x8000000000000000) != 0) {
+            os << '-';
+            i &= 0x7fffffffffffffff;
+        }
+
+        if (i  == 0x7ff0000000000000ull) {
+            os << "INFINITY";
+        } else {
+            if (i != 0x7ff8000000000000ull) {
+                os << "nan(";
+                os << "\"0x" << std::hex << (i & 0xfffffffffffffull) << std::dec << "\")";
+            }
+        }
+    } else  {
+        os << value;
+    }
 }
 
 InstructionV128* InstructionV128::parse(SourceContext& context, Opcode opcode)
@@ -388,7 +449,7 @@ InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
 
     if (startClause(context, "result")) {
         if (auto value = parseValueType(context)) {
-            result->imm = *value;
+            result->resultType = *value;
         } else {
             context.msgs().error(tokens.peekToken(), "Missing or invalid result type.");
         }
@@ -399,7 +460,7 @@ InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
     }
 
     if (auto value = parseValueType(context)) {
-        result->imm = *value;
+        result->resultType = *value;
     }
 
     return result;
@@ -409,7 +470,7 @@ InstructionBlock* InstructionBlock::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionBlock>();
 
-    result->imm = ValueType(context.data().getI32leb());
+    result->resultType = ValueType(context.data().getI32leb());
 
     return result;
 }
@@ -419,20 +480,20 @@ void InstructionBlock::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putI32leb(int32_t(imm));
+    data.putI32leb(int32_t(resultType));
 }
 
 void InstructionBlock::check(CheckContext& context)
 {
-    context.checkValueType(this, imm);
+    context.checkValueType(this, resultType);
 }
 
 void InstructionBlock::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode;
 
-    if (imm != ValueType::void_) {
-        os << " (result " << imm << ')';
+    if (resultType != ValueType::void_) {
+        os << " (result " << resultType << ')';
     }
 
     if (context.getComments()) {

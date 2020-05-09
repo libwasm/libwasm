@@ -592,6 +592,175 @@ void Module::generateS(std::ostream& os)
     generate(os);
 }
 
+static void makeLoadFunction(std::ostream& os, std::string_view memory,
+        std::string_view name, std::string_view cast, std::string_view valueType)
+{
+    os << "\n" << valueType << " " << name << "(uint64_t offset)"
+          "\n{"
+          "\n  return " << cast << "(" << memory << ".data + offset);"
+          "\n}\n";
+}
+
+static void makeStoreFunction(std::ostream& os, std::string_view memory,
+        std::string_view name, std::string_view cast, std::string_view valueType)
+{
+    os << "\nvoid " << name << "(uint64_t offset, " << valueType << " value)"
+          "\n{"
+          "\n  " << cast << "(" << memory << ".data + offset) = value;"
+          "\n}\n";
+}
+
+void Module::generateCPreamble(std::ostream& os)
+{
+    Table* table = nullptr;
+
+    if (auto* tableSection = getTableSection(); tableSection != nullptr) {
+        table = tableSection->getTables()[0].get();
+    } else if (auto* importSection = getImportSection(); importSection != nullptr) {
+        for (auto& import : importSection->getImports()) {
+            if (import->getKind() == ExternalType::table) {
+                table = static_cast<TableImport*>(import.get());
+                break;
+            }
+        }
+    }
+
+    if (table != nullptr) {
+        std::string tableName;
+
+        if (!table->getId().empty()) {
+            tableName = table->getId();
+        } else if (!table->getExternId().empty()) {
+            tableName = table->getExternId();
+        } else {
+            tableName = "table0";
+        }
+
+        os << "\n#define TABLE " << tableName << '\n';
+    }
+
+    Memory* memory = nullptr;
+
+    if (auto* memorySection = getMemorySection(); memorySection != nullptr) {
+        memory = memorySection->getMemories()[0].get();
+    } else if (auto* importSection = getImportSection(); importSection != nullptr) {
+        for (auto& import : importSection->getImports()) {
+            if (import->getKind() == ExternalType::memory) {
+                memory = static_cast<MemoryImport*>(import.get());
+                break;
+            }
+        }
+    }
+
+    if (memory != nullptr) {
+        std::string memoryName;
+
+        if (!memory->getId().empty()) {
+            memoryName = memory->getId();
+        } else if (!memory->getExternId().empty()) {
+            memoryName = memory->getExternId();
+        } else {
+            memoryName = "memory0";
+        }
+
+        os << "\n#define MEMORY " << memoryName << '\n';
+
+        makeLoadFunction(os, memoryName, "loadI32", "*(int32_t*)", "int32_t");
+        makeLoadFunction(os, memoryName, "loadI64", "*(int64_t*)", "int64_t");
+        makeLoadFunction(os, memoryName, "loadF32", "*(float*)", "float");
+        makeLoadFunction(os, memoryName, "loadF64", "*(double*)", "double");
+
+        makeLoadFunction(os, memoryName, "loadI32U8", "(int32_t)*(uint8_t*)", "int32_t");
+        makeLoadFunction(os, memoryName, "loadI32I8", "(int32_t)*(int8_t*)", "int32_t");
+        makeLoadFunction(os, memoryName, "loadI32U16", "(int32_t)*(uint16_t*)", "int32_t");
+        makeLoadFunction(os, memoryName, "loadI32I16", "(int32_t)*(int16_t*)", "int32_t");
+
+        makeLoadFunction(os, memoryName, "loadI64U8", "(int64_t)*(uint8_t*)", "int64_t");
+        makeLoadFunction(os, memoryName, "loadI64I8", "(int64_t)*(int8_t*)", "int64_t");
+        makeLoadFunction(os, memoryName, "loadI64U16", "(int64_t)*(uint16_t*)", "int64_t");
+        makeLoadFunction(os, memoryName, "loadI64I16", "(int64_t)*(int16_t*)", "int64_t");
+        makeLoadFunction(os, memoryName, "loadI64U32", "(int64_t)*(uint32_t*)", "int64_t");
+        makeLoadFunction(os, memoryName, "loadI64I32", "(int64_t)*(int32_t*)", "int64_t");
+
+        makeStoreFunction(os, memoryName, "storeI32", "*(int32_t*)", "int32_t");
+        makeStoreFunction(os, memoryName, "storeI64", "*(int64_t*)", "int64_t");
+        makeStoreFunction(os, memoryName, "storeF32", "*(float*)", "float");
+        makeStoreFunction(os, memoryName, "storeF64", "*(double*)", "double");
+
+        makeStoreFunction(os, memoryName, "storeI32I8", "*(int8_t*)", "int32_t");
+        makeStoreFunction(os, memoryName, "storeI32I16", "*(int16_t*)", "int32_t");
+
+        makeStoreFunction(os, memoryName, "storeI64I8", "*(int8_t*)", "int64_t");
+        makeStoreFunction(os, memoryName, "storeI64I16", "*(int16_t*)", "int64_t");
+        makeStoreFunction(os, memoryName, "storeI64I32", "*(int32_t*)", "int64_t");
+    }
+
+    os << "\nuint32_t rotl32(uint32_t value, uint32_t count)"
+          "\n{"
+          "\n  return ((value << count) | (value >> (32 - count)));"
+          "\n}\n";
+
+    os << "\nuint32_t rotr32(uint32_t value, uint32_t count)"
+          "\n{"
+          "\n  return ((value >> count) | (value << (32 - count)));"
+          "\n}\n";
+
+    os << "\nuint64_t rotl64(uint64_t value, uint64_t count)"
+          "\n{"
+          "\n  return ((value << count) | (value >> (64 - count)));"
+          "\n}\n";
+
+    os << "\nuint64_t rotr64(uint64_t value, uint64_t count)"
+          "\n{"
+          "\n  return ((value >> count) | (value << (64 - count)));"
+          "\n}\n";
+}
+
+void Module::generateC(std::ostream& os)
+{
+    os << "\n#include \"libwasm.h\""
+          "\n"
+          "\n#include <stdint.h>"
+          "\n#include <math.h>"
+          "\n#include <string.h>"
+          "\n";
+
+    if (auto* typeSection = getTypeSection(); typeSection != nullptr) {
+        typeSection->generateC(os, this);
+        os << '\n';
+    }
+
+    if (auto* importSection = getImportSection(); importSection != nullptr) {
+        importSection->generateC(os, this);
+        os << '\n';
+    }
+
+    if (auto* globalSection = getGlobalSection(); globalSection != nullptr) {
+        globalSection->generateC(os, this);
+        os << '\n';
+    }
+
+    if (auto* memorySection = getMemorySection(); memorySection != nullptr) {
+        memorySection->generateC(os, this);
+    }
+
+    if (auto* tableSection = getTableSection(); tableSection != nullptr) {
+        tableSection->generateC(os, this);
+    }
+
+    generateCPreamble(os);
+
+    if (auto* functionSection = getFunctionSection(); functionSection != nullptr) {
+        functionSection->generateC(os, this);
+        os << '\n';
+    }
+
+    if (auto* codeSection = getCodeSection(); codeSection != nullptr) {
+        codeSection->generateC(os, this);
+        os << '\n';
+    }
+}
+
 void Module::makeDataCountSection()
 {
     if (dataCountSectionIndex == invalidSection) {
@@ -638,7 +807,9 @@ Module::Statistics Module::getStatistics()
 
     if (auto* elementSection = getElementSection(); elementSection != nullptr) {
         for (auto& element : elementSection->getElements()) {
-            result.initInstructionCount += element->getExpression()->getInstructions().size();
+            if (element->getExpression() != 0) {
+                result.initInstructionCount += element->getExpression()->getInstructions().size();
+            }
 
             for (auto& expression : element->getRefExpressions()) {
                 result.initInstructionCount += expression->getInstructions().size();

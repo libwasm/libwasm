@@ -165,6 +165,24 @@ std::string_view ValueType::getName() const
     }
 }
 
+std::string_view ValueType::getCName() const
+{
+    switch (value) {
+        case i32:          return "int32_t";
+        case i64:          return "int64_t";
+        case f32:          return "float";
+        case f64:          return "double";
+        case v128:         return "v128";
+        case anyref:       return "void *";
+        case exnref:       return "exnref";
+        case nullref:      return "0";
+        case funcref:      return "funcref";
+        case void_:        return "void";
+
+        default:           return std::string_view();
+    }
+}
+
 struct ValueTypeEntry
 {
     std::string_view name;

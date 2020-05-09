@@ -2,6 +2,7 @@
 
 #include "BackBone.h"
 
+#include "CGenerator.h"
 #include "ExpressionS.h"
 #include "Instruction.h"
 #include "Module.h"
@@ -989,6 +990,30 @@ void TypeDeclaration::generate(std::ostream& os, Module* module)
     os << "))";
 }
 
+void TypeDeclaration::generateC(std::ostream& os, Module* module)
+{
+    auto& results = signature->getResults();
+
+    os << "\ntypedef ";
+
+    if (results.empty()) {
+        os << "void";
+    } else {
+        os << results[0].getCName();
+    }
+
+    os << "(*type" << number << ")(";
+
+    const char* separator = "";
+
+    for (auto& param : signature->getParams()) {
+        os << separator << param->getType().getCName();
+        separator = ", ";
+    }
+
+    os << ");";
+}
+
 void TypeDeclaration::show(std::ostream& os, Module* module)
 {
     os << "  Type " << number << ": ";
@@ -1061,6 +1086,13 @@ void TypeSection::generate(std::ostream& os, Module* module)
 {
     for (auto& type : types) {
         type->generate(os, module);
+    }
+}
+
+void TypeSection::generateC(std::ostream& os, Module* module)
+{
+    for (auto& type : types) {
+        type->generateC(os, module);
     }
 }
 
@@ -1142,10 +1174,12 @@ void TypeUse::parse(SourceContext& context, TypeUse* result)
             result->signatureIndex = module->getTypeIndex(*id);
             msgs.errorWhen(result->signatureIndex == invalidIndex, tokens.peekToken(-1),
                     "Type with id '", *id, "' does not exist.");
-        } else if (auto index = tokens.getU32()) {
+        } else if (auto index = parseTypeIndex(context)) {
             result->signatureIndex = *index;
             msgs.errorWhen(*index >= module->getTypeCount(), tokens.peekToken(-1),
                     "Type index ", *index, " out of bounds.");
+        } else {
+            msgs.error(tokens.peekToken(), "Missing or invalid type index.");
         }
 
         requiredCloseParenthesis(context);
@@ -1172,6 +1206,57 @@ void TypeUse::read(BinaryContext& context, TypeUse* result)
 void TypeUse::generate(std::ostream& os, Module* module)
 {
     os << " (type " << signatureIndex << ')';
+}
+
+std::string TypeUse::getCName(uint32_t number) const
+{
+    std::string result;
+
+    if (!id.empty()) {
+        result = cName(id);
+    } else if (!externId.empty()) {
+        result = cName(externId);
+    } else {
+        result = "f" + toString(number);
+    }
+    return result;
+}
+
+void TypeUse::printCName(std::ostream& os, size_t number) const
+{
+    if (!id.empty()) {
+        os << cName(id);
+    } else if (!externId.empty()) {
+        os << cName(externId);
+    } else {
+        os << 'f' << number;
+    }
+}
+
+void TypeUse::generateC(std::ostream& os, Module* module, size_t number)
+{
+    auto& results = signature->getResults();
+
+    if (results.empty()) {
+        os << "void";
+    } else {
+        os << results[0].getCName();
+    }
+
+    os << ' ';
+    printCName(os, number);
+
+    os << '(';
+
+    const char* separator = "";
+
+    for (auto& param : signature->getParams()) {
+        os << separator << param->getType().getCName() << ' ';
+        param->printCName(os);
+        separator = ", ";
+    }
+
+    os << ')';
 }
 
 void TypeUse::show(std::ostream& os, Module* module)
@@ -1250,6 +1335,13 @@ void FunctionImport::generate(std::ostream& os, Module* module)
     os << "))";
 }
 
+void FunctionImport::generateC(std::ostream& os, Module* module)
+{
+    os << "\nextern ";
+    static_cast<TypeUse*>(this)->generateC(os, module);
+    os << ';';
+}
+
 void FunctionImport::show(std::ostream& os, Module* module)
 {
     os << "  func " << number << ':';
@@ -1257,6 +1349,17 @@ void FunctionImport::show(std::ostream& os, Module* module)
     os << ", ";
     static_cast<TypeUse*>(this)->show(os, module);
     os << '\n';
+}
+
+void Memory::printCName(std::ostream& os, size_t number) const
+{
+    if (!id.empty()) {
+        os << cName(id);
+    } else if (!externId.empty()) {
+        os << cName(externId);
+    } else {
+        os << "memory" << number;
+    }
 }
 
 void MemoryImport::write(BinaryContext& context) const
@@ -1329,6 +1432,13 @@ void MemoryImport::generate(std::ostream& os, Module* module)
     os << " (memory (;" << number << ";)";
     limits.generate(os);
     os << "))";
+}
+
+void MemoryImport::generateC(std::ostream& os, Module* module)
+{
+    os << "\nextern Memory ";
+    printCName(os, 0);
+    os << ';';
 }
 
 void MemoryImport::show(std::ostream& os, Module* module)
@@ -1427,6 +1537,17 @@ void EventImport::show(std::ostream& os, Module* module)
     os << '\n';
 }
 
+void Table::printCName(std::ostream& os, size_t number) const
+{
+    if (!id.empty()) {
+        os << cName(id);
+    } else if (!externId.empty()) {
+        os << cName(externId);
+    } else {
+        os << "table" << number;
+    }
+}
+
 void TableImport::write(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -1507,6 +1628,13 @@ void TableImport::generate(std::ostream& os, Module* module)
     os << " (table (;" << number << ";)";
     limits.generate(os);
     os << ' ' << type << "))";
+}
+
+void TableImport::generateC(std::ostream& os, Module* module)
+{
+    os << "\nextern Table ";
+    printCName(os, 0);
+    os << ';';
 }
 
 void TableImport::show(std::ostream& os, Module* module)
@@ -2096,6 +2224,13 @@ void ImportSection::generate(std::ostream& os, Module* module)
     }
 }
 
+void ImportSection::generateC(std::ostream& os, Module* module)
+{
+    for (auto& import : imports) {
+        import->generateC(os, module);
+    }
+}
+
 void ImportSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Import section:\n";
@@ -2167,6 +2302,18 @@ void FunctionDeclaration::check(CheckContext& context)
 void FunctionDeclaration::generate(std::ostream& os, Module* module)
 {
     // nothing to do
+}
+
+void FunctionDeclaration::generateC(std::ostream& os, Module* module)
+{
+    os << '\n';
+
+    if (externId.empty()) {
+        os << "static ";
+    }
+
+    static_cast<TypeUse*>(this)->generateC(os, module, number);
+    os << ';';
 }
 
 void FunctionDeclaration::show(std::ostream& os, Module* module)
@@ -2245,6 +2392,13 @@ void FunctionSection::check(CheckContext& context)
 void FunctionSection::generate(std::ostream& os, Module* module)
 {
     // nothing to do
+}
+
+void FunctionSection::generateC(std::ostream& os, Module* module)
+{
+    for (auto& function : functions) {
+        function->generateC(os, module);
+    }
 }
 
 void FunctionSection::show(std::ostream& os, Module* module, unsigned flags)
@@ -2376,6 +2530,13 @@ void TableDeclaration::generate(std::ostream& os, Module* module)
     os << ')';
 }
 
+void TableDeclaration::generateC(std::ostream& os, Module* module)
+{
+    os << "\nTable ";
+    printCName(os, 0);
+    os << ";";
+}
+
 void TableSection::write(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -2431,6 +2592,13 @@ void TableSection::generate(std::ostream& os, Module* module)
 {
     for (auto& table : tables) {
         table->generate(os, module);
+    }
+}
+
+void TableSection::generateC(std::ostream& os, Module* module)
+{
+    for (auto& table : tables) {
+        table->generateC(os, module);
     }
 }
 
@@ -2513,6 +2681,7 @@ MemoryDeclaration* MemoryDeclaration::read(BinaryContext& context)
     auto* module = context.getModule();
     auto result = context.makeTreeNode<MemoryDeclaration>();
 
+    module->addMemory(result);
     result->limits = readLimits(context);
     result->number = module->nextMemoryCount();
 
@@ -2540,6 +2709,13 @@ void MemoryDeclaration::generate(std::ostream& os, Module* module)
     limits.generate(os);
 
     os << ')';
+}
+
+void MemoryDeclaration::generateC(std::ostream& os, Module* module)
+{
+    os << "\nMemory ";
+    printCName(os, 0);
+    os << ";";
 }
 
 void MemorySection::write(BinaryContext& context) const
@@ -2597,6 +2773,13 @@ void MemorySection::generate(std::ostream& os, Module* module)
 {
     for (auto& memory : memories) {
         memory->generate(os, module);
+    }
+}
+
+void MemorySection::generateC(std::ostream& os, Module* module)
+{
+    for (auto& memory : memories) {
+        memory->generateC(os, module);
     }
 }
 
@@ -2727,6 +2910,50 @@ void GlobalDeclaration::generate(std::ostream& os, Module* module)
     os << ')';
 }
 
+std::string Global::getCName(uint32_t number) const
+{
+    std::string result;
+
+    if (!id.empty()) {
+        result = cName(id);
+    } else {
+        result = "global" + toString(number);
+    }
+
+    return result;
+}
+
+void Global::printCName(std::ostream& os, size_t number) const
+{
+    if (!id.empty()) {
+        os << cName(id);
+    } else if (!externId.empty()) {
+        os << cName(externId);
+    } else {
+        os << "global" << number;
+    }
+}
+
+void GlobalDeclaration::generateC(std::ostream& os, Module* module)
+{
+    os << '\n';
+
+    if (externId.empty()) {
+        os << "static ";
+    }
+
+    os << type.getCName() << ' ';
+
+    printCName(os, number);
+
+    if (expression) {
+        os << " = ";
+        expression->generateValue(os, module);
+    }
+
+    os << ';';
+}
+
 void GlobalSection::write(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -2782,6 +3009,13 @@ void GlobalSection::generate(std::ostream& os, Module* module)
 {
     for (auto& global : globals) {
         global->generate(os, module);
+    }
+}
+
+void GlobalSection::generateC(std::ostream& os, Module* module)
+{
+    for (auto& global : globals) {
+        global->generateC(os, module);
     }
 }
 
@@ -3206,6 +3440,37 @@ void Expression::generate(std::ostream& os, Module* module)
     }
 }
 
+void Expression::generateValue(std::ostream& os, Module* module)
+{
+    assert(instructions.size() == 1);
+
+    auto* instruction = instructions[0].get();
+
+    switch(instruction->getOpcode()) {
+        case Opcode::i32__const:
+            os << static_cast<InstructionI32*>(instruction)->getValue();
+            return;
+
+        case Opcode::i64__const:
+            os << static_cast<InstructionI64*>(instruction)->getValue();
+            return;
+
+        case Opcode::f32__const:
+            os << static_cast<InstructionF32*>(instruction)->getValue();
+            return;
+
+        case Opcode::f64__const:
+            os << static_cast<InstructionF64*>(instruction)->getValue();
+            return;
+
+        default:
+            // TBI
+            assert(false);
+
+    }
+}
+
+
 void Expression::show(std::ostream& os, Module* module)
 {
     generate(os, module);
@@ -3582,6 +3847,28 @@ void ElementSection::show(std::ostream& os, Module* module, unsigned flags)
     os << '\n';
 }
 
+std::string Local::getCName() const
+{
+    std::string result;
+
+    if (!id.empty()) {
+        result = cName(id);
+    } else {
+        result = "local" + toString(number);
+    }
+
+    return result;
+}
+
+void Local::printCName(std::ostream& os) const
+{
+    if (!id.empty()) {
+        os << cName(id);
+    } else {
+        os << "local" << number;
+    }
+}
+
 Local* Local::parse(SourceContext& context)
 {
     auto* module = context.getModule();
@@ -3787,6 +4074,28 @@ void CodeEntry::generate(std::ostream& os, Module* module)
     os << ")";
 }
 
+void CodeEntry::generateC(std::ostream& os, Module* module)
+{
+    auto* function = module->getFunction(number);
+
+    os << '\n';
+
+    if (function->getExternId().empty()) {
+        os << "static ";
+    }
+
+    static_cast<TypeUse*>(function)->generateC(os, module, number);
+
+    os << "\n{";
+
+    CGenerator generator(module, this);
+
+    generator.generateC(os);
+
+    os << "\n}"
+        "\n";
+}
+
 void CodeEntry::show(std::ostream& os, Module* module)
 {
     for (auto& local : locals) {
@@ -3870,6 +4179,13 @@ void CodeSection::generate(std::ostream& os, Module* module)
 {
     for (auto& code : codes) {
         code->generate(os, module);
+    }
+}
+
+void CodeSection::generateC(std::ostream& os, Module* module)
+{
+    for (auto& code : codes) {
+        code->generateC(os, module);
     }
 }
 
