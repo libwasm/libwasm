@@ -43,15 +43,13 @@ The following webassemly code
 
 is converted into the following C code:
 
-     int32_t fib(int32_t local0)
+     int32_t __fib(int32_t __n)
      {
        int32_t result0 = 0;
-       if (local0 < 2) {
+       if (__n < 2) {
          return 1;
        }
-       return fib(local0 - 2) + fib(local0 - 1);
-     
-     label0:;
+       return __fib(__n - 2) + __fib(__n - 1);
        return result0;
      }
 

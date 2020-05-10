@@ -188,6 +188,55 @@ void CLabel::generateC(std::ostream& os, CGenerator* generator)
     os << "\n" << name << ':';
 }
 
+static unsigned binaryPrecedence(std::string_view op)
+{
+    static struct {
+        std::string_view op;
+        unsigned precedence;
+    } precedences[] = {
+        { "*", 14 },
+        { "/", 14 },
+        { "%", 14 },
+        { "+", 13 },
+        { "-", 13 },
+        { "<<", 11 },
+        { ">>", 11 },
+        { ">", 10 },
+        { "<", 10 },
+        { "<=", 10 },
+        { ">=", 10 },
+        { "==", 9 },
+        { "!=", 9 },
+        { "&", 8 },
+        { "^", 7 },
+        { "|", 6 },
+        { "&&", 5 },
+        { "||", 4 },
+        { "?", 3 },
+        { ":", 3 },
+        { "=", 2 },
+        { "*=", 2 },
+        { "/=", 2 },
+        { "%=", 2 },
+        { "+=", 2 },
+        { "-=", 2 },
+        { "<<=", 2 },
+        { ">>=", 2 },
+        { "&=", 2 },
+        { "^=", 2 },
+        { "|=", 2 },
+    };
+
+    for (const auto& precedence : precedences) {
+        if (op == precedence.op) {
+            return precedence.precedence;
+        }
+    }
+
+    assert(false);
+    return 0;
+}
+
 
 static bool needsParenthesis(CNode* node, std::string_view op)
 {
@@ -197,7 +246,9 @@ static bool needsParenthesis(CNode* node, std::string_view op)
         return false;
     }
 
-    if (op == "=") {
+    auto precedence = binaryPrecedence(op);
+
+    if (precedence == 2) {
         return true;
     }
 
@@ -208,7 +259,21 @@ static bool needsParenthesis(CNode* node, std::string_view op)
     }
 
     if (kind == CNode::kBinauryExpression) {
-        return true;
+        auto* binaryParent = static_cast<CBinauryExpression*>(parent);
+        std::string_view parentOp = binaryParent->op;
+
+
+        if (parentOp == op && (op == "+" || op == "*")) {
+            return false;
+        }
+
+        auto parentPrecedence = binaryPrecedence(parentOp);
+
+        if (parentPrecedence < 9) {
+            return parentPrecedence != 2;
+        }
+
+        return parentPrecedence > precedence;
     }
 
     if (kind == CNode::kUnaryExpression) {
@@ -231,6 +296,37 @@ CBinauryExpression::~CBinauryExpression()
 void CBinauryExpression::generateC(std::ostream& os, CGenerator* generator)
 {
     bool parenthesis = needsParenthesis(this, op);
+
+    if (op == "=") {
+        if (left->kind == CNode::kNameUse && right->kind == CNode::kBinauryExpression) {
+            auto* rightBinary = static_cast<CBinauryExpression*>(right);
+            auto rightPrecedence = binaryPrecedence(rightBinary->op);
+
+            if (rightPrecedence >= 13 || (rightPrecedence >= 6 && rightPrecedence <= 8)) {
+                auto* rightLeft = rightBinary->left;
+
+                if (rightLeft->kind == CNode::kNameUse) {
+                    std::string_view leftName = static_cast<CNameUse*>(left)->name;
+                    std::string_view rightLeftName = static_cast<CNameUse*>(rightLeft)->name;
+
+                    if (leftName == rightLeftName) {
+                        if (parenthesis) {
+                            os << '(';
+                        }
+
+                        os << leftName << ' ' << rightBinary->op << "= ";
+                        rightBinary->right->generateC(os, generator);
+
+                        if (parenthesis) {
+                            os << ')';
+                        }
+
+                        return;
+                    }
+                }
+            }
+        }
+    }
 
     if (parenthesis) {
         os << '(';
@@ -1113,7 +1209,9 @@ void CGenerator::generateCFunction()
         function->statements.push_back(new CBinauryExpression(resultName, value, "="));
     }
 
-    function->statements.push_back(new CLabel("label0"));
+    if (labelStack.back().branchTarget) {
+        function->statements.push_back(new CLabel("label0"));
+    }
 
     if (type != ValueType::void_) {
         function->statements.push_back(new CReturn(new CNameUse("result0")));
