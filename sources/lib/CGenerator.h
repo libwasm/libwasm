@@ -71,7 +71,37 @@ class CNode
             std::cerr << "Not implemented kind " << kind << std::endl;
         }
 
+        auto getKind() const
+        {
+            return kind;
+        }
 
+        auto* getParent() const
+        {
+            return parent;
+        }
+
+        auto* getNext() const
+        {
+            return next;
+        }
+
+        auto* getPrevious() const
+        {
+            return previous;
+        }
+
+        auto* getChild() const
+        {
+            return child;
+        }
+
+        auto* getLastChild() const
+        {
+            return lastChild;
+        }
+
+    protected:
         CNodeKind kind;
         CNode* parent = nullptr;
         CNode* next = nullptr;
@@ -95,6 +125,9 @@ class CBlock : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        void addStatement(CNode* statement);
+
+    private:
         unsigned label = 0;
         ValueType type = ValueType::void_;
         std::vector<CNode*> statements;
@@ -112,6 +145,9 @@ class CCompound : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        void addStatement(CNode* statement);
+
+    private:
         std::vector<CNode*> statements;
 };
 
@@ -127,6 +163,9 @@ class CLoop : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        void addStatement(CNode* statement);
+
+    private:
         unsigned label = 0;
         ValueType type = ValueType::void_;
         std::vector<CNode*> statements;
@@ -151,6 +190,7 @@ class CSwitch : public CNode
         CSwitch(CNode* condition)
             : CNode(kSwitch), condition(condition)
         {
+            condition->link(this);
         }
 
         ~CSwitch();
@@ -168,6 +208,10 @@ class CSwitch : public CNode
             CNode* statement = nullptr;
         };
 
+        void addCase(uint64_t value, CNode* statement);
+        void setDefault(CNode* statement);
+
+    private:
         CNode* condition = nullptr;
         std::vector<Case> cases;
         CNode* defaultCase = nullptr;
@@ -187,6 +231,12 @@ class CBinauryExpression : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        auto getOp() const
+        {
+            return op;
+        }
+
+    private:
         CNode* left = nullptr;
         CNode* right = nullptr;
         std::string_view op;
@@ -204,6 +254,10 @@ class CCallIndirect : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        void addArgument(CNode* argument);
+        void reverseArguments();
+
+    private:
         uint32_t typeIndex = 0;
         CNode* tableIndex = nullptr;
         std::vector<CNode*> arguments;
@@ -221,6 +275,10 @@ class CCall : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        void addArgument(CNode* argument);
+        void reverseArguments();
+
+    private:
         std::string functionName;
         std::vector<CNode*> arguments;
 };
@@ -238,6 +296,7 @@ class CCast : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+    private:
         std::string_view type;
         CNode* operand = nullptr;
 };
@@ -265,6 +324,7 @@ class CVariable : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+    private:
         ValueType type;
         std::string name;
         CNode* initialValue = nullptr;
@@ -273,18 +333,23 @@ class CVariable : public CNode
 class CFunction : public CNode
 {
     public:
-        CFunction()
-            : CNode(kFunction)
+        CFunction(Signature* signature)
+            : CNode(kFunction), signature(signature)
         {
         }
 
         ~CFunction();
 
-        CNode* popExpression();
-        CNode* pushExpression(CNode* expression);
-
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        void addStatement(CNode* statement);
+
+        auto* getSignature() const
+        {
+            return signature;
+        }
+
+    private:
         std::string name;
         Signature* signature = nullptr;
         std::vector<CNode*> statements;
@@ -300,6 +365,12 @@ class CI32 : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        auto getValue() const
+        {
+            return value;
+        }
+
+    private:
         int32_t value = 0;
 };
 
@@ -313,6 +384,12 @@ class CI64 : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        auto getValue() const
+        {
+            return value;
+        }
+
+    private:
         int64_t value = 0;
 };
 
@@ -326,6 +403,12 @@ class CF32 : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        auto getValue() const
+        {
+            return value;
+        }
+
+    private:
         float value = 0;
 };
 
@@ -339,6 +422,12 @@ class CF64 : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        auto getValue() const
+        {
+            return value;
+        }
+
+    private:
         double value = 0;
 };
 
@@ -354,11 +443,18 @@ class CIf : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        void setResultDeclaration(CNode* node);
+        void setLabelDeclaration(CNode* node);
+        void addThenStatement(CNode* node);
+        void addElseStatement(CNode* node);
+        void removeResultDeclaration();
+
+    private:
         CNode* condition = nullptr;
         unsigned label = 0;
         ValueType type = ValueType::void_;
-        std::vector<CNode*> preambleStatements;
-        std::vector<CNode*> postambleStatements;
+        CNode* resultDeclaration = nullptr;
+        CNode* labelDeclaration = nullptr;
         std::vector<CNode*> thenStatements;
         std::vector<CNode*> elseStatements;
 };
@@ -375,6 +471,7 @@ class CLoad : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+    private:
         std::string_view name;
         CNode* offset = nullptr;
 };
@@ -389,6 +486,12 @@ class CNameUse : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        std::string_view getName() const
+        {
+            return name;
+        }
+
+    private:
         std::string name;
 };
 
@@ -404,6 +507,7 @@ class CReturn : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+    private:
         CNode* value = nullptr;
 };
 
@@ -419,6 +523,7 @@ class CStore : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+    private:
         std::string_view name;
         CNode* offset = nullptr;
         CNode* value = nullptr;
@@ -440,6 +545,7 @@ class CTernaryExpression : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+    private:
         CNode* condition = nullptr;
         CNode* trueExpression = nullptr;
         CNode* falseExpression = nullptr;
@@ -458,6 +564,7 @@ class CUnaryExpression : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+    private:
         std::string_view op;
         CNode* operand = nullptr;
 };
@@ -531,6 +638,9 @@ class CGenerator
         unsigned pushLabel(CNode* begin, ValueType type);
         void popLabel();
 
+        void pushExpression(CNode* expression);
+        CNode* popExpression();
+
         auto& getLabel(size_t index = 0)
         {
             assert(labelStack.size() > index);
@@ -556,6 +666,7 @@ class CGenerator
         unsigned label = 0;
         std::string indentString = "";
         Module* module;
+        std::vector<CNode*> expressionStack;
         bool optimized = false;
         CodeEntry* codeEntry;
         CFunction* function;

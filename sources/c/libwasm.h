@@ -68,3 +68,23 @@ inline uint32_t popcnt64(uint64_t value)
     return __builtin_popcountll(value);
 }
 
+inline uint32_t rotl32(uint32_t value, uint32_t count)
+{
+    return ((value << count) | (value >> (32 - count)));
+}
+
+inline uint32_t rotr32(uint32_t value, uint32_t count)
+{
+    return ((value >> count) | (value << (32 - count)));
+}
+
+inline uint64_t rotl64(uint64_t value, uint64_t count)
+{
+    return ((value << count) | (value >> (64 - count)));
+}
+
+inline uint64_t rotr64(uint64_t value, uint64_t count)
+{
+    return ((value >> count) | (value << (64 - count)));
+}
+

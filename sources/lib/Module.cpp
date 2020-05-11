@@ -694,26 +694,6 @@ void Module::generateCPreamble(std::ostream& os)
         makeStoreFunction(os, memoryName, "storeI64I16", "*(int16_t*)", "int64_t");
         makeStoreFunction(os, memoryName, "storeI64I32", "*(int32_t*)", "int64_t");
     }
-
-    os << "\nuint32_t rotl32(uint32_t value, uint32_t count)"
-          "\n{"
-          "\n  return ((value << count) | (value >> (32 - count)));"
-          "\n}\n";
-
-    os << "\nuint32_t rotr32(uint32_t value, uint32_t count)"
-          "\n{"
-          "\n  return ((value >> count) | (value << (32 - count)));"
-          "\n}\n";
-
-    os << "\nuint64_t rotl64(uint64_t value, uint64_t count)"
-          "\n{"
-          "\n  return ((value << count) | (value >> (64 - count)));"
-          "\n}\n";
-
-    os << "\nuint64_t rotr64(uint64_t value, uint64_t count)"
-          "\n{"
-          "\n  return ((value >> count) | (value << (64 - count)));"
-          "\n}\n";
 }
 
 void Module::generateC(std::ostream& os, bool optimized)

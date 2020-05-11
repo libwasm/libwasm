@@ -135,10 +135,10 @@ void CNode::unlink()
 
 static std::optional<int64_t> getIntegerValue(CNode* node)
 {
-    if (node->kind == CNode::kI32) {
-        return static_cast<CI32*>(node)->value;
-    } else if (node->kind == CNode::kI64) {
-        return static_cast<CI64*>(node)->value;
+    if (node->getKind() == CNode::kI32) {
+        return static_cast<CI32*>(node)->getValue();
+    } else if (node->getKind() == CNode::kI64) {
+        return static_cast<CI64*>(node)->getValue();
     } else {
         return {};
     }
@@ -152,21 +152,10 @@ CFunction::~CFunction()
     }
 }
 
-CNode* CFunction::popExpression()
+void CFunction::addStatement(CNode* statement)
 {
-    assert(lastChild != nullptr);
-
-    auto* result = lastChild;
-
-    lastChild->unlink();
-
-    return result;
-}
-
-CNode* CFunction::pushExpression(CNode* expression)
-{
-    expression->link(this);
-    return expression;
+    statements.push_back(statement);
+    statement->link(this);
 }
 
 void CFunction::generateC(std::ostream& os, CGenerator* generator)
@@ -240,27 +229,27 @@ static unsigned binaryPrecedence(std::string_view op)
 
 static bool needsParenthesis(CNode* node, std::string_view op)
 {
-    auto* parent = node->parent;
+    auto* parent = node->getParent();
 
     if (parent == nullptr) {
         return false;
     }
 
-    auto precedence = binaryPrecedence(op);
+    auto parentKind = parent->getKind();
 
-    if (precedence == 2) {
+    if (parentKind == CNode::kCast) {
         return true;
     }
 
-    auto kind = parent->kind;
+    if (parentKind == CNode::kBinauryExpression) {
+        auto precedence = binaryPrecedence(op);
 
-    if (kind == CNode::kCast) {
-        return true;
-    }
+        if (precedence == 2) {
+            return true;
+        }
 
-    if (kind == CNode::kBinauryExpression) {
         auto* binaryParent = static_cast<CBinauryExpression*>(parent);
-        std::string_view parentOp = binaryParent->op;
+        std::string_view parentOp = binaryParent->getOp();
 
 
         if (parentOp == op && (op == "+" || op == "*")) {
@@ -276,11 +265,11 @@ static bool needsParenthesis(CNode* node, std::string_view op)
         return parentPrecedence > precedence;
     }
 
-    if (kind == CNode::kUnaryExpression) {
+    if (parentKind == CNode::kUnaryExpression) {
         return true;
     }
 
-    if (kind == CNode::kTernaryExpression) {
+    if (parentKind == CNode::kTernaryExpression) {
         return true;
     }
 
@@ -298,23 +287,23 @@ void CBinauryExpression::generateC(std::ostream& os, CGenerator* generator)
     bool parenthesis = needsParenthesis(this, op);
 
     if (op == "=") {
-        if (left->kind == CNode::kNameUse && right->kind == CNode::kBinauryExpression) {
+        if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kBinauryExpression) {
             auto* rightBinary = static_cast<CBinauryExpression*>(right);
-            auto rightPrecedence = binaryPrecedence(rightBinary->op);
+            auto rightPrecedence = binaryPrecedence(rightBinary->getOp());
 
             if (rightPrecedence >= 13 || (rightPrecedence >= 6 && rightPrecedence <= 8)) {
                 auto* rightLeft = rightBinary->left;
 
-                if (rightLeft->kind == CNode::kNameUse) {
-                    std::string_view leftName = static_cast<CNameUse*>(left)->name;
-                    std::string_view rightLeftName = static_cast<CNameUse*>(rightLeft)->name;
+                if (rightLeft->getKind() == CNode::kNameUse) {
+                    std::string_view leftName = static_cast<CNameUse*>(left)->getName();
+                    std::string_view rightLeftName = static_cast<CNameUse*>(rightLeft)->getName();
 
                     if (leftName == rightLeftName) {
                         if (parenthesis) {
                             os << '(';
                         }
 
-                        os << leftName << ' ' << rightBinary->op << "= ";
+                        os << leftName << ' ' << rightBinary->getOp() << "= ";
                         rightBinary->right->generateC(os, generator);
 
                         if (parenthesis) {
@@ -397,6 +386,17 @@ CCallIndirect::~CCallIndirect()
     }
 }
 
+void CCallIndirect::addArgument(CNode* argument)
+{
+    arguments.push_back(argument);
+    argument->link(this);
+}
+
+void CCallIndirect::reverseArguments()
+{
+    std::reverse(arguments.begin(), arguments.end());
+}
+
 void CCallIndirect::generateC(std::ostream& os, CGenerator* generator)
 {
     os << "((type" << typeIndex << ")TABLE.functions[";
@@ -420,6 +420,17 @@ CCall::~CCall()
     for (auto* argument : arguments) {
         delete argument;
     }
+}
+
+void CCall::addArgument(CNode* argument)
+{
+    arguments.push_back(argument);
+    argument->link(this);
+}
+
+void CCall::reverseArguments()
+{
+    std::reverse(arguments.begin(), arguments.end());
 }
 
 void CCall::generateC(std::ostream& os, CGenerator* generator)
@@ -539,11 +550,23 @@ void CBlock::generateC(std::ostream& os, CGenerator* generator)
     }
 }
 
+void CBlock::addStatement(CNode* statement)
+{
+    statements.push_back(statement);
+    statement->link(this);
+}
+
 CCompound::~CCompound()
 {
     for (auto* statement : statements) {
         delete statement;
     }
+}
+
+void CCompound::addStatement(CNode* statement)
+{
+    statements.push_back(statement);
+    statement->link(this);
 }
 
 void CCompound::generateC(std::ostream& os, CGenerator* generator)
@@ -567,6 +590,12 @@ void CLoop::generateC(std::ostream& os, CGenerator* generator)
     }
 }
 
+void CLoop::addStatement(CNode* statement)
+{
+    statements.push_back(statement);
+    statement->link(this);
+}
+
 CIf::~CIf()
 {
     delete condition;
@@ -580,10 +609,40 @@ CIf::~CIf()
     }
 }
 
+void CIf::setResultDeclaration(CNode* node)
+{
+    resultDeclaration = node;
+    resultDeclaration->link(this);
+}
+
+void CIf::removeResultDeclaration()
+{
+    delete resultDeclaration;
+    resultDeclaration = nullptr;
+}
+
+void CIf::setLabelDeclaration(CNode* node)
+{
+    labelDeclaration = node;
+    labelDeclaration->link(this);
+}
+
+void CIf::addThenStatement(CNode* statement)
+{
+    thenStatements.push_back(statement);
+    statement->link(this);
+}
+
+void CIf::addElseStatement(CNode* statement)
+{
+    elseStatements.push_back(statement);
+    statement->link(this);
+}
+
 void CIf::generateC(std::ostream& os, CGenerator* generator)
 {
-    for (auto* statement : preambleStatements) {
-        generator->generateStatement(os, statement);
+    if (resultDeclaration != nullptr) {
+        generator->generateStatement(os, resultDeclaration);
     }
 
     os << "if (";
@@ -611,10 +670,9 @@ void CIf::generateC(std::ostream& os, CGenerator* generator)
         os << '}';
     }
 
-    for (auto* statement : postambleStatements) {
-        generator->generateStatement(os, statement);
+    if (labelDeclaration != nullptr) {
+        generator->generateStatement(os, labelDeclaration);
     }
-
 }
 
 CSwitch::~CSwitch()
@@ -625,6 +683,18 @@ CSwitch::~CSwitch()
     for (auto& c : cases) {
         delete c.statement;
     }
+}
+
+void CSwitch::addCase(uint64_t value, CNode* statement)
+{
+    cases.emplace_back(value, statement);
+    statement->link(this);
+}
+
+void CSwitch::setDefault(CNode* statement)
+{
+    defaultCase = statement;
+    statement->link(this);
 }
 
 void CSwitch::generateC(std::ostream& os, CGenerator* generator)
@@ -663,6 +733,21 @@ CGenerator::~CGenerator()
 {
     delete function;
 }
+
+void CGenerator::pushExpression(CNode* expression)
+{
+    expressionStack.push_back(expression);
+}
+
+CNode* CGenerator::popExpression()
+{
+    assert(!expressionStack.empty());
+    auto* result = expressionStack.back();
+    expressionStack.pop_back();
+
+    return result;
+}
+
 
 std::string CGenerator::localName(Instruction* instruction)
 {
@@ -732,37 +817,37 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
     auto* result = new CBlock(label, resultType);
     auto blockLabel = pushLabel(result, resultType);
     std::string resultName = "result" + toString(blockLabel);
-    auto lastChild = function->lastChild;
+    auto stackSize = expressionStack.size();
     auto labelStackSize = labelStack.size();
 
     if (resultType != ValueType::void_) {
-        result->statements.push_back(new CVariable(resultType, resultName));
+        result->addStatement(new CVariable(resultType, resultName));
     }
 
     while (auto* statement = generateCStatement()) {
-        result->statements.push_back(statement);
+        result->addStatement(statement);
     }
 
-    if (resultType != ValueType::void_ && function->lastChild != lastChild && lastChild != nullptr) {
+    if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
         auto* resultNameNode = new CNameUse(resultName);
-        auto* value = function->popExpression();
+        auto* value = popExpression();
 
-        result->statements.push_back(new CBinauryExpression(resultNameNode, value, "="));
+        result->addStatement(new CBinauryExpression(resultNameNode, value, "="));
     }
 
     if (labelStackSize <= labelStack.size()) {
         assert(labelStack.back().label == blockLabel);
         if (labelStack.back().branchTarget) {
-            result->statements.push_back(new CLabel("label" + toString(blockLabel)));
+            result->addStatement(new CLabel("label" + toString(blockLabel)));
         }
 
         popLabel();
     } else {
-        result->statements.push_back(new CLabel("label" + toString(blockLabel)));
+        result->addStatement(new CLabel("label" + toString(blockLabel)));
     }
 
     if (resultType != ValueType::void_) {
-        function->pushExpression(new CNameUse(resultName));
+        pushExpression(new CNameUse(resultName));
     }
 
     return result;
@@ -776,25 +861,25 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
     auto blockLabel = pushLabel(result, resultType);
     auto labelStackSize = labelStack.size();
     std::string resultName = "result" + toString(blockLabel);
-    auto lastChild = function->lastChild;
+    auto stackSize = expressionStack.size();
 
     labelStack.back().branchTarget = true;
 
     if (resultType != ValueType::void_) {
-        result->statements.push_back(new CVariable(resultType, resultName));
+        result->addStatement(new CVariable(resultType, resultName));
     }
 
-    result->statements.push_back(new CLabel("label" + toString(blockLabel)));
+    result->addStatement(new CLabel("label" + toString(blockLabel)));
 
     while (auto* statement = generateCStatement()) {
-        result->statements.push_back(statement);
+        result->addStatement(statement);
     }
 
-    if (resultType != ValueType::void_ && function->lastChild != lastChild && lastChild != nullptr) {
+    if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
         auto* resultNameNode = new CNameUse(resultName);
-        auto* value = function->popExpression();
+        auto* value = popExpression();
 
-        result->statements.push_back(new CBinauryExpression(resultNameNode, value, "="));
+        result->addStatement(new CBinauryExpression(resultNameNode, value, "="));
     }
 
     if (labelStackSize <= labelStack.size()) {
@@ -804,7 +889,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
     }
 
     if (resultType != ValueType::void_) {
-        function->pushExpression(new CNameUse(resultName));
+        pushExpression(new CNameUse(resultName));
     }
 
     return result;
@@ -814,58 +899,62 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
     auto resultType = blockInstruction->getResultType();
-    auto* condition = function->popExpression();
+    auto* condition = popExpression();
     auto* result = new CIf(condition, label, resultType);
     auto blockLabel = pushLabel(result, resultType);
     auto labelStackSize = labelStack.size();
     std::string resultName = "result" + toString(blockLabel);
-    auto lastChild = function->lastChild;
+    auto stackSize = expressionStack.size();
 
     if (resultType != ValueType::void_) {
-        result->preambleStatements.push_back(new CVariable(resultType, resultName));
+        result->setResultDeclaration(new CVariable(resultType, resultName));
     }
 
     while (auto* statement = generateCStatement()) {
-        result->thenStatements.push_back(statement);
-        if (resultType != ValueType::void_ && function->lastChild != lastChild && lastChild != nullptr) {
+        result->addThenStatement(statement);
+        if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
             auto* resultNameNode = new CNameUse(resultName);
-            auto* value = function->popExpression();
+            auto* value = popExpression();
 
-            result->thenStatements.push_back(new CBinauryExpression(resultNameNode, value, "="));
+            result->addThenStatement(new CBinauryExpression(resultNameNode, value, "="));
         }
     }
 
     if (instructionPointer < instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
         while (auto* statement = generateCStatement()) {
-            result->elseStatements.push_back(statement);
+            result->addElseStatement(statement);
         }
 
-        if (resultType != ValueType::void_ && function->lastChild != lastChild && lastChild != nullptr) {
+        if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
             auto* resultNameNode = new CNameUse(resultName);
-            auto* value = function->popExpression();
+            auto* value = popExpression();
 
-            result->elseStatements.push_back(new CBinauryExpression(resultNameNode, value, "="));
+            result->addElseStatement(new CBinauryExpression(resultNameNode, value, "="));
         }
     }
 
     if (labelStackSize <= labelStack.size()) {
         assert(labelStack.back().label == blockLabel);
         if (labelStack.back().branchTarget) {
-            result->postambleStatements.push_back(new CLabel("label" + toString(blockLabel)));
+            result->setLabelDeclaration(new CLabel("label" + toString(blockLabel)));
         }
 
         popLabel();
     } else {
-        result->postambleStatements.push_back(new CLabel("label" + toString(blockLabel)));
+        result->setLabelDeclaration(new CLabel("label" + toString(blockLabel)));
     }
 
     if (labelStackSize <= labelStack.size()) {
         assert(labelStack.back().label == blockLabel);
+        if (!labelStack.back().branchTarget) {
+            result->removeResultDeclaration();
+        }
+
         popLabel();
     }
 
     if (resultType != ValueType::void_) {
-        function->pushExpression(new CNameUse(resultName));
+        pushExpression(new CNameUse(resultName));
     }
 
     return result;
@@ -881,16 +970,16 @@ CNode* CGenerator::generateCBranchStatement(uint32_t index, bool conditional)
         skipUnreachable(index);
     }
 
-    if (labelInfo.begin->kind != CNode::kLoop && labelInfo.type != ValueType::void_) {
+    if (labelInfo.begin->getKind() != CNode::kLoop && labelInfo.type != ValueType::void_) {
         std::string resultName = "result" + toString(labelInfo.label);
-        auto* result = function->popExpression();
+        auto* result = popExpression();
         auto* assignment = new CBinauryExpression(new CNameUse(resultName), result, "=");
         auto* compound = new CCompound;
 
-        compound->statements.push_back(assignment);
-        compound->statements.push_back(new CBr(labelInfo.label));
+        compound->addStatement(assignment);
+        compound->addStatement(new CBr(labelInfo.label));
         if (conditional) {
-            function->pushExpression(new CNameUse(resultName));
+            pushExpression(new CNameUse(resultName));
         }
 
         return compound;
@@ -911,10 +1000,10 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
-    auto* condition = function->popExpression();
+    auto* condition = popExpression();
     auto* ifNode = new CIf(condition);
 
-    ifNode->thenStatements.push_back(generateCBranchStatement(index, true));
+    ifNode->addThenStatement(generateCBranchStatement(index, true));
 
     return ifNode;
 }
@@ -922,70 +1011,41 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionBrTable*>(instruction);
-    auto* condition = function->popExpression();
-
+    auto* condition = popExpression();
     auto defaultLabel = branchInstruction->getDefaultLabel();
-    auto& defaultLabelInfo = getLabel(defaultLabel);
+    auto* result = new CSwitch(condition);
 
-    defaultLabelInfo.branchTarget = true;
+    condition->link(result);
+    result->setDefault(generateCBranchStatement(defaultLabel, true));
 
-    if (defaultLabelInfo.type == ValueType::void_) {
-        auto* result = new CSwitch(condition);
-
-        condition->link(result);
-        result->defaultCase = generateCBranchStatement(defaultLabel, true);
-
-        unsigned count = 0;
-        for (auto label : branchInstruction->getLabels()) {
-            result->cases.emplace_back(count++, generateCBranchStatement(label, true));
-        }
-
-        skipUnreachable();
-        return result;
-    } else {
-        std::string resultName = "result" + toString(label++);
-        auto* result = new CCompound;
-        auto* value = function->popExpression();
-        auto* switchStatement = new CSwitch(condition);
-
-        condition->link(switchStatement);
-
-        result->statements.push_back(new CVariable(defaultLabelInfo.type, resultName, value));
-        result->statements.push_back(switchStatement);
-
-        function->pushExpression(new CNameUse(resultName));
-        switchStatement->defaultCase = generateCBranchStatement(defaultLabel, true);
-
-        unsigned count = 0;
-        for (auto label : branchInstruction->getLabels()) {
-            function->pushExpression(new CNameUse(resultName));
-            switchStatement->cases.emplace_back(count++, generateCBranchStatement(label, true));
-        }
-       
-        skipUnreachable();
-        return result;
+    unsigned count = 0;
+    for (auto label : branchInstruction->getLabels()) {
+        result->addCase(count++, generateCBranchStatement(label, true));
     }
+
+    skipUnreachable();
+    return result;
 }
 
 CNode* CGenerator::generateCBinaryExpression(std::string_view op)
 {
-    auto* right = function->popExpression();
-    auto* left = function->popExpression();
+    auto* right = popExpression();
+    auto* left = popExpression();
 
     return new CBinauryExpression(left, right, op);
 }
 
 CNode* CGenerator::generateCUnaryExpression(std::string_view op)
 {
-    auto* operand = function->popExpression();
+    auto* operand = popExpression();
 
     return new CUnaryExpression(op, operand);
 }
 
 CNode* CGenerator::generateCUBinaryExpression(std::string_view op, std::string_view type)
 {
-    auto* right = function->popExpression();
-    auto* left = function->popExpression();
+    auto* right = popExpression();
+    auto* left = popExpression();
 
     return new CBinauryExpression(new CCast(type, left), new CCast(type, right), op);
 }
@@ -994,7 +1054,7 @@ CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction
 {
     auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
     auto offset = memoryInstruction->getOffset();
-    auto* dynamicOffset = function->popExpression();
+    auto* dynamicOffset = popExpression();
     CNode* combinedOffset = nullptr;
 
     if (offset == 0) {
@@ -1018,10 +1078,10 @@ CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction
 
 CNode* CGenerator::generateCStore(std::string_view name, Instruction* instruction)
 {
-    auto* valueToStore = function->popExpression();
+    auto* valueToStore = popExpression();
     auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
     auto offset = memoryInstruction->getOffset();
-    auto* dynamicOffset = function->popExpression();
+    auto* dynamicOffset = popExpression();
     CNode* combinedOffset = nullptr;
 
     if (offset == 0) {
@@ -1046,7 +1106,7 @@ CNode* CGenerator::generateCStore(std::string_view name, Instruction* instructio
 CNode* CGenerator::generateCLocalSet(Instruction* instruction)
 {
     auto* left = new CNameUse(localName(instruction));
-    auto* right = function->popExpression();
+    auto* right = popExpression();
 
     return new CBinauryExpression(left, right, "=");
 }
@@ -1054,7 +1114,7 @@ CNode* CGenerator::generateCLocalSet(Instruction* instruction)
 CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
 {
     auto* left = new CNameUse(globalName(instruction));
-    auto* right = function->popExpression();
+    auto* right = popExpression();
 
     return new CBinauryExpression(left, right, "=");
 }
@@ -1064,11 +1124,11 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
     auto* result = new CCall(name);
 
     for (unsigned i = 0; i < argumentCount; ++i) {
-        auto* argument = function->popExpression();
-        result->arguments.push_back(argument);
+        auto* argument = popExpression();
+        result->addArgument(argument);
     }
 
-    std::reverse(result->arguments.begin(), result->arguments.end());
+    result->reverseArguments();
 
     return result;
 }
@@ -1077,22 +1137,22 @@ CNode* CGenerator::generateCMemoryGrow()
 {
     auto* result = new CCall("growMemory");
 
-    result->arguments.push_back(new CUnaryExpression("&", new CNameUse("MEMORY")));
-    result->arguments.push_back(function->popExpression());
+    result->addArgument(new CUnaryExpression("&", new CNameUse("MEMORY")));
+    result->addArgument(popExpression());
 
     return result;
 }
 
 CNode* CGenerator::generateCCast(std::string_view name)
 {
-    auto* operand = function->popExpression();
+    auto* operand = popExpression();
 
     return new CCast(name, operand);
 }
 
 CNode* CGenerator::generateCDoubleCast(std::string_view name1, std::string_view name2)
 {
-    auto* operand = function->popExpression();
+    auto* operand = popExpression();
 
     auto* cast = new CCast(name2, operand);
     return new CCast(name1, cast);
@@ -1100,9 +1160,9 @@ CNode* CGenerator::generateCDoubleCast(std::string_view name1, std::string_view 
 
 CNode* CGenerator::generateCDrop(Instruction* instruction)
 {
-    auto statement = function->popExpression();
+    auto statement = popExpression();
 
-    switch(statement->kind) {
+    switch(statement->getKind()) {
         case CNode::kI32:
         case CNode::kI64:
         case CNode::kF32:
@@ -1117,21 +1177,21 @@ CNode* CGenerator::generateCDrop(Instruction* instruction)
 
 CNode* CGenerator::generateCSelect(Instruction* instruction)
 {
-    auto* condition = function->popExpression();
-    auto* falseValue = function->popExpression();
-    auto* trueValue = function->popExpression();
+    auto* condition = popExpression();
+    auto* falseValue = popExpression();
+    auto* trueValue = popExpression();
 
     return new CTernaryExpression(condition, trueValue, falseValue);
 }
 
 CNode* CGenerator::generateCReturn(Instruction* instruction)
 {
-    auto* signature = function->signature;
+    auto* signature = function->getSignature();
 
     if (signature->getResults().empty()) {
         return new CReturn;
     } else {
-        return new CReturn(function->popExpression());
+        return new CReturn(popExpression());
     }
 
     skipUnreachable();
@@ -1146,12 +1206,12 @@ void CGenerator::generateCCall(Instruction* instruction, CNode*& expression, CNo
     auto* result = new CCall(calledFunction->getCName(functionIndex));
 
     for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
-        auto* argument = function->popExpression();
+        auto* argument = popExpression();
 
-        result->arguments.push_back(argument);
+        result->addArgument(argument);
     }
 
-    std::reverse(result->arguments.begin(), result->arguments.end());
+    result->reverseArguments();
 
     if (signature->getResults().empty()) {
         statement = result;
@@ -1164,17 +1224,17 @@ void CGenerator::generateCCallIndirect(Instruction* instruction, CNode*& express
 {
     auto callInstruction = static_cast<InstructionIndirect*>(instruction);
     auto typeIndex = callInstruction->getTypeIndex();
-    auto* tableIndex = function->popExpression();
+    auto* tableIndex = popExpression();
     auto* result = new CCallIndirect(typeIndex, tableIndex);
     auto* signature = module->getType(typeIndex)->getSignature();
 
     for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
-        auto* argument = function->popExpression();
+        auto* argument = popExpression();
 
-        result->arguments.push_back(argument);
+        result->addArgument(argument);
     }
 
-    std::reverse(result->arguments.begin(), result->arguments.end());
+    result->reverseArguments();
 
     if (signature->getResults().empty()) {
         statement = result;
@@ -1185,36 +1245,34 @@ void CGenerator::generateCCallIndirect(Instruction* instruction, CNode*& express
 
 void CGenerator::generateCFunction()
 {
-    function = new CFunction;
-
-    function->signature = module->getFunction(codeEntry->getNumber())->getSignature();
+    function = new CFunction(module->getFunction(codeEntry->getNumber())->getSignature());
 
     ValueType type = ValueType::void_;
 
-    if (!function->signature->getResults().empty()) {
-        type = function->signature->getResults()[0];
-        function->statements.push_back(new CVariable(type, "result0"));
+    if (!function->getSignature()->getResults().empty()) {
+        type = function->getSignature()->getResults()[0];
+        function->addStatement(new CVariable(type, "result0"));
     }
 
     pushLabel(function, type);
 
     while (auto* statement = generateCStatement()) {
-        function->statements.push_back(statement);
+        function->addStatement(statement);
     }
 
-    if (type != ValueType::void_ && function->lastChild != nullptr) {
+    if (type != ValueType::void_ && !expressionStack.empty()) {
         auto* resultName = new CNameUse("result0");
-        auto* value = function->popExpression();
+        auto* value = popExpression();
 
-        function->statements.push_back(new CBinauryExpression(resultName, value, "="));
+        function->addStatement(new CBinauryExpression(resultName, value, "="));
     }
 
     if (labelStack.back().branchTarget) {
-        function->statements.push_back(new CLabel("label0"));
+        function->addStatement(new CLabel("label0"));
     }
 
     if (type != ValueType::void_) {
-        function->statements.push_back(new CReturn(new CNameUse("result0")));
+        function->addStatement(new CReturn(new CNameUse("result0")));
     }
 
     popLabel();
@@ -1795,7 +1853,7 @@ CNode* CGenerator::generateCStatement()
         }
 
         if (expression != nullptr) {
-            function->pushExpression(expression);
+            pushExpression(expression);
         } else if (statement != nullptr) {
             return statement;
         }
@@ -1806,7 +1864,7 @@ CNode* CGenerator::generateCStatement()
 
 void CGenerator::generateStatement(std::ostream& os, CNode* statement)
 {
-    auto kind = statement->kind;
+    auto kind = statement->getKind();
 
     if (kind != CNode::kBlock && kind != CNode::kLoop) {
         nl(os);
@@ -1830,7 +1888,7 @@ void CGenerator::skipUnreachable(unsigned count)
         } else if (opcode == Opcode::end) {
             LabelInfo& labelInfo = labelStack.back();
 
-            if (labelInfo.branchTarget || labelInfo.begin->kind == CNode::kIf || count-- == 0) {
+            if (labelInfo.branchTarget || labelInfo.begin->getKind() == CNode::kIf || count-- == 0) {
                 return;
             } else {
                 popLabel();

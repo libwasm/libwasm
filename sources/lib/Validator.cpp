@@ -238,10 +238,11 @@ void Validator::checkBrTable()
 {
     auto* branchInstruction = static_cast<InstructionBrTable*>(currentInstruction);
     auto defaultIndex = branchInstruction->getDefaultLabel();
-    const auto& defaultTypes = getFrame(defaultIndex).labelTypes;
 
     msgs.errorWhen((frames.size() < defaultIndex), currentInstruction,
             "Invald label index '", defaultIndex, "'; block depth is '", frames.size() - 1, "'.");
+
+    const auto& defaultTypes = getFrame(defaultIndex).labelTypes;
 
     for (auto labelIndex : branchInstruction->getLabels()) {
         msgs.errorWhen((frames.size() < labelIndex), currentInstruction,
