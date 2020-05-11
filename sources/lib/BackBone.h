@@ -1785,7 +1785,7 @@ class CodeEntry : public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
-        void generateC(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module, bool optimized);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -1818,7 +1818,7 @@ class CodeSection : public Section
 
         virtual void show(std::ostream& os, Module* module, unsigned flags = 0) override;
         virtual void generate(std::ostream& os, Module* module) override;
-        void generateC(std::ostream& os, Module* module);
+        void generateC(std::ostream& os, Module* module, bool optimized);
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 

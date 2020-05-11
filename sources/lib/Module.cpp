@@ -716,7 +716,7 @@ void Module::generateCPreamble(std::ostream& os)
           "\n}\n";
 }
 
-void Module::generateC(std::ostream& os)
+void Module::generateC(std::ostream& os, bool optimized)
 {
     os << "\n#include \"libwasm.h\""
           "\n"
@@ -756,7 +756,7 @@ void Module::generateC(std::ostream& os)
     }
 
     if (auto* codeSection = getCodeSection(); codeSection != nullptr) {
-        codeSection->generateC(os, this);
+        codeSection->generateC(os, this, optimized);
         os << '\n';
     }
 }

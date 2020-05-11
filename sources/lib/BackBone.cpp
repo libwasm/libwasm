@@ -4074,7 +4074,7 @@ void CodeEntry::generate(std::ostream& os, Module* module)
     os << ")";
 }
 
-void CodeEntry::generateC(std::ostream& os, Module* module)
+void CodeEntry::generateC(std::ostream& os, Module* module, bool optimized)
 {
     auto* function = module->getFunction(number);
 
@@ -4090,7 +4090,7 @@ void CodeEntry::generateC(std::ostream& os, Module* module)
 
     CGenerator generator(module, this);
 
-    generator.generateC(os);
+    generator.generateC(os, optimized);
 
     os << "\n}"
         "\n";
@@ -4182,10 +4182,10 @@ void CodeSection::generate(std::ostream& os, Module* module)
     }
 }
 
-void CodeSection::generateC(std::ostream& os, Module* module)
+void CodeSection::generateC(std::ostream& os, Module* module, bool optimized)
 {
     for (auto& code : codes) {
-        code->generateC(os, module);
+        code->generateC(os, module, optimized);
     }
 }
 

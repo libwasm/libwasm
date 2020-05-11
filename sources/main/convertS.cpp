@@ -17,6 +17,7 @@ static void usage(const char* programName)
          "Options:\n"
          "  -a          generate sequential assmbler file\n"
          "  -c          generate C file\n"
+         "  -C          generate optimized C file\n"
          "  -s          generate S-expression assmbler file\n"
          "  -h          print this help message and exit\n"
          "  -o <file>   specify output file.\n"
@@ -31,6 +32,7 @@ int main(int argc, char*argv[])
     char* parm = nullptr;
 
     bool wantCCode = false;
+    bool wantOptimizedCCode = false;
     bool wantSequential = false;
     bool wantExpressionS = false;
     bool wantStatistics = false;
@@ -73,6 +75,9 @@ int main(int argc, char*argv[])
                     wantSequential = true;
                     break;
 
+                case 'C':
+                    wantOptimizedCCode = true;
+                    // fallthru
                 case 'c':
                     wantCCode = true;
                     break;
@@ -137,7 +142,7 @@ int main(int argc, char*argv[])
             }
 
             if (wantCCode) {
-                assembler.generateC(outputStream);
+                assembler.generateC(outputStream, wantOptimizedCCode);
             } else if (wantSequential) {
                 assembler.generate(outputStream);
             } else {

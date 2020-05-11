@@ -468,7 +468,7 @@ class CGenerator
         CGenerator(Module* module, CodeEntry* codeEntry);
         ~CGenerator();
 
-        void generateC(std::ostream& os);
+        void generateC(std::ostream& os, bool optimized = false);
 
         void indent()
         {
@@ -556,6 +556,7 @@ class CGenerator
         unsigned label = 0;
         std::string indentString = "";
         Module* module;
+        bool optimized = false;
         CodeEntry* codeEntry;
         CFunction* function;
         std::vector<LabelInfo> labelStack;

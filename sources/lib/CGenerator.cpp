@@ -1851,8 +1851,9 @@ void CGenerator::buildCTree()
     generateCFunction();
 }
 
-void CGenerator::generateC(std::ostream& os)
+void CGenerator::generateC(std::ostream& os, bool opt)
 {
+    optimized = true;
     function->generateC(os, this);
 }
 

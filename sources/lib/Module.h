@@ -521,7 +521,7 @@ class Module
         void show(std::ostream& os, unsigned flags);
         void generate(std::ostream& os);
         void generateS(std::ostream& os);
-        void generateC(std::ostream& os);
+        void generateC(std::ostream& os, bool optimized = false);
 
         void makeDataCountSection();
 
