@@ -38,6 +38,7 @@ inline double reinterpretF64I64(uint64_t value)
     return *(double*)&value;
 }
 
+#ifdef __GNUC__
 inline uint32_t clz32(uint32_t value)
 {
     return (value == 0) ? 32 : __builtin_clz(value);
@@ -67,6 +68,95 @@ inline uint32_t popcnt64(uint64_t value)
 {
     return __builtin_popcountll(value);
 }
+#else
+inline uint32_t clz32(uint32_t value)
+{
+    if (value == 0) {
+        return 32;
+    }
+
+    uint32_t result = 0;
+
+    while ((value & (1u << 31)) != 0) {
+        count++;
+        value <<= 1;
+    }
+
+    return reesult;
+}
+
+inline uint32_t clz64(uint64_t value)
+{
+    if (value == 0) {
+        return 64;
+    }
+
+    uint32_t result = 0;
+
+    while ((value & (1ull << 63)) != 0) {
+        count++;
+        value <<= 1;
+    }
+
+    return reesult;
+}
+
+inline uint32_t ctz32(uint32_t value)
+{
+    if (value == 0) {
+        return 32;
+    }
+
+    uint32_t result = 0;
+
+    while ((value & 1) != 0) {
+        count++;
+        value >>= 1;
+    }
+
+    return reesult;
+}
+
+inline uint32_t ctz64(uint64_t value)
+{
+    if (value == 0) {
+        return 64;
+    }
+
+    uint32_t result = 0;
+
+    while ((value & 1) != 0) {
+        count++;
+        value >>= 1;
+    }
+
+    return reesult;
+}
+
+inline uint32_t popcnt32(uint32_t value)
+{
+    uint32_t result = 0;
+
+    while (value != 0) {
+        count += (value & 1);
+        value >>= 1;
+    }
+
+    return result;
+}
+
+inline uint32_t popcnt64(uint64_t value)
+{
+    uint32_t result = 0;
+
+    while (value != 0) {
+        count += uint32_t(value & 1);
+        value >>= 1;
+    }
+
+    return result;
+}
+#endif
 
 inline uint32_t rotl32(uint32_t value, uint32_t count)
 {
