@@ -654,6 +654,11 @@ class CGenerator
             return codeEntry;
         }
 
+        auto getOptimized() const
+        {
+            return optimized;
+        }
+
         void generateStatement(std::ostream& os, CNode* statement);
 
     private:

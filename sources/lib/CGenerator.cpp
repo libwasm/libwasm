@@ -280,7 +280,7 @@ void CBinauryExpression::generateC(std::ostream& os, CGenerator* generator)
 {
     bool parenthesis = needsParenthesis(this, op);
 
-    if (op == "=") {
+    if (op == "="&& generator->getOptimized()) {
         if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kBinauryExpression) {
             auto* rightBinary = static_cast<CBinauryExpression*>(right);
             auto rightPrecedence = binaryPrecedence(rightBinary->getOp());
@@ -896,6 +896,7 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
     }
 
     if (instructionPointer < instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
+        ++instructionPointer;
         while (auto* statement = generateCStatement()) {
             result->addElseStatement(statement);
         }
@@ -1271,8 +1272,14 @@ CNode* CGenerator::generateCStatement()
     while (instructionPointer < instructionEnd) {
         CNode* expression = nullptr;
         CNode* statement = nullptr;
-        auto* instruction = (instructionPointer++)->get();
+        auto* instruction = instructionPointer->get();
         auto opcode = instruction->getOpcode();
+
+        if (opcode == Opcode::else_) {
+            return nullptr;
+        }
+
+        ++instructionPointer;
 
         switch(opcode) {
             case Opcode::unreachable:
@@ -1294,9 +1301,6 @@ CNode* CGenerator::generateCStatement()
             case Opcode::if_:
                 statement = generateCIf(instruction);
                 break;
-
-            case Opcode::else_:
-                return nullptr;
 
     //      case Opcode::try_:
     //      case Opcode::catch_:
