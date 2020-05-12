@@ -147,15 +147,12 @@ static std::optional<int64_t> getIntegerValue(CNode* node)
 
 CFunction::~CFunction()
 {
-    for (auto* statement : statements) {
-        delete statement;
-    }
+    delete statements;
 }
 
 void CFunction::addStatement(CNode* statement)
 {
-    statements.push_back(statement);
-    statement->link(this);
+    statements->addStatement(statement);
 }
 
 void CFunction::generateC(std::ostream& os, CGenerator* generator)
@@ -165,10 +162,7 @@ void CFunction::generateC(std::ostream& os, CGenerator* generator)
         os << "\n  " << local->getType().getCName() << ' ' << local->getCName() << ';';
     }
 
-    for (auto* statement : statements) {
-        generator->generateStatement(os, statement);
-    }
-
+    generator->generateStatement(os, statements);
     generator->undent();
 }
 
@@ -536,77 +530,66 @@ void CUnaryExpression::generateC(std::ostream& os, CGenerator* generator)
     operand->generateC(os, generator);
 }
 
-CBlock::~CBlock()
-{
-    for (auto* statement : statements) {
-        delete statement;
-    }
-}
-
-void CBlock::generateC(std::ostream& os, CGenerator* generator)
-{
-    for (auto* statement : statements) {
-        generator->generateStatement(os, statement);
-    }
-}
-
-void CBlock::addStatement(CNode* statement)
-{
-    statements.push_back(statement);
-    statement->link(this);
-}
-
 CCompound::~CCompound()
 {
-    for (auto* statement : statements) {
-        delete statement;
+    while (lastChild != nullptr) {
+        delete lastChild;
     }
 }
 
 void CCompound::addStatement(CNode* statement)
 {
-    statements.push_back(statement);
     statement->link(this);
 }
 
 void CCompound::generateC(std::ostream& os, CGenerator* generator)
 {
-    for (auto* statement : statements) {
+    for (auto* statement = child; statement != nullptr; statement = statement->getNext()) {
         generator->generateStatement(os, statement);
     }
+}
+
+void CCompound::optimize()
+{
+    for (auto* statement = child; statement != nullptr; statement = statement->getNext()) {
+    }
+}
+
+CBlock::~CBlock()
+{
+    delete statements;
+}
+
+void CBlock::generateC(std::ostream& os, CGenerator* generator)
+{
+    generator->generateStatement(os, statements);
+}
+
+void CBlock::addStatement(CNode* statement)
+{
+    statements->addStatement(statement);
 }
 
 CLoop::~CLoop()
 {
-    for (auto* statement : statements) {
-        delete statement;
-    }
+    delete statements;
 }
 
 void CLoop::generateC(std::ostream& os, CGenerator* generator)
 {
-    for (auto* statement : statements) {
-        generator->generateStatement(os, statement);
-    }
+    generator->generateStatement(os, statements);
 }
 
 void CLoop::addStatement(CNode* statement)
 {
-    statements.push_back(statement);
-    statement->link(this);
+    statements->addStatement(statement);
 }
 
 CIf::~CIf()
 {
     delete condition;
-
-    for (auto* statement : thenStatements) {
-        delete statement;
-    }
-
-    for (auto* statement : elseStatements) {
-        delete statement;
-    }
+    delete thenStatements;
+    delete elseStatements;
 }
 
 void CIf::setResultDeclaration(CNode* node)
@@ -629,14 +612,12 @@ void CIf::setLabelDeclaration(CNode* node)
 
 void CIf::addThenStatement(CNode* statement)
 {
-    thenStatements.push_back(statement);
-    statement->link(this);
+    thenStatements->addStatement(statement);
 }
 
 void CIf::addElseStatement(CNode* statement)
 {
-    elseStatements.push_back(statement);
-    statement->link(this);
+    elseStatements->addStatement(statement);
 }
 
 void CIf::generateC(std::ostream& os, CGenerator* generator)
@@ -650,21 +631,15 @@ void CIf::generateC(std::ostream& os, CGenerator* generator)
     os << ") {";
     generator->indent();
 
-    for (auto* statement : thenStatements) {
-        generator->generateStatement(os, statement);
-    }
-
+    generator->generateStatement(os, thenStatements);
     generator->undent();
     generator->nl(os);
     os << '}';
 
-    if (!elseStatements.empty()) {
+    if (!elseStatements->empty()) {
         os << "else {";
         generator->indent();
-        for (auto* statement : elseStatements) {
-            generator->generateStatement(os, statement);
-        }
-
+        generator->generateStatement(os, elseStatements);
         generator->undent();
         generator->nl(os);
         os << '}';
@@ -768,13 +743,13 @@ std::string CGenerator::localName(Instruction* instruction)
 
 unsigned CGenerator::pushLabel(CNode* begin, ValueType type)
 {
-    size_t line = 999999999;
+    size_t line = 0;
 
     if (instructionPointer != instructionEnd) {
         Instruction* ins = instructionPointer->get();
 
         if (ins != nullptr) {
-            line = ins->getLineNumber();
+            line = ins->getLineNumber() - 1;
         }
     }
 
@@ -785,13 +760,13 @@ unsigned CGenerator::pushLabel(CNode* begin, ValueType type)
 
 void CGenerator::popLabel()
 {
-    size_t line = 999999999;
+    size_t line = 0;
 
     if (instructionPointer != instructionEnd) {
         Instruction* ins = instructionPointer->get();
 
         if (ins != nullptr) {
-            line = ins->getLineNumber();
+            line = ins->getLineNumber() - 1;
         }
     }
 
@@ -1001,11 +976,23 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
     auto* condition = popExpression();
-    auto* ifNode = new CIf(condition);
+    auto& labelInfo = getLabel(index);
 
-    ifNode->addThenStatement(generateCBranchStatement(index, true));
+    if (optimized && index == 0 && labelInfo.type == ValueType::void_) {
+        auto* ifNode = new CIf(new CUnaryExpression("!", condition));
 
-    return ifNode;
+        labelInfo.branchTarget = true;
+        while (auto* statement = generateCStatement()) {
+            ifNode->addThenStatement(statement);
+        }
+
+        return ifNode;
+    } else {
+        auto* ifNode = new CIf(condition);
+
+        ifNode->addThenStatement(generateCBranchStatement(index, true));
+        return ifNode;
+    }
 }
 
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
@@ -1866,13 +1853,14 @@ void CGenerator::generateStatement(std::ostream& os, CNode* statement)
 {
     auto kind = statement->getKind();
 
-    if (kind != CNode::kBlock && kind != CNode::kLoop) {
+    if (kind != CNode::kBlock && kind != CNode::kLoop && kind != CNode::kCompound) {
         nl(os);
     }
 
     statement->generateC(os, this);
 
-    if (kind != CNode::kBlock && kind != CNode::kLoop && kind != CNode::kIf && kind != CNode::kSwitch) {
+    if (kind != CNode::kBlock && kind != CNode::kLoop && kind != CNode::kIf &&
+            kind != CNode::kSwitch && kind != CNode::kCompound) {
         os << ';';
     }
 }
@@ -1909,14 +1897,17 @@ void CGenerator::buildCTree()
     generateCFunction();
 }
 
-void CGenerator::generateC(std::ostream& os, bool opt)
+void CGenerator::generateC(std::ostream& os)
 {
-    optimized = true;
+    if (optimized) {
+        function->optimize();
+    }
+
     function->generateC(os, this);
 }
 
-CGenerator::CGenerator(Module* module, CodeEntry* codeEntry)
-  : module(module), codeEntry(codeEntry)
+CGenerator::CGenerator(Module* module, CodeEntry* codeEntry, bool optimized)
+  : module(module), codeEntry(codeEntry), optimized(optimized)
 {
     buildCTree();
 }

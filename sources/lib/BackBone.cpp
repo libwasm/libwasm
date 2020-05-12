@@ -4088,9 +4088,9 @@ void CodeEntry::generateC(std::ostream& os, Module* module, bool optimized)
 
     os << "\n{";
 
-    CGenerator generator(module, this);
+    CGenerator generator(module, this, optimized);
 
-    generator.generateC(os, optimized);
+    generator.generateC(os);
 
     os << "\n}"
         "\n";

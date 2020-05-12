@@ -113,26 +113,6 @@ class CNode
         CNode& operator= (const CNode&) = delete;
 };
 
-class CBlock : public CNode
-{
-    public:
-        CBlock(unsigned label, ValueType type)
-            : CNode(kBlock), label(label), type(type)
-        {
-        }
-
-        ~CBlock();
-
-        virtual void generateC(std::ostream& os, CGenerator* generator);
-
-        void addStatement(CNode* statement);
-
-    private:
-        unsigned label = 0;
-        ValueType type = ValueType::void_;
-        std::vector<CNode*> statements;
-};
-
 class CCompound : public CNode
 {
     public:
@@ -143,12 +123,47 @@ class CCompound : public CNode
 
         ~CCompound();
 
+        bool empty() const
+        {
+            return child == nullptr;
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator* generator);
+
+        void addStatement(CNode* statement);
+        void optimize();
+};
+
+class CBlock : public CNode
+{
+    public:
+        CBlock(unsigned label, ValueType type)
+            : CNode(kBlock), label(label), type(type)
+        {
+            statements = new CCompound;
+            statements->link(this);
+        }
+
+        ~CBlock();
+
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
         void addStatement(CNode* statement);
 
+        auto getLabel() const
+        {
+            return label;
+        }
+
+        void optimize()
+        {
+            statements->optimize();
+        }
+
     private:
-        std::vector<CNode*> statements;
+        unsigned label = 0;
+        ValueType type = ValueType::void_;
+        CCompound* statements = nullptr;
 };
 
 class CLoop : public CNode
@@ -157,6 +172,8 @@ class CLoop : public CNode
         CLoop(unsigned label, ValueType type)
             : CNode(kLoop), label(label), type(type)
         {
+            statements = new CCompound;
+            statements->link(this);
         }
 
         ~CLoop();
@@ -165,10 +182,20 @@ class CLoop : public CNode
 
         void addStatement(CNode* statement);
 
+        auto getLabel() const
+        {
+            return label;
+        }
+
+        void optimize()
+        {
+            statements->optimize();
+        }
+
     private:
         unsigned label = 0;
         ValueType type = ValueType::void_;
-        std::vector<CNode*> statements;
+        CCompound* statements = nullptr;
 };
 
 class CBr : public CNode
@@ -181,6 +208,12 @@ class CBr : public CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
+        auto getLabel() const
+        {
+            return label;
+        }
+
+    private:
         unsigned label = 0;
 };
 
@@ -336,6 +369,8 @@ class CFunction : public CNode
         CFunction(Signature* signature)
             : CNode(kFunction), signature(signature)
         {
+            statements = new CCompound;
+            statements->link(this);
         }
 
         ~CFunction();
@@ -349,10 +384,15 @@ class CFunction : public CNode
             return signature;
         }
 
+        void optimize()
+        {
+            statements->optimize();
+        }
+
     private:
         std::string name;
         Signature* signature = nullptr;
-        std::vector<CNode*> statements;
+        CCompound* statements = nullptr;
 };
 
 class CI32 : public CNode
@@ -437,6 +477,10 @@ class CIf : public CNode
         CIf(CNode* condition, unsigned label = 0, ValueType type = ValueType::void_)
             : CNode(kIf), condition(condition), label(label), type(type)
         {
+            thenStatements = new CCompound;
+            thenStatements->link(this);
+            elseStatements = new CCompound;
+            elseStatements->link(this);
         }
 
         ~CIf();
@@ -449,14 +493,25 @@ class CIf : public CNode
         void addElseStatement(CNode* node);
         void removeResultDeclaration();
 
+        auto getLabel() const
+        {
+            return label;
+        }
+
+        void optimize()
+        {
+            thenStatements->optimize();
+            elseStatements->optimize();
+        }
+
     private:
         CNode* condition = nullptr;
         unsigned label = 0;
         ValueType type = ValueType::void_;
         CNode* resultDeclaration = nullptr;
         CNode* labelDeclaration = nullptr;
-        std::vector<CNode*> thenStatements;
-        std::vector<CNode*> elseStatements;
+        CCompound* thenStatements = nullptr;
+        CCompound* elseStatements = nullptr;
 };
 
 class CLoad : public CNode
@@ -572,10 +627,10 @@ class CUnaryExpression : public CNode
 class CGenerator
 {
     public:
-        CGenerator(Module* module, CodeEntry* codeEntry);
+        CGenerator(Module* module, CodeEntry* codeEntry, bool optimized = false);
         ~CGenerator();
 
-        void generateC(std::ostream& os, bool optimized = false);
+        void generateC(std::ostream& os);
 
         void indent()
         {
