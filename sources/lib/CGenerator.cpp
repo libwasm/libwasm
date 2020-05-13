@@ -56,19 +56,19 @@ void CNode::link(CNode* p)
 }
 
 void CNode::link(CNode* p, CNode* n)
-{           
+{
     if (n == nullptr) {
         link(p);
         return;
     }
-        
+
     if (parent == p && next == n) {
         return;
     }
 
     if (parent != nullptr) {
         unlink();
-    }   
+    }
 
     // check for circular link
 
@@ -135,10 +135,10 @@ void CNode::unlink()
 
 static std::optional<int64_t> getIntegerValue(CNode* node)
 {
-    if (node->getKind() == CNode::kI32) {
-        return static_cast<CI32*>(node)->getValue();
-    } else if (node->getKind() == CNode::kI64) {
-        return static_cast<CI64*>(node)->getValue();
+    if (auto* i32 = node->castTo<CI32>()) {
+        return i32->getValue();
+    } else if (auto* i64 = node->castTo<CI64>()) {
+        return i64->getValue();
     } else {
         return {};
     }
@@ -552,6 +552,20 @@ void CCompound::generateC(std::ostream& os, CGenerator* generator)
 void CCompound::optimize()
 {
     for (auto* statement = child; statement != nullptr; statement = statement->getNext()) {
+        while (auto* compoundStatement = statement->castTo<CCompound>()) {
+            auto* oldStatement = statement;
+            statement = compoundStatement->getChild();
+
+            while (auto* child = compoundStatement->getChild()) {
+                child->link(this, oldStatement);
+            }
+
+            delete compoundStatement;
+        }
+
+        if (auto* ifStatement = statement->castTo<CIf>()) {
+            ifStatement->optimize();
+        }
     }
 }
 
@@ -764,35 +778,37 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
     std::string resultName = "result" + toString(blockLabel);
     auto stackSize = expressionStack.size();
     auto labelStackSize = labelStack.size();
+    CNode* resultNode = nullptr;
 
     if (resultType != ValueType::void_) {
-        result->addStatement(new CVariable(resultType, resultName));
+        result->addStatement(resultNode = new CVariable(resultType, resultName));
     }
 
     while (auto* statement = generateCStatement()) {
         result->addStatement(statement);
     }
 
-    if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
-        auto* resultNameNode = new CNameUse(resultName);
-        auto* value = popExpression();
-
-        result->addStatement(new CBinauryExpression(resultNameNode, value, "="));
-    }
-
-    if (labelStackSize <= labelStack.size()) {
+    if (labelStackSize <= labelStack.size() && labelStack.back().branchTarget) {
         assert(labelStack.back().label == blockLabel);
-        if (labelStack.back().branchTarget) {
-            result->addStatement(new CLabel("label" + toString(blockLabel)));
+
+        if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
+            auto* resultNameNode = new CNameUse(resultName);
+
+            result->addStatement(new CBinauryExpression(resultNameNode, popExpression(), "="));
         }
 
+        result->addStatement(new CLabel("label" + toString(blockLabel)));
+        popLabel();
+
+        if (resultType != ValueType::void_) {
+            pushExpression(new CNameUse(resultName));
+        }
+    } else if (labelStackSize <= labelStack.size()) {
+        assert(labelStack.back().label == blockLabel);
+        delete resultNode;
         popLabel();
     } else {
-        result->addStatement(new CLabel("label" + toString(blockLabel)));
-    }
-
-    if (resultType != ValueType::void_) {
-        pushExpression(new CNameUse(resultName));
+        delete resultNode;
     }
 
     return result;
@@ -952,13 +968,16 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     auto* condition = popExpression();
     auto& labelInfo = getLabel(index);
 
-    if (optimized && index == 0 && labelInfo.type == ValueType::void_) {
+    if (optimized && index == 0 && !labelInfo.backward && labelInfo.type == ValueType::void_) {
         auto* ifNode = new CIf(new CUnaryExpression("!", condition));
 
         labelInfo.impliedTarget = true;
         while (auto* statement = generateCStatement()) {
             ifNode->addThenStatement(statement);
         }
+
+        // skip back over 'end' which belongs to block, not to if.
+        --instructionPointer;
 
         return ifNode;
     } else {
@@ -1209,31 +1228,44 @@ void CGenerator::generateCFunction()
     function = new CFunction(module->getFunction(codeEntry->getNumber())->getSignature());
 
     ValueType type = ValueType::void_;
+    CNode* resultNode = nullptr;
 
     if (!function->getSignature()->getResults().empty()) {
         type = function->getSignature()->getResults()[0];
-        function->addStatement(new CVariable(type, "result0"));
+        function->addStatement(resultNode = new CVariable(type, "result0"));
     }
 
     pushLabel(type);
+
+    auto& labelInfo = labelStack.back();
 
     while (auto* statement = generateCStatement()) {
         function->addStatement(statement);
     }
 
+    CNode* returnExpression = nullptr;
+
     if (type != ValueType::void_ && !expressionStack.empty()) {
-        auto* resultName = new CNameUse("result0");
-        auto* value = popExpression();
-
-        function->addStatement(new CBinauryExpression(resultName, value, "="));
+        returnExpression = popExpression();
     }
 
-    if (labelStack.back().branchTarget) {
+    if (!labelStack.empty() && labelStack.back().branchTarget) {
+        if (returnExpression != nullptr) {
+            function->addStatement(new CBinauryExpression(new CNameUse("result0"), returnExpression, "="));
+        }
+
         function->addStatement(new CLabel("label0"));
-    }
 
-    if (type != ValueType::void_) {
-        function->addStatement(new CReturn(new CNameUse("result0")));
+        if (returnExpression != nullptr) {
+            function->addStatement(new CReturn(new CNameUse("result0")));
+        } else {
+            delete resultNode;
+        }
+    } else if (returnExpression != nullptr) {
+        delete resultNode;
+        function->addStatement(new CReturn(returnExpression));
+    } else {
+        delete resultNode;
     }
 
     popLabel();

@@ -52,11 +52,21 @@ class CNode
         };
 
         CNode(CNodeKind kind)
-          : kind(kind)
+          : nodeKind(kind)
         {
         }
 
         virtual ~CNode();
+
+        template<typename T>
+        T* castTo()
+        {
+            if (nodeKind == T::kind) {
+                return static_cast<T*>(this);
+            } else {
+                return nullptr;
+            }
+        }
 
         void link(CNode* p);
         void link(CNode* parent, CNode* n);
@@ -66,12 +76,12 @@ class CNode
 
         virtual void generateC(std::ostream& os, CGenerator* generator)
         {
-            std::cerr << "Not implemented kind " << kind << std::endl;
+            std::cerr << "Not implemented kind " << nodeKind << std::endl;
         }
 
         auto getKind() const
         {
-            return kind;
+            return nodeKind;
         }
 
         auto* getParent() const
@@ -100,7 +110,7 @@ class CNode
         }
 
     protected:
-        CNodeKind kind;
+        CNodeKind nodeKind;
         CNode* parent = nullptr;
         CNode* next = nullptr;
         CNode* previous = nullptr;
@@ -114,8 +124,10 @@ class CNode
 class CCompound : public CNode
 {
     public:
+        static const CNodeKind kind = kCompound;
+
         CCompound()
-            : CNode(kCompound)
+            : CNode(kind)
         {
         }
 
@@ -134,9 +146,11 @@ class CCompound : public CNode
 
 class CBr : public CNode
 {
+        static const CNodeKind kind = kBr;
+
     public:
         CBr(unsigned label)
-            : CNode(kBr), label(label)
+            : CNode(kind), label(label)
         {
         }
 
@@ -154,8 +168,10 @@ class CBr : public CNode
 class CSwitch : public CNode
 {
     public:
+        static const CNodeKind kind = kSwitch;
+
         CSwitch(CNode* condition)
-            : CNode(kSwitch), condition(condition)
+            : CNode(kind), condition(condition)
         {
             condition->link(this);
         }
@@ -187,8 +203,10 @@ class CSwitch : public CNode
 class CBinauryExpression : public CNode
 {
     public:
+        static const CNodeKind kind = kBinauryExpression;
+
         CBinauryExpression(CNode* left, CNode* right, std::string_view op)
-            : CNode(kBinauryExpression), left(left), right(right), op(op)
+            : CNode(kind), left(left), right(right), op(op)
         {
             left->link(this);
             right->link(this);
@@ -212,8 +230,10 @@ class CBinauryExpression : public CNode
 class CCallIndirect : public CNode
 {
     public:
+        static const CNodeKind kind = kCallIndirect;
+
         CCallIndirect(uint32_t typeIndex, CNode* tableIndex)
-            : CNode(kCallIndirect), typeIndex(typeIndex), tableIndex(tableIndex)
+            : CNode(kind), typeIndex(typeIndex), tableIndex(tableIndex)
         {
         }
 
@@ -233,8 +253,10 @@ class CCallIndirect : public CNode
 class CCall : public CNode
 {
     public:
+        static const CNodeKind kind = kCall;
+
         CCall(std::string_view name)
-            : CNode(kCall), functionName(name)
+            : CNode(kind), functionName(name)
         {
         }
 
@@ -253,8 +275,10 @@ class CCall : public CNode
 class CCast : public CNode
 {
     public:
+        static const CNodeKind kind = kCast;
+
         CCast(std::string_view type, CNode* operand)
-            : CNode(kCast), type(type), operand(operand)
+            : CNode(kind), type(type), operand(operand)
         {
             operand->link(this);
         }
@@ -271,8 +295,10 @@ class CCast : public CNode
 class CLabel : public CNode
 {
     public:
+        static const CNodeKind kind = kLabel;
+
         CLabel(std::string_view name)
-            : CNode(kLabel), name(name)
+            : CNode(kind), name(name)
         {
         }
 
@@ -284,8 +310,10 @@ class CLabel : public CNode
 class CVariable : public CNode
 {
     public:
+        static const CNodeKind kind = kVariable;
+
         CVariable(ValueType type, std::string_view name, CNode* initialValue = nullptr)
-            : CNode(kVariable), type(type), name(name), initialValue(initialValue)
+            : CNode(kind), type(type), name(name), initialValue(initialValue)
         {
         }
 
@@ -300,8 +328,10 @@ class CVariable : public CNode
 class CFunction : public CNode
 {
     public:
+        static const CNodeKind kind = kFunction;
+
         CFunction(Signature* signature)
-            : CNode(kFunction), signature(signature)
+            : CNode(kind), signature(signature)
         {
             statements = new CCompound;
             statements->link(this);
@@ -332,8 +362,10 @@ class CFunction : public CNode
 class CI32 : public CNode
 {
     public:
+        static const CNodeKind kind = kI32;
+
         CI32(uint32_t value)
-           : CNode(kI32), value(value)
+           : CNode(kind), value(value)
         {
         }
 
@@ -351,8 +383,10 @@ class CI32 : public CNode
 class CI64 : public CNode
 {
     public:
+        static const CNodeKind kind = kI64;
+
         CI64(uint64_t value)
-           : CNode(kI64), value(value)
+           : CNode(kind), value(value)
         {
         }
 
@@ -370,8 +404,10 @@ class CI64 : public CNode
 class CF32 : public CNode
 {
     public:
+        static const CNodeKind kind = kF32;
+
         CF32(float value)
-           : CNode(kF32), value(value)
+           : CNode(kind), value(value)
         {
         }
 
@@ -389,8 +425,10 @@ class CF32 : public CNode
 class CF64 : public CNode
 {
     public:
+        static const CNodeKind kind = kF64;
+
         CF64(double value)
-           : CNode(kF64), value(value)
+           : CNode(kind), value(value)
         {
         }
 
@@ -408,8 +446,10 @@ class CF64 : public CNode
 class CIf : public CNode
 {
     public:
+        static const CNodeKind kind = kIf;
+
         CIf(CNode* condition, unsigned label = 0, ValueType type = ValueType::void_)
-            : CNode(kIf), condition(condition), label(label), type(type)
+            : CNode(kind), condition(condition), label(label), type(type)
         {
             thenStatements = new CCompound;
             thenStatements->link(this);
@@ -451,8 +491,10 @@ class CIf : public CNode
 class CLoad : public CNode
 {
     public:
+        static const CNodeKind kind = kLoad;
+
         CLoad(std::string_view name, CNode* offset)
-            : CNode(kLoad), name(name), offset(offset)
+            : CNode(kind), name(name), offset(offset)
         {
         }
 
@@ -468,8 +510,10 @@ class CLoad : public CNode
 class CNameUse : public CNode
 {
     public:
+        static const CNodeKind kind = kNameUse;
+
         CNameUse(std::string name)
-            : CNode(kNameUse),name(std::move(name))
+            : CNode(kind),name(std::move(name))
         {
         }
 
@@ -487,8 +531,10 @@ class CNameUse : public CNode
 class CReturn : public CNode
 {
     public:
+        static const CNodeKind kind = kReturn;
+
         CReturn(CNode* value = nullptr)
-            : CNode(kReturn), value(value)
+            : CNode(kind), value(value)
         {
         }
 
@@ -503,8 +549,10 @@ class CReturn : public CNode
 class CStore : public CNode
 {
     public:
+        static const CNodeKind kind = kStore;
+
         CStore(std::string_view name, CNode* offset, CNode* value)
-            : CNode(kStore), name(name), offset(offset), value(value)
+            : CNode(kind), name(name), offset(offset), value(value)
         {
         }
 
@@ -521,8 +569,10 @@ class CStore : public CNode
 class CTernaryExpression : public CNode
 {
     public:
+        static const CNodeKind kind = kTernaryExpression;
+
         CTernaryExpression(CNode* condition, CNode* trueExpression, CNode* falseExpression)
-            : CNode(kTernaryExpression), condition(condition), trueExpression(trueExpression),
+            : CNode(kind), condition(condition), trueExpression(trueExpression),
               falseExpression(falseExpression)
         {
             condition->link(this);
@@ -543,8 +593,10 @@ class CTernaryExpression : public CNode
 class CUnaryExpression : public CNode
 {
     public:
+        static const CNodeKind kind = kUnaryExpression;
+
         CUnaryExpression(std::string_view op, CNode* operand)
-            : CNode(kUnaryExpression), op(op), operand(operand)
+            : CNode(kind), op(op), operand(operand)
         {
             operand->link(this);
         }
@@ -650,7 +702,7 @@ class CGenerator
 
             ValueType type;
             unsigned label;
-            bool backward;
+            bool backward = false;
             bool branchTarget = false;
             bool impliedTarget = false;
         };
