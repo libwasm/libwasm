@@ -29,7 +29,6 @@ class CNode
         enum CNodeKind
         {
             kBinauryExpression,
-            kBlock,
             kBr,
             kCallIndirect,
             kCall,
@@ -43,7 +42,6 @@ class CNode
             kIf,
             kLabel,
             kLoad,
-            kLoop,
             kNameUse,
             kReturn,
             kStore,
@@ -132,70 +130,6 @@ class CCompound : public CNode
 
         void addStatement(CNode* statement);
         void optimize();
-};
-
-class CBlock : public CNode
-{
-    public:
-        CBlock(unsigned label, ValueType type)
-            : CNode(kBlock), label(label), type(type)
-        {
-            statements = new CCompound;
-            statements->link(this);
-        }
-
-        ~CBlock();
-
-        virtual void generateC(std::ostream& os, CGenerator* generator);
-
-        void addStatement(CNode* statement);
-
-        auto getLabel() const
-        {
-            return label;
-        }
-
-        void optimize()
-        {
-            statements->optimize();
-        }
-
-    private:
-        unsigned label = 0;
-        ValueType type = ValueType::void_;
-        CCompound* statements = nullptr;
-};
-
-class CLoop : public CNode
-{
-    public:
-        CLoop(unsigned label, ValueType type)
-            : CNode(kLoop), label(label), type(type)
-        {
-            statements = new CCompound;
-            statements->link(this);
-        }
-
-        ~CLoop();
-
-        virtual void generateC(std::ostream& os, CGenerator* generator);
-
-        void addStatement(CNode* statement);
-
-        auto getLabel() const
-        {
-            return label;
-        }
-
-        void optimize()
-        {
-            statements->optimize();
-        }
-
-    private:
-        unsigned label = 0;
-        ValueType type = ValueType::void_;
-        CCompound* statements = nullptr;
 };
 
 class CBr : public CNode
@@ -695,7 +629,7 @@ class CGenerator
         void buildCTree();
         void skipUnreachable(unsigned count = 0);
 
-        unsigned pushLabel(CNode* begin, ValueType type);
+        unsigned pushLabel(ValueType type);
         void popLabel();
 
         void pushExpression(CNode* expression);
@@ -709,15 +643,16 @@ class CGenerator
 
         struct LabelInfo
         {
-            LabelInfo(CNode* begin, ValueType type, unsigned label)
-                : begin(begin), type(type), label(label)
+            LabelInfo(ValueType type, unsigned label)
+                : type(type), label(label)
             {
             }
 
-            CNode* begin;
             ValueType type;
             unsigned label;
+            bool backward;
             bool branchTarget = false;
+            bool impliedTarget = false;
         };
 
         std::vector<std::unique_ptr<Instruction>>::iterator instructionPointer;

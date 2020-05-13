@@ -555,36 +555,6 @@ void CCompound::optimize()
     }
 }
 
-CBlock::~CBlock()
-{
-    delete statements;
-}
-
-void CBlock::generateC(std::ostream& os, CGenerator* generator)
-{
-    generator->generateStatement(os, statements);
-}
-
-void CBlock::addStatement(CNode* statement)
-{
-    statements->addStatement(statement);
-}
-
-CLoop::~CLoop()
-{
-    delete statements;
-}
-
-void CLoop::generateC(std::ostream& os, CGenerator* generator)
-{
-    generator->generateStatement(os, statements);
-}
-
-void CLoop::addStatement(CNode* statement)
-{
-    statements->addStatement(statement);
-}
-
 CIf::~CIf()
 {
     delete condition;
@@ -741,7 +711,7 @@ std::string CGenerator::localName(Instruction* instruction)
     return result;
 }
 
-unsigned CGenerator::pushLabel(CNode* begin, ValueType type)
+unsigned CGenerator::pushLabel(ValueType type)
 {
     size_t line = 0;
 
@@ -754,7 +724,7 @@ unsigned CGenerator::pushLabel(CNode* begin, ValueType type)
     }
 
 //  std::cout << "Push " << label << ", size=" << labelStack.size() << ", line=" << line << std::endl;
-    labelStack.emplace_back(begin, type, label);
+    labelStack.emplace_back(type, label);
     return label++;
 }
 
@@ -789,8 +759,8 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
     auto resultType = blockInstruction->getResultType();
-    auto* result = new CBlock(label, resultType);
-    auto blockLabel = pushLabel(result, resultType);
+    auto* result = new CCompound();
+    auto blockLabel = pushLabel(resultType);
     std::string resultName = "result" + toString(blockLabel);
     auto stackSize = expressionStack.size();
     auto labelStackSize = labelStack.size();
@@ -832,13 +802,14 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
     auto resultType = blockInstruction->getResultType();
-    auto* result = new CLoop(label, resultType);
-    auto blockLabel = pushLabel(result, resultType);
+    auto* result = new CCompound();
+    auto blockLabel = pushLabel(resultType);
     auto labelStackSize = labelStack.size();
     std::string resultName = "result" + toString(blockLabel);
     auto stackSize = expressionStack.size();
 
     labelStack.back().branchTarget = true;
+    labelStack.back().backward = true;
 
     if (resultType != ValueType::void_) {
         result->addStatement(new CVariable(resultType, resultName));
@@ -876,10 +847,12 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
     auto resultType = blockInstruction->getResultType();
     auto* condition = popExpression();
     auto* result = new CIf(condition, label, resultType);
-    auto blockLabel = pushLabel(result, resultType);
+    auto blockLabel = pushLabel(resultType);
     auto labelStackSize = labelStack.size();
     std::string resultName = "result" + toString(blockLabel);
     auto stackSize = expressionStack.size();
+
+    labelStack.back().impliedTarget = true;
 
     if (resultType != ValueType::void_) {
         result->setResultDeclaration(new CVariable(resultType, resultName));
@@ -946,7 +919,7 @@ CNode* CGenerator::generateCBranchStatement(uint32_t index, bool conditional)
         skipUnreachable(index);
     }
 
-    if (labelInfo.begin->getKind() != CNode::kLoop && labelInfo.type != ValueType::void_) {
+    if (!labelInfo.backward && labelInfo.type != ValueType::void_) {
         std::string resultName = "result" + toString(labelInfo.label);
         auto* result = popExpression();
         auto* assignment = new CBinauryExpression(new CNameUse(resultName), result, "=");
@@ -982,7 +955,7 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     if (optimized && index == 0 && labelInfo.type == ValueType::void_) {
         auto* ifNode = new CIf(new CUnaryExpression("!", condition));
 
-        labelInfo.branchTarget = true;
+        labelInfo.impliedTarget = true;
         while (auto* statement = generateCStatement()) {
             ifNode->addThenStatement(statement);
         }
@@ -1242,7 +1215,7 @@ void CGenerator::generateCFunction()
         function->addStatement(new CVariable(type, "result0"));
     }
 
-    pushLabel(function, type);
+    pushLabel(type);
 
     while (auto* statement = generateCStatement()) {
         function->addStatement(statement);
@@ -1857,14 +1830,13 @@ void CGenerator::generateStatement(std::ostream& os, CNode* statement)
 {
     auto kind = statement->getKind();
 
-    if (kind != CNode::kBlock && kind != CNode::kLoop && kind != CNode::kCompound) {
+    if (kind != CNode::kCompound) {
         nl(os);
     }
 
     statement->generateC(os, this);
 
-    if (kind != CNode::kBlock && kind != CNode::kLoop && kind != CNode::kIf &&
-            kind != CNode::kSwitch && kind != CNode::kCompound) {
+    if (kind != CNode::kIf && kind != CNode::kSwitch && kind != CNode::kCompound) {
         os << ';';
     }
 }
@@ -1880,7 +1852,7 @@ void CGenerator::skipUnreachable(unsigned count)
         } else if (opcode == Opcode::end) {
             LabelInfo& labelInfo = labelStack.back();
 
-            if (labelInfo.branchTarget || labelInfo.begin->getKind() == CNode::kIf || count-- == 0) {
+            if (labelInfo.branchTarget || labelInfo.impliedTarget || count-- == 0) {
                 return;
             } else {
                 popLabel();
