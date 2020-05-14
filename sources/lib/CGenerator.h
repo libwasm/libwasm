@@ -200,25 +200,40 @@ class CSwitch : public CNode
         CNode* defaultCase = nullptr;
 };
 
-class CBinauryExpression : public CNode
+class CBinaryExpression : public CNode
 {
     public:
         static const CNodeKind kind = kBinauryExpression;
 
-        CBinauryExpression(CNode* left, CNode* right, std::string_view op)
+        CBinaryExpression(CNode* left, CNode* right, std::string_view op)
             : CNode(kind), left(left), right(right), op(op)
         {
             left->link(this);
             right->link(this);
         }
 
-        ~CBinauryExpression();
+        ~CBinaryExpression();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
+
+        void setOp(std::string_view o)
+        {
+            op = o;
+        }
 
         auto getOp() const
         {
             return op;
+        }
+
+        auto* getLeft()
+        {
+            return left;
+        }
+
+        auto* getRight()
+        {
+            return left;
         }
 
     private:
@@ -602,6 +617,25 @@ class CUnaryExpression : public CNode
         }
 
         ~CUnaryExpression();
+
+        auto getOp() const
+        {
+            return op;
+        }
+
+        auto* getOperand() const
+        {
+            return operand;
+        }
+
+        auto* stealOperand()
+        {
+            auto* result = operand;
+
+            result->unlink();
+            operand = 0;
+            return result;
+        }
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 

@@ -242,7 +242,7 @@ static bool needsParenthesis(CNode* node, std::string_view op)
             return true;
         }
 
-        auto* binaryParent = static_cast<CBinauryExpression*>(parent);
+        auto* binaryParent = static_cast<CBinaryExpression*>(parent);
         std::string_view parentOp = binaryParent->getOp();
 
 
@@ -270,19 +270,19 @@ static bool needsParenthesis(CNode* node, std::string_view op)
     return false;
 }
 
-CBinauryExpression::~CBinauryExpression()
+CBinaryExpression::~CBinaryExpression()
 {
     delete left;
     delete right;
 }
 
-void CBinauryExpression::generateC(std::ostream& os, CGenerator* generator)
+void CBinaryExpression::generateC(std::ostream& os, CGenerator* generator)
 {
     bool parenthesis = needsParenthesis(this, op);
 
     if (op == "="&& generator->getOptimized()) {
         if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kBinauryExpression) {
-            auto* rightBinary = static_cast<CBinauryExpression*>(right);
+            auto* rightBinary = static_cast<CBinaryExpression*>(right);
             auto rightPrecedence = binaryPrecedence(rightBinary->getOp());
 
             if (rightPrecedence >= 13 || (rightPrecedence >= 6 && rightPrecedence <= 8)) {
@@ -553,11 +553,12 @@ void CCompound::optimize()
 {
     for (auto* statement = child; statement != nullptr; statement = statement->getNext()) {
         while (auto* compoundStatement = statement->castTo<CCompound>()) {
-            auto* oldStatement = statement;
-            statement = compoundStatement->getChild();
+            if (compoundStatement->getChild() != nullptr) {
+                statement = compoundStatement->getChild();
 
-            while (auto* child = compoundStatement->getChild()) {
-                child->link(this, oldStatement);
+                while (auto* child = compoundStatement->getChild()) {
+                    child->link(this, compoundStatement);
+                }
             }
 
             delete compoundStatement;
@@ -794,7 +795,7 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
         if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
             auto* resultNameNode = new CNameUse(resultName);
 
-            result->addStatement(new CBinauryExpression(resultNameNode, popExpression(), "="));
+            result->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
         }
 
         result->addStatement(new CLabel("label" + toString(blockLabel)));
@@ -841,7 +842,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
         auto* resultNameNode = new CNameUse(resultName);
         auto* value = popExpression();
 
-        result->addStatement(new CBinauryExpression(resultNameNode, value, "="));
+        result->addStatement(new CBinaryExpression(resultNameNode, value, "="));
     }
 
     if (labelStackSize <= labelStack.size()) {
@@ -880,11 +881,11 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
             auto* resultNameNode = new CNameUse(resultName);
             auto* value = popExpression();
 
-            result->addThenStatement(new CBinauryExpression(resultNameNode, value, "="));
+            result->addThenStatement(new CBinaryExpression(resultNameNode, value, "="));
         }
     }
 
-    if (instructionPointer < instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
+    if (instructionPointer != instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
         ++instructionPointer;
         while (auto* statement = generateCStatement()) {
             result->addElseStatement(statement);
@@ -894,7 +895,7 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
             auto* resultNameNode = new CNameUse(resultName);
             auto* value = popExpression();
 
-            result->addElseStatement(new CBinauryExpression(resultNameNode, value, "="));
+            result->addElseStatement(new CBinaryExpression(resultNameNode, value, "="));
         }
     }
 
@@ -938,7 +939,7 @@ CNode* CGenerator::generateCBranchStatement(uint32_t index, bool conditional)
     if (!labelInfo.backward && labelInfo.type != ValueType::void_) {
         std::string resultName = "result" + toString(labelInfo.label);
         auto* result = popExpression();
-        auto* assignment = new CBinauryExpression(new CNameUse(resultName), result, "=");
+        auto* assignment = new CBinaryExpression(new CNameUse(resultName), result, "=");
         auto* compound = new CCompound;
 
         compound->addStatement(assignment);
@@ -961,6 +962,45 @@ CNode* CGenerator::generateCBr(Instruction* instruction)
     return generateCBranchStatement(index);
 }
 
+static CNode* notExpression(CNode* expression)
+{
+    if (auto* unaryExpression = expression->castTo<CUnaryExpression>()) {
+        if (unaryExpression->getOp() == "!") {
+            auto* operand = unaryExpression->stealOperand();
+
+            delete expression;
+            return operand;
+        }
+    } else if (auto* binaryExpression = expression->castTo<CBinaryExpression>()) {
+        auto isRelational = true;
+
+        auto op = binaryExpression->getOp();
+
+        if (op == "==") {
+            op = "!=";
+        } else if (op == "!=") {
+            op = "==";
+        } else if (op == ">") {
+            op = "<=";
+        } else if (op == "<") {
+            op = ">=";
+        } else if (op == "<=") {
+            op = ">";
+        } else if (op == ">=") {
+            op = "<";
+        } else {
+            isRelational = false;
+        }
+
+        if (isRelational) {
+            binaryExpression->setOp(op);
+            return binaryExpression;
+        }
+    }
+
+    return new CUnaryExpression("!", expression);
+}
+
 CNode* CGenerator::generateCBrIf(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
@@ -969,9 +1009,10 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     auto& labelInfo = getLabel(index);
 
     if (optimized && index == 0 && !labelInfo.backward && labelInfo.type == ValueType::void_) {
-        auto* ifNode = new CIf(new CUnaryExpression("!", condition));
+        auto* ifNode = new CIf(notExpression(condition));
 
         labelInfo.impliedTarget = true;
+        
         while (auto* statement = generateCStatement()) {
             ifNode->addThenStatement(statement);
         }
@@ -1012,7 +1053,7 @@ CNode* CGenerator::generateCBinaryExpression(std::string_view op)
     auto* right = popExpression();
     auto* left = popExpression();
 
-    return new CBinauryExpression(left, right, op);
+    return new CBinaryExpression(left, right, op);
 }
 
 CNode* CGenerator::generateCUnaryExpression(std::string_view op)
@@ -1027,7 +1068,7 @@ CNode* CGenerator::generateCUBinaryExpression(std::string_view op, std::string_v
     auto* right = popExpression();
     auto* left = popExpression();
 
-    return new CBinauryExpression(new CCast(type, left), new CCast(type, right), op);
+    return new CBinaryExpression(new CCast(type, left), new CCast(type, right), op);
 }
 
 CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction)
@@ -1047,10 +1088,10 @@ CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction
         if (*value == 0) {
             combinedOffset = offsetEpression;
         } else {
-            combinedOffset = new CBinauryExpression(offsetEpression, new CI64(*value), "+");
+            combinedOffset = new CBinaryExpression(offsetEpression, new CI64(*value), "+");
         }
     } else {
-        combinedOffset = new CBinauryExpression(new CI64(offset), dynamicOffset, "+");
+        combinedOffset = new CBinaryExpression(new CI64(offset), dynamicOffset, "+");
     }
 
     return new CLoad(name, combinedOffset);
@@ -1074,10 +1115,10 @@ CNode* CGenerator::generateCStore(std::string_view name, Instruction* instructio
         if (*value == 0) {
             combinedOffset = offsetEpression;
         } else {
-            combinedOffset = new CBinauryExpression(offsetEpression, new CI64(*value), "+");
+            combinedOffset = new CBinaryExpression(offsetEpression, new CI64(*value), "+");
         }
     } else {
-        combinedOffset = new CBinauryExpression(new CI64(offset), dynamicOffset, "+");
+        combinedOffset = new CBinaryExpression(new CI64(offset), dynamicOffset, "+");
     }
 
     return new CStore(name, combinedOffset, valueToStore);
@@ -1088,7 +1129,7 @@ CNode* CGenerator::generateCLocalSet(Instruction* instruction)
     auto* left = new CNameUse(localName(instruction));
     auto* right = popExpression();
 
-    return new CBinauryExpression(left, right, "=");
+    return new CBinaryExpression(left, right, "=");
 }
 
 CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
@@ -1096,7 +1137,7 @@ CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
     auto* left = new CNameUse(globalName(instruction));
     auto* right = popExpression();
 
-    return new CBinauryExpression(left, right, "=");
+    return new CBinaryExpression(left, right, "=");
 }
 
 CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentCount)
@@ -1251,7 +1292,7 @@ void CGenerator::generateCFunction()
 
     if (!labelStack.empty() && labelStack.back().branchTarget) {
         if (returnExpression != nullptr) {
-            function->addStatement(new CBinauryExpression(new CNameUse("result0"), returnExpression, "="));
+            function->addStatement(new CBinaryExpression(new CNameUse("result0"), returnExpression, "="));
         }
 
         function->addStatement(new CLabel("label0"));
@@ -1274,7 +1315,7 @@ void CGenerator::generateCFunction()
 
 CNode* CGenerator::generateCStatement()
 {
-    while (instructionPointer < instructionEnd) {
+    while (instructionPointer != instructionEnd) {
         CNode* expression = nullptr;
         CNode* statement = nullptr;
         auto* instruction = instructionPointer->get();
