@@ -16,6 +16,10 @@ namespace libwasm
 
 CNode::~CNode()
 {
+    while (lastChild != nullptr) {
+        delete lastChild;
+    }
+
     unlink();
 }
 
@@ -145,11 +149,6 @@ static std::optional<int64_t> getIntegerValue(CNode* node)
 }
 
 
-CFunction::~CFunction()
-{
-    delete statements;
-}
-
 void CFunction::addStatement(CNode* statement)
 {
     statements->addStatement(statement);
@@ -270,12 +269,6 @@ static bool needsParenthesis(CNode* node, std::string_view op)
     return false;
 }
 
-CBinaryExpression::~CBinaryExpression()
-{
-    delete left;
-    delete right;
-}
-
 void CBinaryExpression::generateC(std::ostream& os, CGenerator* generator)
 {
     bool parenthesis = needsParenthesis(this, op);
@@ -354,11 +347,6 @@ void CVariable::generateC(std::ostream& os, CGenerator* generator)
     }
 }
 
-CLoad::~CLoad()
-{
-    delete offset;
-}
-
 void CLoad::generateC(std::ostream& os, CGenerator* generator)
 {
     os << name << '(';
@@ -369,15 +357,6 @@ void CLoad::generateC(std::ostream& os, CGenerator* generator)
 void CBr::generateC(std::ostream& os, CGenerator* generator)
 {
     os << "goto label" << label;
-}
-
-CCallIndirect::~CCallIndirect()
-{
-    delete tableIndex;
-
-    for (auto* argument : arguments) {
-        delete argument;
-    }
 }
 
 void CCallIndirect::addArgument(CNode* argument)
@@ -409,13 +388,6 @@ void CCallIndirect::generateC(std::ostream& os, CGenerator* generator)
     os << ')';
 }
 
-CCall::~CCall()
-{
-    for (auto* argument : arguments) {
-        delete argument;
-    }
-}
-
 void CCall::addArgument(CNode* argument)
 {
     arguments.push_back(argument);
@@ -439,11 +411,6 @@ void CCall::generateC(std::ostream& os, CGenerator* generator)
     }
 
     os << ')';
-}
-
-CCast::~CCast()
-{
-    delete operand;
 }
 
 void CCast::generateC(std::ostream& os, CGenerator* generator)
@@ -474,11 +441,6 @@ void CF64::generateC(std::ostream& os, CGenerator* generator)
     os << toString(value);
 }
 
-CReturn::~CReturn()
-{
-    delete value;
-}
-
 void CReturn::generateC(std::ostream& os, CGenerator* generator)
 {
     os << "return";
@@ -486,12 +448,6 @@ void CReturn::generateC(std::ostream& os, CGenerator* generator)
         os << ' ';
         value->generateC(os, generator);
     }
-}
-
-CStore::~CStore()
-{
-    delete value;
-    delete offset;
 }
 
 void CStore::generateC(std::ostream& os, CGenerator* generator)
@@ -503,13 +459,6 @@ void CStore::generateC(std::ostream& os, CGenerator* generator)
     os << ')';
 }
 
-CTernaryExpression::~CTernaryExpression()
-{
-    delete condition;
-    delete trueExpression;
-    delete falseExpression;
-}
-
 void CTernaryExpression::generateC(std::ostream& os, CGenerator* generator)
 {
     condition->generateC(os, generator);
@@ -519,22 +468,10 @@ void CTernaryExpression::generateC(std::ostream& os, CGenerator* generator)
     falseExpression->generateC(os, generator);
 }
 
-CUnaryExpression::~CUnaryExpression()
-{
-    delete operand;
-}
-
 void CUnaryExpression::generateC(std::ostream& os, CGenerator* generator)
 {
     os << op;
     operand->generateC(os, generator);
-}
-
-CCompound::~CCompound()
-{
-    while (lastChild != nullptr) {
-        delete lastChild;
-    }
 }
 
 void CCompound::addStatement(CNode* statement)
@@ -568,13 +505,6 @@ void CCompound::optimize()
             ifStatement->optimize();
         }
     }
-}
-
-CIf::~CIf()
-{
-    delete condition;
-    delete thenStatements;
-    delete elseStatements;
 }
 
 void CIf::setResultDeclaration(CNode* node)
@@ -632,16 +562,6 @@ void CIf::generateC(std::ostream& os, CGenerator* generator)
 
     if (labelDeclaration != nullptr) {
         generator->generateStatement(os, labelDeclaration);
-    }
-}
-
-CSwitch::~CSwitch()
-{
-    delete condition;
-    delete defaultCase;
-
-    for (auto& c : cases) {
-        delete c.statement;
     }
 }
 
@@ -966,7 +886,9 @@ static CNode* notExpression(CNode* expression)
 {
     if (auto* unaryExpression = expression->castTo<CUnaryExpression>()) {
         if (unaryExpression->getOp() == "!") {
-            auto* operand = unaryExpression->stealOperand();
+            auto* operand = unaryExpression->getOperand();
+
+            operand->unlink();
 
             delete expression;
             return operand;
@@ -1189,6 +1111,7 @@ CNode* CGenerator::generateCDrop(Instruction* instruction)
         case CNode::kF32:
         case CNode::kF64:
         case CNode::kNameUse:
+            delete statement;
             return 0;
 
         default:

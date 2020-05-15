@@ -131,8 +131,6 @@ class CCompound : public CNode
         {
         }
 
-        ~CCompound();
-
         bool empty() const
         {
             return child == nullptr;
@@ -176,8 +174,6 @@ class CSwitch : public CNode
             condition->link(this);
         }
 
-        ~CSwitch();
-
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
         struct Case
@@ -211,8 +207,6 @@ class CBinaryExpression : public CNode
             left->link(this);
             right->link(this);
         }
-
-        ~CBinaryExpression();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -250,9 +244,8 @@ class CCallIndirect : public CNode
         CCallIndirect(uint32_t typeIndex, CNode* tableIndex)
             : CNode(kind), typeIndex(typeIndex), tableIndex(tableIndex)
         {
+            tableIndex->link(this);
         }
-
-        ~CCallIndirect();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -275,8 +268,6 @@ class CCall : public CNode
         {
         }
 
-        ~CCall();
-
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
         void addArgument(CNode* argument);
@@ -297,8 +288,6 @@ class CCast : public CNode
         {
             operand->link(this);
         }
-
-        ~CCast();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -330,6 +319,9 @@ class CVariable : public CNode
         CVariable(ValueType type, std::string_view name, CNode* initialValue = nullptr)
             : CNode(kind), type(type), name(name), initialValue(initialValue)
         {
+            if (initialValue) {
+                initialValue->link(this);
+            }
         }
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
@@ -351,8 +343,6 @@ class CFunction : public CNode
             statements = new CCompound;
             statements->link(this);
         }
-
-        ~CFunction();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -466,13 +456,12 @@ class CIf : public CNode
         CIf(CNode* condition, unsigned label = 0, ValueType type = ValueType::void_)
             : CNode(kind), condition(condition), label(label), type(type)
         {
+            condition->link(this);
             thenStatements = new CCompound;
             thenStatements->link(this);
             elseStatements = new CCompound;
             elseStatements->link(this);
         }
-
-        ~CIf();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -511,9 +500,8 @@ class CLoad : public CNode
         CLoad(std::string_view name, CNode* offset)
             : CNode(kind), name(name), offset(offset)
         {
+            offset->link(this);
         }
-
-        ~CLoad();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -551,9 +539,10 @@ class CReturn : public CNode
         CReturn(CNode* value = nullptr)
             : CNode(kind), value(value)
         {
+            if (value != nullptr) {
+                value->link(this);
+            }
         }
-
-        ~CReturn();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -569,9 +558,9 @@ class CStore : public CNode
         CStore(std::string_view name, CNode* offset, CNode* value)
             : CNode(kind), name(name), offset(offset), value(value)
         {
+            offset->link(this);
+            value->link(this);
         }
-
-        ~CStore();
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
@@ -595,8 +584,6 @@ class CTernaryExpression : public CNode
             falseExpression->link(this);
         }
 
-        ~CTernaryExpression();
-
         virtual void generateC(std::ostream& os, CGenerator* generator);
 
     private:
@@ -616,8 +603,6 @@ class CUnaryExpression : public CNode
             operand->link(this);
         }
 
-        ~CUnaryExpression();
-
         auto getOp() const
         {
             return op;
@@ -626,15 +611,6 @@ class CUnaryExpression : public CNode
         auto* getOperand() const
         {
             return operand;
-        }
-
-        auto* stealOperand()
-        {
-            auto* result = operand;
-
-            result->unlink();
-            operand = 0;
-            return result;
         }
 
         virtual void generateC(std::ostream& os, CGenerator* generator);
