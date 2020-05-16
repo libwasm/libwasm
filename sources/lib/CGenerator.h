@@ -6,6 +6,8 @@
 #include "Encodings.h"
 
 #include <cstdint>
+#include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -28,6 +30,7 @@ class CNode
     public:
         enum CNodeKind
         {
+            kNone,
             kBinauryExpression,
             kBr,
             kCallIndirect,
@@ -74,7 +77,8 @@ class CNode
 
         void unlink();
 
-        virtual void generateC(std::ostream& os, CGenerator* generator)
+        CNode* traverseToNext(CNode* root);
+        virtual void generateC(std::ostream& os, CGenerator& generator)
         {
             std::cerr << "Not implemented kind " << nodeKind << std::endl;
         }
@@ -109,8 +113,10 @@ class CNode
             return lastChild;
         }
 
+        CNode* findNext(CNodeKind kind);
+
     protected:
-        CNodeKind nodeKind;
+        CNodeKind nodeKind = kNone;
         CNode* parent = nullptr;
         CNode* next = nullptr;
         CNode* previous = nullptr;
@@ -136,23 +142,25 @@ class CCompound : public CNode
             return child == nullptr;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         void addStatement(CNode* statement);
-        void optimize();
+        void optimize(CGenerator& generator);
+        void optimizeIfs(CGenerator& generator);
+        void flatten();
 };
 
 class CBr : public CNode
 {
+    public:
         static const CNodeKind kind = kBr;
 
-    public:
         CBr(unsigned label)
             : CNode(kind), label(label)
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         auto getLabel() const
         {
@@ -174,7 +182,7 @@ class CSwitch : public CNode
             condition->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         struct Case
         {
@@ -186,6 +194,11 @@ class CSwitch : public CNode
             uint64_t value = 0;
             CNode* statement = nullptr;
         };
+
+        auto& getCases()
+        {
+            return cases;
+        }
 
         void addCase(uint64_t value, CNode* statement);
         void setDefault(CNode* statement);
@@ -208,7 +221,7 @@ class CBinaryExpression : public CNode
             right->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         void setOp(std::string_view o)
         {
@@ -247,7 +260,7 @@ class CCallIndirect : public CNode
             tableIndex->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         void addArgument(CNode* argument);
         void reverseArguments();
@@ -268,7 +281,7 @@ class CCall : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         void addArgument(CNode* argument);
         void reverseArguments();
@@ -289,7 +302,7 @@ class CCast : public CNode
             operand->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
         std::string_view type;
@@ -301,14 +314,20 @@ class CLabel : public CNode
     public:
         static const CNodeKind kind = kLabel;
 
-        CLabel(std::string_view name)
-            : CNode(kind), name(name)
+        CLabel(unsigned label)
+            : CNode(kind), label(label)
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        auto getLabel() const
+        {
+            return label;
+        }
 
-        std::string name;
+        virtual void generateC(std::ostream& os, CGenerator& generator);
+
+    private:
+        unsigned label = 0;
 };
 
 class CVariable : public CNode
@@ -324,7 +343,12 @@ class CVariable : public CNode
             }
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        std::string_view getName() const
+        {
+            return name;
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
         ValueType type;
@@ -344,19 +368,21 @@ class CFunction : public CNode
             statements->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         void addStatement(CNode* statement);
+
+        auto* getStatements()
+        {
+            return statements;
+        }
 
         auto* getSignature() const
         {
             return signature;
         }
 
-        void optimize()
-        {
-            statements->optimize();
-        }
+        void optimize(CGenerator& generator);
 
     private:
         std::string name;
@@ -374,7 +400,7 @@ class CI32 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         auto getValue() const
         {
@@ -395,7 +421,7 @@ class CI64 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         auto getValue() const
         {
@@ -416,7 +442,7 @@ class CF32 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         auto getValue() const
         {
@@ -437,7 +463,7 @@ class CF64 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         auto getValue() const
         {
@@ -463,7 +489,7 @@ class CIf : public CNode
             elseStatements->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         void setResultDeclaration(CNode* node);
         void setLabelDeclaration(CNode* node);
@@ -476,10 +502,26 @@ class CIf : public CNode
             return label;
         }
 
-        void optimize()
+        auto* getThenStatements()
         {
-            thenStatements->optimize();
-            elseStatements->optimize();
+            return thenStatements;
+        }
+
+        auto* getElseStatements()
+        {
+            return elseStatements;
+        }
+
+        auto* getCondition()
+        {
+            return condition;
+        }
+
+        void setCondition(CNode* expression)
+        {
+            // it is the caller's responsibilty to delete the old expression if requierd.
+            condition = expression;
+            condition->link(this);
         }
 
     private:
@@ -503,7 +545,7 @@ class CLoad : public CNode
             offset->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
         std::string_view name;
@@ -520,7 +562,7 @@ class CNameUse : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
         std::string_view getName() const
         {
@@ -544,7 +586,7 @@ class CReturn : public CNode
             }
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
         CNode* value = nullptr;
@@ -562,7 +604,7 @@ class CStore : public CNode
             value->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
         std::string_view name;
@@ -584,7 +626,7 @@ class CTernaryExpression : public CNode
             falseExpression->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
         CNode* condition = nullptr;
@@ -613,7 +655,7 @@ class CUnaryExpression : public CNode
             return operand;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator* generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
         std::string_view op;
@@ -623,6 +665,14 @@ class CUnaryExpression : public CNode
 class CGenerator
 {
     public:
+        struct LabelData
+        {
+            CNode* declaration = 0;
+            unsigned useCount = 0;
+        };
+
+        using LabelMap = std::map<unsigned, LabelData>;
+
         CGenerator(Module* module, CodeEntry* codeEntry, bool optimized = false);
         ~CGenerator();
 
@@ -656,6 +706,7 @@ class CGenerator
         }
 
         void generateStatement(std::ostream& os, CNode* statement);
+        void decrementUseCount(unsigned label);
 
     private:
         std::string localName(Instruction* instruction);
@@ -697,6 +748,8 @@ class CGenerator
         void pushExpression(CNode* expression);
         CNode* popExpression();
 
+        void optimize();
+
         auto& getLabel(size_t index = 0)
         {
             assert(labelStack.size() > index);
@@ -724,10 +777,11 @@ class CGenerator
         std::string indentString = "";
         Module* module;
         std::vector<CNode*> expressionStack;
-        bool optimized = false;
         CodeEntry* codeEntry;
+        bool optimized = false;
         CFunction* function;
         std::vector<LabelInfo> labelStack;
+        LabelMap labelMap;
 };
 
 };

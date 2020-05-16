@@ -14,6 +14,37 @@
 namespace libwasm
 {
 
+static void traverse(CNode* node, std::function<void(CNode*)> exec)
+{
+    for (auto* next = node->getChild(); next != nullptr; next = next->traverseToNext(node)) {
+        exec(next);
+    }
+}
+
+static void traverseStatements(CCompound* node, std::function<void(CNode*)> exec)
+{
+    for (auto* next = node->getChild(); next != nullptr; next = next->getNext()) {
+        exec(next);
+
+        if (auto* ifStatement = next->castTo<CIf>(); ifStatement != nullptr) {
+            traverseStatements(ifStatement->getThenStatements(), exec);
+            traverseStatements(ifStatement->getElseStatements(), exec);
+        } else if (auto* switchStatement = next->castTo<CSwitch>(); switchStatement != nullptr) {
+            for (auto& cs : switchStatement->getCases()) {
+                auto* statement = cs.statement;
+
+                if (auto* compound = statement->castTo<CCompound>(); compound != nullptr) {
+                    traverseStatements(compound, exec);
+                }
+
+                exec(statement);
+            }
+        } else if (auto* compound = next->castTo<CCompound>(); compound != nullptr) {
+            traverseStatements(compound, exec);
+        }
+    }
+}
+
 CNode::~CNode()
 {
     while (lastChild != nullptr) {
@@ -137,6 +168,41 @@ void CNode::unlink()
     previous = nullptr;
 }
 
+CNode* CNode::findNext(CNode::CNodeKind kind)
+{
+    CNode* node;
+
+    for (node = next; node != 0 && node->nodeKind != kind; node = node->next) {
+        // nop
+    }
+
+    return node;
+}
+
+CNode* CNode::traverseToNext(CNode* root)
+{
+    const auto* current = this;
+    auto* result = child;
+
+    if (result == nullptr) {
+        if (root == this) {
+            return nullptr;
+        }
+
+        result = next;
+    }
+
+    while (result == nullptr) {
+        if (current = current->parent; current == nullptr || current == root) {
+            return nullptr;
+        }
+
+        result = current->next;
+    }
+
+    return result;
+}
+
 static std::optional<int64_t> getIntegerValue(CNode* node)
 {
     if (auto* i32 = node->castTo<CI32>()) {
@@ -154,20 +220,29 @@ void CFunction::addStatement(CNode* statement)
     statements->addStatement(statement);
 }
 
-void CFunction::generateC(std::ostream& os, CGenerator* generator)
+void CFunction::generateC(std::ostream& os, CGenerator& generator)
 {
-    generator->indent();
-    for (auto& local : generator->getCodeEntry()->getLocals()) {
+    generator.indent();
+    for (auto& local : generator.getCodeEntry()->getLocals()) {
         os << "\n  " << local->getType().getCName() << ' ' << local->getCName() << ';';
     }
 
-    generator->generateStatement(os, statements);
-    generator->undent();
+    generator.generateStatement(os, statements);
+    generator.undent();
 }
 
-void CLabel::generateC(std::ostream& os, CGenerator* generator)
+void CFunction::optimize(CGenerator& generator)
 {
-    os << "\n" << name << ':';
+    statements->optimize(generator);
+    statements->flatten();
+}
+
+void CLabel::generateC(std::ostream& os, CGenerator& generator)
+{
+    os << "\nlabel" << toString(label) << ':';
+    if (next == nullptr) {
+        os << ';';
+    }
 }
 
 static unsigned binaryPrecedence(std::string_view op)
@@ -269,11 +344,11 @@ static bool needsParenthesis(CNode* node, std::string_view op)
     return false;
 }
 
-void CBinaryExpression::generateC(std::ostream& os, CGenerator* generator)
+void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
 {
     bool parenthesis = needsParenthesis(this, op);
 
-    if (op == "="&& generator->getOptimized()) {
+    if (op == "="&& generator.getOptimized()) {
         if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kBinauryExpression) {
             auto* rightBinary = static_cast<CBinaryExpression*>(right);
             auto rightPrecedence = binaryPrecedence(rightBinary->getOp());
@@ -317,12 +392,12 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator* generator)
     }
 }
 
-void CI32::generateC(std::ostream& os, CGenerator* generator)
+void CI32::generateC(std::ostream& os, CGenerator& generator)
 {
     os << value;
 }
 
-void CI64::generateC(std::ostream& os, CGenerator* generator)
+void CI64::generateC(std::ostream& os, CGenerator& generator)
 {
     if (value == 0x8000000000000000ULL) {
         os << "0x8000000000000000ULL";
@@ -331,12 +406,12 @@ void CI64::generateC(std::ostream& os, CGenerator* generator)
     }
 }
 
-void CNameUse::generateC(std::ostream& os, CGenerator* generator)
+void CNameUse::generateC(std::ostream& os, CGenerator& generator)
 {
     os << name;
 }
 
-void CVariable::generateC(std::ostream& os, CGenerator* generator)
+void CVariable::generateC(std::ostream& os, CGenerator& generator)
 {
     os << type.getCName() << ' ' << name << " = ";
 
@@ -347,14 +422,14 @@ void CVariable::generateC(std::ostream& os, CGenerator* generator)
     }
 }
 
-void CLoad::generateC(std::ostream& os, CGenerator* generator)
+void CLoad::generateC(std::ostream& os, CGenerator& generator)
 {
     os << name << '(';
     offset->generateC(os, generator);
     os << ')';
 }
 
-void CBr::generateC(std::ostream& os, CGenerator* generator)
+void CBr::generateC(std::ostream& os, CGenerator& generator)
 {
     os << "goto label" << label;
 }
@@ -370,7 +445,7 @@ void CCallIndirect::reverseArguments()
     std::reverse(arguments.begin(), arguments.end());
 }
 
-void CCallIndirect::generateC(std::ostream& os, CGenerator* generator)
+void CCallIndirect::generateC(std::ostream& os, CGenerator& generator)
 {
     os << "((type" << typeIndex << ")TABLE.functions[";
     tableIndex->generateC(os, generator);
@@ -399,7 +474,7 @@ void CCall::reverseArguments()
     std::reverse(arguments.begin(), arguments.end());
 }
 
-void CCall::generateC(std::ostream& os, CGenerator* generator)
+void CCall::generateC(std::ostream& os, CGenerator& generator)
 {
     os << functionName << '(';
 
@@ -413,7 +488,7 @@ void CCall::generateC(std::ostream& os, CGenerator* generator)
     os << ')';
 }
 
-void CCast::generateC(std::ostream& os, CGenerator* generator)
+void CCast::generateC(std::ostream& os, CGenerator& generator)
 {
     if (auto value = getIntegerValue(operand)) {
         if (*value >= 0) {
@@ -431,17 +506,17 @@ void CCast::generateC(std::ostream& os, CGenerator* generator)
     operand->generateC(os, generator);
 }
 
-void CF32::generateC(std::ostream& os, CGenerator* generator)
+void CF32::generateC(std::ostream& os, CGenerator& generator)
 {
     os << toString(value);
 }
 
-void CF64::generateC(std::ostream& os, CGenerator* generator)
+void CF64::generateC(std::ostream& os, CGenerator& generator)
 {
     os << toString(value);
 }
 
-void CReturn::generateC(std::ostream& os, CGenerator* generator)
+void CReturn::generateC(std::ostream& os, CGenerator& generator)
 {
     os << "return";
     if (value != nullptr) {
@@ -450,7 +525,7 @@ void CReturn::generateC(std::ostream& os, CGenerator* generator)
     }
 }
 
-void CStore::generateC(std::ostream& os, CGenerator* generator)
+void CStore::generateC(std::ostream& os, CGenerator& generator)
 {
     os << name << '(';
     offset->generateC(os, generator);
@@ -459,7 +534,7 @@ void CStore::generateC(std::ostream& os, CGenerator* generator)
     os << ')';
 }
 
-void CTernaryExpression::generateC(std::ostream& os, CGenerator* generator)
+void CTernaryExpression::generateC(std::ostream& os, CGenerator& generator)
 {
     condition->generateC(os, generator);
     os << " ? ";
@@ -468,7 +543,7 @@ void CTernaryExpression::generateC(std::ostream& os, CGenerator* generator)
     falseExpression->generateC(os, generator);
 }
 
-void CUnaryExpression::generateC(std::ostream& os, CGenerator* generator)
+void CUnaryExpression::generateC(std::ostream& os, CGenerator& generator)
 {
     os << op;
     operand->generateC(os, generator);
@@ -479,32 +554,158 @@ void CCompound::addStatement(CNode* statement)
     statement->link(this);
 }
 
-void CCompound::generateC(std::ostream& os, CGenerator* generator)
+void CCompound::generateC(std::ostream& os, CGenerator& generator)
 {
     for (auto* statement = child; statement != nullptr; statement = statement->getNext()) {
-        generator->generateStatement(os, statement);
+        generator.generateStatement(os, statement);
     }
 }
 
-void CCompound::optimize()
+void CCompound::flatten()
 {
-    for (auto* statement = child; statement != nullptr; statement = statement->getNext()) {
-        while (auto* compoundStatement = statement->castTo<CCompound>()) {
-            if (compoundStatement->getChild() != nullptr) {
-                statement = compoundStatement->getChild();
+    for (auto* statement = child; statement != nullptr; ) {
+        if (auto* compound = statement->castTo<CCompound>(); compound != nullptr) {
+            statement = compound->getChild();
 
-                while (auto* child = compoundStatement->getChild()) {
-                    child->link(this, compoundStatement);
+            while (compound->getChild() != nullptr) {
+                compound->getChild()->link(this, compound);
+            }
+
+            delete compound;
+        } else if (auto* ifStatement = statement->castTo<CIf>(); ifStatement != nullptr) {
+            statement = statement->getNext();
+
+            ifStatement->getThenStatements()->flatten();
+            ifStatement->getElseStatements()->flatten();
+        } else {
+            statement = statement->getNext();
+        }
+    }
+}
+
+static CNode* notExpression(CNode* expression)
+{
+    if (auto* unaryExpression = expression->castTo<CUnaryExpression>()) {
+        if (unaryExpression->getOp() == "!") {
+            auto* operand = unaryExpression->getOperand();
+
+            operand->unlink();
+
+            delete expression;
+            return operand;
+        }
+    } else if (auto* binaryExpression = expression->castTo<CBinaryExpression>()) {
+        auto isRelational = true;
+
+        auto op = binaryExpression->getOp();
+
+        if (op == "==") {
+            op = "!=";
+        } else if (op == "!=") {
+            op = "==";
+        } else if (op == ">") {
+            op = "<=";
+        } else if (op == "<") {
+            op = ">=";
+        } else if (op == "<=") {
+            op = ">";
+        } else if (op == ">=") {
+            op = "<";
+        } else {
+            isRelational = false;
+        }
+
+        if (isRelational) {
+            binaryExpression->setOp(op);
+            return binaryExpression;
+        }
+    }
+
+    return new CUnaryExpression("!", expression);
+}
+
+static CLabel* findLabel(CNode* node, unsigned label)
+{
+    auto *statement = node->findNext(CNode::kLabel);
+
+    if (statement == nullptr) {
+        return nullptr;
+    }
+
+    if (auto* labelStatement = statement->castTo<CLabel>();
+            labelStatement == nullptr || labelStatement->getLabel() != label) {
+        return nullptr;
+    } else {
+        return labelStatement;
+    }
+}
+
+void CCompound::optimizeIfs(CGenerator& generator)
+{
+    traverseStatements(this, [&generator](CNode* node) {
+            auto* ifStatement = node->castTo<CIf>();
+
+            if (ifStatement == nullptr || ifStatement->getThenStatements()->empty() ||
+                    !ifStatement->getElseStatements()->empty()) {
+                return;
+            }
+
+            auto* branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
+
+            if (branchStatement == nullptr || branchStatement->getLastChild() != nullptr) {
+                return;
+            }
+
+            auto label = branchStatement->getLabel();
+            auto *labelStatement = findLabel(node, label);
+
+            if (labelStatement == nullptr) {
+                return;
+            }
+
+            auto* condition = ifStatement->getCondition();
+
+            condition->unlink();
+            ifStatement->setCondition(notExpression(condition));
+
+            delete branchStatement;
+
+            for (auto* next = node->getNext(); ; next = node->getNext()) {
+                ifStatement->addThenStatement(next);
+
+                if (next == labelStatement) {
+                    break;
                 }
             }
 
-            delete compoundStatement;
-        }
+            generator.decrementUseCount(label);
 
-        if (auto* ifStatement = statement->castTo<CIf>()) {
-            ifStatement->optimize();
-        }
-    }
+            if (branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
+                    branchStatement != nullptr) {
+                label = branchStatement->getLabel();
+                labelStatement = findLabel(node->getParent(), label);
+
+                if (labelStatement == nullptr) {
+                    return;
+                }
+
+                for (auto* next = node->getParent()->getNext(); ; next = node->getParent()->getNext()) {
+                    ifStatement->addElseStatement(next);
+
+                    if (next == labelStatement) {
+                        break;
+                    }
+                }
+
+                delete branchStatement;
+                generator.decrementUseCount(label);
+            }
+        });
+}
+
+void CCompound::optimize(CGenerator& generator)
+{
+    optimizeIfs(generator);
 }
 
 void CIf::setResultDeclaration(CNode* node)
@@ -535,33 +736,33 @@ void CIf::addElseStatement(CNode* statement)
     elseStatements->addStatement(statement);
 }
 
-void CIf::generateC(std::ostream& os, CGenerator* generator)
+void CIf::generateC(std::ostream& os, CGenerator& generator)
 {
     if (resultDeclaration != nullptr) {
-        generator->generateStatement(os, resultDeclaration);
+        generator.generateStatement(os, resultDeclaration);
     }
 
     os << "if (";
     condition->generateC(os, generator);
     os << ") {";
-    generator->indent();
+    generator.indent();
 
-    generator->generateStatement(os, thenStatements);
-    generator->undent();
-    generator->nl(os);
+    generator.generateStatement(os, thenStatements);
+    generator.undent();
+    generator.nl(os);
     os << '}';
 
     if (!elseStatements->empty()) {
-        os << "else {";
-        generator->indent();
-        generator->generateStatement(os, elseStatements);
-        generator->undent();
-        generator->nl(os);
+        os << " else {";
+        generator.indent();
+        generator.generateStatement(os, elseStatements);
+        generator.undent();
+        generator.nl(os);
         os << '}';
     }
 
     if (labelDeclaration != nullptr) {
-        generator->generateStatement(os, labelDeclaration);
+        generator.generateStatement(os, labelDeclaration);
     }
 }
 
@@ -577,35 +778,35 @@ void CSwitch::setDefault(CNode* statement)
     statement->link(this);
 }
 
-void CSwitch::generateC(std::ostream& os, CGenerator* generator)
+void CSwitch::generateC(std::ostream& os, CGenerator& generator)
 {
     os << "switch (";
     condition->generateC(os, generator);
     os << ") {";
 
     for (auto& c : cases) {
-        generator->nl(os);
+        generator.nl(os);
         os << "  case " << c.value << ": ";
-        generator->indent();
-        generator->indent();
+        generator.indent();
+        generator.indent();
         c.statement->generateC(os, generator);
         os << ';';
-        generator->undent();
-        generator->undent();
+        generator.undent();
+        generator.undent();
     }
 
     if (defaultCase != nullptr) {
-        generator->nl(os);
+        generator.nl(os);
         os << "  default : ";
-        generator->indent();
-        generator->indent();
+        generator.indent();
+        generator.indent();
         defaultCase->generateC(os, generator);
         os << ';';
-        generator->undent();
-        generator->undent();
+        generator.undent();
+        generator.undent();
     }
 
-    generator->nl(os);
+    generator.nl(os);
     os << '}';
 }
 
@@ -718,7 +919,7 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
             result->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
         }
 
-        result->addStatement(new CLabel("label" + toString(blockLabel)));
+        result->addStatement(new CLabel(blockLabel));
         popLabel();
 
         if (resultType != ValueType::void_) {
@@ -752,7 +953,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
         result->addStatement(new CVariable(resultType, resultName));
     }
 
-    result->addStatement(new CLabel("label" + toString(blockLabel)));
+    result->addStatement(new CLabel(blockLabel));
 
     while (auto* statement = generateCStatement()) {
         result->addStatement(statement);
@@ -822,12 +1023,12 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
     if (labelStackSize <= labelStack.size()) {
         assert(labelStack.back().label == blockLabel);
         if (labelStack.back().branchTarget) {
-            result->setLabelDeclaration(new CLabel("label" + toString(blockLabel)));
+            result->setLabelDeclaration(new CLabel(blockLabel));
         }
 
         popLabel();
     } else {
-        result->setLabelDeclaration(new CLabel("label" + toString(blockLabel)));
+        result->setLabelDeclaration(new CLabel(blockLabel));
     }
 
     if (labelStackSize <= labelStack.size()) {
@@ -882,73 +1083,15 @@ CNode* CGenerator::generateCBr(Instruction* instruction)
     return generateCBranchStatement(index);
 }
 
-static CNode* notExpression(CNode* expression)
-{
-    if (auto* unaryExpression = expression->castTo<CUnaryExpression>()) {
-        if (unaryExpression->getOp() == "!") {
-            auto* operand = unaryExpression->getOperand();
-
-            operand->unlink();
-
-            delete expression;
-            return operand;
-        }
-    } else if (auto* binaryExpression = expression->castTo<CBinaryExpression>()) {
-        auto isRelational = true;
-
-        auto op = binaryExpression->getOp();
-
-        if (op == "==") {
-            op = "!=";
-        } else if (op == "!=") {
-            op = "==";
-        } else if (op == ">") {
-            op = "<=";
-        } else if (op == "<") {
-            op = ">=";
-        } else if (op == "<=") {
-            op = ">";
-        } else if (op == ">=") {
-            op = "<";
-        } else {
-            isRelational = false;
-        }
-
-        if (isRelational) {
-            binaryExpression->setOp(op);
-            return binaryExpression;
-        }
-    }
-
-    return new CUnaryExpression("!", expression);
-}
-
 CNode* CGenerator::generateCBrIf(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
     auto* condition = popExpression();
-    auto& labelInfo = getLabel(index);
+    auto* ifNode = new CIf(condition);
 
-    if (optimized && index == 0 && !labelInfo.backward && labelInfo.type == ValueType::void_) {
-        auto* ifNode = new CIf(notExpression(condition));
-
-        labelInfo.impliedTarget = true;
-        
-        while (auto* statement = generateCStatement()) {
-            ifNode->addThenStatement(statement);
-        }
-
-        // skip back over 'end' which belongs to block, not to if.
-        --instructionPointer;
-
-        return ifNode;
-    } else {
-        auto* ifNode = new CIf(condition);
-
-        ifNode->addThenStatement(generateCBranchStatement(index, true));
-        return ifNode;
-    }
+    ifNode->addThenStatement(generateCBranchStatement(index, true));
+    return ifNode;
 }
 
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
@@ -1201,8 +1344,6 @@ void CGenerator::generateCFunction()
 
     pushLabel(type);
 
-    auto& labelInfo = labelStack.back();
-
     while (auto* statement = generateCStatement()) {
         function->addStatement(statement);
     }
@@ -1218,7 +1359,7 @@ void CGenerator::generateCFunction()
             function->addStatement(new CBinaryExpression(new CNameUse("result0"), returnExpression, "="));
         }
 
-        function->addStatement(new CLabel("label0"));
+        function->addStatement(new CLabel(0));
 
         if (returnExpression != nullptr) {
             function->addStatement(new CReturn(new CNameUse("result0")));
@@ -1830,9 +1971,10 @@ void CGenerator::generateStatement(std::ostream& os, CNode* statement)
         nl(os);
     }
 
-    statement->generateC(os, this);
+    statement->generateC(os, *this);
 
-    if (kind != CNode::kIf && kind != CNode::kSwitch && kind != CNode::kCompound) {
+    if (kind != CNode::kIf && kind != CNode::kSwitch &&
+            kind != CNode::kCompound && kind != CNode::kLabel) {
         os << ';';
     }
 }
@@ -1869,19 +2011,44 @@ void CGenerator::buildCTree()
     generateCFunction();
 }
 
+void CGenerator::optimize()
+{
+    traverse(function, [&](CNode* node) {
+            if (auto* labelstatement = node->castTo<CLabel>(); labelstatement != nullptr) {
+                labelMap[labelstatement->getLabel()].declaration = node;
+            } else if (auto* branchStatement = node->castTo<CBr>(); branchStatement != nullptr) {
+                labelMap[branchStatement->getLabel()].useCount++;
+            }
+        });
+
+    function->optimize(*this);
+}
+
 void CGenerator::generateC(std::ostream& os)
 {
     if (optimized) {
-        function->optimize();
+        optimize();
     }
 
-    function->generateC(os, this);
+    function->generateC(os, *this);
 }
 
 CGenerator::CGenerator(Module* module, CodeEntry* codeEntry, bool optimized)
   : module(module), codeEntry(codeEntry), optimized(optimized)
 {
     buildCTree();
+}
+
+void CGenerator::decrementUseCount(unsigned label)
+{
+    auto it = labelMap.find(label);
+
+    if (it != labelMap.end()) {
+        if (--it->second.useCount == 0) {
+            delete it->second.declaration;
+            labelMap.erase(it);
+        }
+    }
 }
 
 };
