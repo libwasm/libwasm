@@ -451,7 +451,7 @@ std::string cName(std::string_view name)
 
     bool first = true;
 
-    if (!isAlpha(name[0])) {
+    if (!isAlpha(name[0]) && name[0] != '_') {
         result += '_';
     }
 

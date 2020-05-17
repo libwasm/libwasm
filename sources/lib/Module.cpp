@@ -631,7 +631,7 @@ void Module::generateCPreamble(std::ostream& os)
         if (!table->getId().empty()) {
             tableName = table->getId();
         } else if (!table->getExternId().empty()) {
-            tableName = table->getExternId();
+            tableName = cName(table->getExternId());
         } else {
             tableName = "table0";
         }
@@ -658,7 +658,7 @@ void Module::generateCPreamble(std::ostream& os)
         if (!memory->getId().empty()) {
             memoryName = memory->getId();
         } else if (!memory->getExternId().empty()) {
-            memoryName = memory->getExternId();
+            memoryName = cName(memory->getExternId());
         } else {
             memoryName = "memory0";
         }

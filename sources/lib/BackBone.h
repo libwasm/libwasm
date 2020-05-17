@@ -1198,6 +1198,7 @@ class GlobalImport : public Global, public ImportDeclaration
 
         virtual void show(std::ostream& os, Module* module) override;
         virtual void generate(std::ostream& os, Module* module) override;
+        virtual void generateC(std::ostream& os, Module* module) override;
         virtual void check(CheckContext& context) override;
         virtual void write(BinaryContext& context) const override;
 

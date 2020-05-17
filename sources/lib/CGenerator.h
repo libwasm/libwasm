@@ -720,6 +720,7 @@ class CGenerator
         CNode* generateCBlock(Instruction* instruction);
         CNode* generateCBr(Instruction* instruction);
         CNode* generateCBrIf(Instruction* instruction);
+        CNode* generateCBrUnless(Instruction* instruction);
         CNode* generateCBrTable(Instruction* instruction);
         CNode* generateCCallPredef(std::string_view name, unsigned argumentCount = 1);
         CNode* generateCCast(std::string_view name);

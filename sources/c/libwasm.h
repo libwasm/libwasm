@@ -1,6 +1,7 @@
 // libwasm.h
 
 #include <stdint.h>
+#include <math.h>
 
 typedef struct
 {
@@ -13,6 +14,15 @@ typedef struct
     void** functions;
     uint32_t size;
 } Table;
+
+typedef union
+{
+    int8_t  v16x8[16];
+    int16_t v8x16[8];
+    int32_t v4x32[4];
+    int64_t v2x64[2];
+
+} V128;
 
 extern void initializeMemory(Memory*, uint32_t min, uint32_t max);
 extern void initializeTable(Table*, uint32_t min, uint32_t max);
@@ -176,5 +186,119 @@ inline uint64_t rotl64(uint64_t value, uint64_t count)
 inline uint64_t rotr64(uint64_t value, uint64_t count)
 {
     return ((value >> count) | (value << (64 - count)));
+}
+
+inline int32_t satI32F32(float f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= -2147483648.0F) {
+        return -2147483648;
+    } else if (f >= 2147483647.0F) {
+        return 2147483647;
+    } else {
+        return (int32_t)f;
+    }
+}
+
+inline uint32_t satU32F32(float f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= 0.0F) {
+        return 0;
+    } else if (f >= 4294967295.0F) {
+        return 4294967295;
+    } else {
+        return (uint32_t)f;
+    }
+}
+
+inline int32_t satI32F64(double f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= -2147483648.0) {
+        return -2147483648;
+    } else if (f >= 2147483647.0) {
+        return 2147483647;
+    } else {
+        return (int32_t)f;
+    }
+}
+
+inline uint32_t satU32F64(double f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= 0.0) {
+        return 0;
+    } else if (f >= 4294967295.0) {
+        return 4294967295;
+    } else {
+        return (uint32_t)f;
+    }
+}
+
+inline int64_t satI64F32(float f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= -9223372036854775808.0F) {
+        return 0x8000000000000000LL;
+    } else if (f >= 9223372036854775807.0F) {
+        return 9223372036854775807LL;
+    } else {
+        return (int64_t)f;
+    }
+}
+
+inline uint64_t satU64F32(float f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= 0.0F) {
+        return 0;
+    } else if (f >= 18446744073709551615.0F) {
+        return 18446744073709551615ULL;
+    } else {
+        return (uint64_t)f;
+    }
+}
+
+inline int64_t satI64F64(double f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= -9223372036854775808.0) {
+        return 0x8000000000000000LL;
+    } else if (f >= 9223372036854775807.0) {
+        return 9223372036854775807LL;
+    } else {
+        return (int64_t)f;
+    }
+}
+
+inline uint64_t satU64F64(double f)
+{
+    if (isnan(f)) {
+        return 0;
+    } else if (f <= 0.0) {
+        return 0;
+    } else if (f >= 18446744073709551615.0) {
+        return 18446744073709551615ULL;
+    } else {
+        return (uint64_t)f;
+    }
+}
+
+V128 makeV128(uint64_t v0, uint64_t v1)
+{
+    V128 result;
+
+    result.v2x64[0] = v0;
+    result.v2x64[1] = v1;
+
+    return result;
 }
 

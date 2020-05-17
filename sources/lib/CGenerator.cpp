@@ -1098,6 +1098,17 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     return ifNode;
 }
 
+CNode* CGenerator::generateCBrUnless(Instruction* instruction)
+{
+    auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
+    auto index = branchInstruction->getIndex();
+    auto* condition = notExpression(popExpression());
+    auto* ifNode = new CIf(condition);
+
+    ifNode->addThenStatement(generateCBranchStatement(index, true));
+    return ifNode;
+}
+
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionBrTable*>(instruction);
@@ -1970,10 +1981,242 @@ CNode* CGenerator::generateCStatement()
     //      case Opcode::ref__is_null:
     //      case Opcode::ref__func:
     //      case Opcode::alloca:
-    //      case Opcode::br_unless:
+
+            case Opcode::br_unless:
+                statement = generateCBrUnless(instruction);
+                break;
+
     //      case Opcode::call_host:
     //      case Opcode::data:
     //      case Opcode::drop_keep:
+
+            //EXTNS
+            case Opcode::i32__trunc_sat_f32_s:
+                expression = generateCCallPredef("satI32F32");
+                break;
+
+            case Opcode::i32__trunc_sat_f32_u:
+                expression = generateCCallPredef("satU32F32");
+                break;
+
+            case Opcode::i32__trunc_sat_f64_s:
+                expression = generateCCallPredef("satI32F64");
+                break;
+
+            case Opcode::i32__trunc_sat_f64_u:
+                expression = generateCCallPredef("satU32F64");
+                break;
+
+            case Opcode::i64__trunc_sat_f32_s:
+                expression = generateCCallPredef("satI64F32");
+                break;
+
+            case Opcode::i64__trunc_sat_f32_u:
+                expression = generateCCallPredef("satU64F32");
+                break;
+
+            case Opcode::i64__trunc_sat_f64_s:
+                expression = generateCCallPredef("satI64F64");
+                break;
+
+            case Opcode::i64__trunc_sat_f64_u:
+                expression = generateCCallPredef("satU64F64");
+                break;
+
+    //      case Opcode::memory__init:
+    //      case Opcode::data__drop:
+    //      case Opcode::memory__copy:
+    //      case Opcode::memory__fill:
+    //      case Opcode::table__init:
+    //      case Opcode::elem__drop:
+    //      case Opcode::table__copy:
+    //      case Opcode::table__grow:
+    //      case Opcode::table__size:
+    //      case Opcode::table__fill:
+
+            // SIMD
+     //     case Opcode::v128__load:
+     //     case Opcode::v128__store:
+     //     case Opcode::v128__const:
+     //     case Opcode::v8x16__shuffle:
+     //     case Opcode::i8x16__splat:
+     //     case Opcode::i8x16__extract_lane_s:
+     //     case Opcode::i8x16__extract_lane_u:
+     //     case Opcode::i8x16__replace_lane:
+     //     case Opcode::i16x8__splat:
+     //     case Opcode::i16x8__extract_lane_s:
+     //     case Opcode::i16x8__extract_lane_u:
+     //     case Opcode::i16x8__replace_lane:
+     //     case Opcode::i32x4__splat:
+     //     case Opcode::i32x4__extract_lane:
+     //     case Opcode::i32x4__replace_lane:
+     //     case Opcode::i64x2__splat:
+     //     case Opcode::i64x2__extract_lane:
+     //     case Opcode::i64x2__replace_lane:
+     //     case Opcode::f32x4__splat:
+     //     case Opcode::f32x4__extract_lane:
+     //     case Opcode::f32x4__replace_lane:
+     //     case Opcode::f64x2__splat:
+     //     case Opcode::f64x2__extract_lane:
+     //     case Opcode::f64x2__replace_lane:
+     //     case Opcode::i8x16__eq:
+     //     case Opcode::i8x16__ne:
+     //     case Opcode::i8x16__lt_s:
+     //     case Opcode::i8x16__lt_u:
+     //     case Opcode::i8x16__gt_s:
+     //     case Opcode::i8x16__gt_u:
+     //     case Opcode::i8x16__le_s:
+     //     case Opcode::i8x16__le_u:
+     //     case Opcode::i8x16__ge_s:
+     //     case Opcode::i8x16__ge_u:
+     //     case Opcode::i16x8__eq:
+     //     case Opcode::i16x8__ne:
+     //     case Opcode::i16x8__lt_s:
+     //     case Opcode::i16x8__lt_u:
+     //     case Opcode::i16x8__gt_s:
+     //     case Opcode::i16x8__gt_u:
+     //     case Opcode::i16x8__le_s:
+     //     case Opcode::i16x8__le_u:
+     //     case Opcode::i16x8__ge_s:
+     //     case Opcode::i16x8__ge_u:
+     //     case Opcode::i32x4__eq:
+     //     case Opcode::i32x4__ne:
+     //     case Opcode::i32x4__lt_s:
+     //     case Opcode::i32x4__lt_u:
+     //     case Opcode::i32x4__gt_s:
+     //     case Opcode::i32x4__gt_u:
+     //     case Opcode::i32x4__le_s:
+     //     case Opcode::i32x4__le_u:
+     //     case Opcode::i32x4__ge_s:
+     //     case Opcode::i32x4__ge_u:
+     //     case Opcode::f32x4__eq:
+     //     case Opcode::f32x4__ne:
+     //     case Opcode::f32x4__lt:
+     //     case Opcode::f32x4__gt:
+     //     case Opcode::f32x4__le:
+     //     case Opcode::f32x4__ge:
+     //     case Opcode::f64x2__eq:
+     //     case Opcode::f64x2__ne:
+     //     case Opcode::f64x2__lt:
+     //     case Opcode::f64x2__gt:
+     //     case Opcode::f64x2__le:
+     //     case Opcode::f64x2__ge:
+     //     case Opcode::v128__not:
+     //     case Opcode::v128__and:
+     //     case Opcode::v128__or:
+     //     case Opcode::v128__xor:
+     //     case Opcode::v128__bitselect:
+     //     case Opcode::i8x16__neg:
+     //     case Opcode::i8x16__any_true:
+     //     case Opcode::i8x16__all_true:
+     //     case Opcode::i8x16__shl:
+     //     case Opcode::i8x16__shr_s:
+     //     case Opcode::i8x16__shr_u:
+     //     case Opcode::i8x16__add:
+     //     case Opcode::i8x16__add_saturate_s:
+     //     case Opcode::i8x16__add_saturate_u:
+     //     case Opcode::i8x16__sub:
+     //     case Opcode::i8x16__sub_saturate_s:
+     //     case Opcode::i8x16__sub_saturate_u:
+     //     case Opcode::i8x16__mul:
+     //     case Opcode::i8x16__min_s:
+     //     case Opcode::i8x16__min_u:
+     //     case Opcode::i8x16__max_s:
+     //     case Opcode::i8x16__max_u:
+     //     case Opcode::i16x8__neg:
+     //     case Opcode::i16x8__any_true:
+     //     case Opcode::i16x8__all_true:
+     //     case Opcode::i16x8__shl:
+     //     case Opcode::i16x8__shr_s:
+     //     case Opcode::i16x8__shr_u:
+     //     case Opcode::i16x8__add:
+     //     case Opcode::i16x8__add_saturate_s:
+     //     case Opcode::i16x8__add_saturate_u:
+     //     case Opcode::i16x8__sub:
+     //     case Opcode::i16x8__sub_saturate_s:
+     //     case Opcode::i16x8__sub_saturate_u:
+     //     case Opcode::i16x8__mul:
+     //     case Opcode::i16x8__min_s:
+     //     case Opcode::i16x8__min_u:
+     //     case Opcode::i16x8__max_s:
+     //     case Opcode::i16x8__max_u:
+     //     case Opcode::i32x4__neg:
+     //     case Opcode::i32x4__any_true:
+     //     case Opcode::i32x4__all_true:
+     //     case Opcode::i32x4__shl:
+     //     case Opcode::i32x4__shr_s:
+     //     case Opcode::i32x4__shr_u:
+     //     case Opcode::i32x4__add:
+     //     case Opcode::i32x4__sub:
+     //     case Opcode::i32x4__mul:
+     //     case Opcode::i32x4__min_s:
+     //     case Opcode::i32x4__min_u:
+     //     case Opcode::i32x4__max_s:
+     //     case Opcode::i32x4__max_u:
+     //     case Opcode::i64x2__neg:
+     //     case Opcode::i64x2__any_true:
+     //     case Opcode::i64x2__all_true:
+     //     case Opcode::i64x2__shl:
+     //     case Opcode::i64x2__shr_s:
+     //     case Opcode::i64x2__shr_u:
+     //     case Opcode::i64x2__add:
+     //     case Opcode::i64x2__sub:
+     //     case Opcode::i64x2__mul:
+     //     case Opcode::f32x4__abs:
+     //     case Opcode::f32x4__neg:
+     //     case Opcode::f32x4__sqrt:
+     //     case Opcode::f32x4__add:
+     //     case Opcode::f32x4__sub:
+     //     case Opcode::f32x4__mul:
+     //     case Opcode::f32x4__div:
+     //     case Opcode::f32x4__min:
+     //     case Opcode::f32x4__max:
+     //     case Opcode::f64x2__abs:
+     //     case Opcode::f64x2__neg:
+     //     case Opcode::f64x2__sqrt:
+     //     case Opcode::f64x2__add:
+     //     case Opcode::f64x2__sub:
+     //     case Opcode::f64x2__mul:
+     //     case Opcode::f64x2__div:
+     //     case Opcode::f64x2__min:
+     //     case Opcode::f64x2__max:
+     //     case Opcode::i32x4__trunc_sat_f32x4_s:
+     //     case Opcode::i32x4__trunc_sat_f32x4_u:
+     //     case Opcode::i64x2__trunc_sat_f64x2_s:
+     //     case Opcode::i64x2__trunc_sat_f64x2_u:
+     //     case Opcode::f32x4__convert_i32x4_s:
+     //     case Opcode::f32x4__convert_i32x4_u:
+     //     case Opcode::f64x2__convert_i64x2_s:
+     //     case Opcode::f64x2__convert_i64x2_u:
+     //     case Opcode::v8x16__swizzle:
+     //     case Opcode::v8x16__load_splat:
+     //     case Opcode::v16x8__load_splat:
+     //     case Opcode::v32x4__load_splat:
+     //     case Opcode::v64x2__load_splat:
+     //     case Opcode::i8x16__narrow_i16x8_s:
+     //     case Opcode::i8x16__narrow_i16x8_u:
+     //     case Opcode::i16x8__narrow_i32x4_s:
+     //     case Opcode::i16x8__narrow_i32x4_u:
+     //     case Opcode::i16x8__widen_low_i8x16_s:
+     //     case Opcode::i16x8__widen_high_i8x16_s:
+     //     case Opcode::i16x8__widen_low_i8x16_u:
+     //     case Opcode::i16x8__widen_high_i8x16_u:
+     //     case Opcode::i32x4__widen_low_i16x8_s:
+     //     case Opcode::i32x4__widen_high_i16x8_s:
+     //     case Opcode::i32x4__widen_low_i16x8_u:
+     //     case Opcode::i32x4__widen_high_i16x8_u:
+     //     case Opcode::i16x8__load8x8_s:
+     //     case Opcode::i16x8__load8x8_u:
+     //     case Opcode::i32x4__load16x4_s:
+     //     case Opcode::i32x4__load16x4_u:
+     //     case Opcode::i64x2__load32x2_s:
+     //     case Opcode::i64x2__load32x2_u:
+     //     case Opcode::v128__andnot:
+     //     case Opcode::i8x16__avgr_u:
+     //     case Opcode::i16x8__avgr_u:
+     //     case Opcode::i8x16__abs:
+     //     case Opcode::i16x8__abs:
+     //     case Opcode::i32x4__abs:
             default:
                 std::cerr << "Unimplemented opcode '" << opcode << "' in generateCNode\n";
         }

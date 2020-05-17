@@ -252,6 +252,11 @@ class InstructionV128 : public Instruction
         {
         }
 
+        v128_t getValue() const
+        {
+            return imm;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;

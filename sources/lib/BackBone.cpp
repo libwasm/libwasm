@@ -1723,6 +1723,14 @@ void GlobalImport::check(CheckContext& context)
     context.checkMut(this, mut);
 }
 
+void GlobalImport::generateC(std::ostream& os, Module* module)
+{
+    os << "\nextern ";
+    os << type.getCName() << ' ';
+    printCName(os, 0);
+    os << ';';
+}
+
 void GlobalImport::generate(std::ostream& os, Module* module)
 {
     os << "\n  (import";
@@ -2916,6 +2924,8 @@ std::string Global::getCName(uint32_t number) const
 
     if (!id.empty()) {
         result = cName(id);
+    } else if (!externId.empty()) {
+        result = cName(externId);
     } else {
         result = "global" + toString(number);
     }
