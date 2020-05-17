@@ -40,10 +40,10 @@ int main()
     {
         std::vector<Opcode::NameEntry> buckets[bucketCount];
 
-        unsigned opcode = 0;
+        unsigned opcode = ~0u;
 
         for (size_t i = 0; ; ++i) {
-            if (info[i].opcode < opcode) {
+            if (opcode != ~0u && info[i].opcode < opcode) {
                 std::cerr << "Opcode info not sorted at entry " << info[i].name << std::endl;
                 exit(1);
             }
