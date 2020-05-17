@@ -326,6 +326,10 @@ static bool needsParenthesis(CNode* node, std::string_view op)
 
         auto parentPrecedence = binaryPrecedence(parentOp);
 
+        if (precedence == 11) {
+            return true;
+        }
+
         if (parentPrecedence < 9) {
             return parentPrecedence != 2;
         }
@@ -1858,8 +1862,14 @@ CNode* CGenerator::generateCStatement()
                 expression = generateCCallPredef("fmax");
                 break;
 
-    //      case Opcode::f32__copysign:
-    //      case Opcode::f64__copysign:
+            case Opcode::f32__copysign:
+                expression = generateCCallPredef("copysignf", 2);
+                break;
+
+            case Opcode::f64__copysign:
+                expression = generateCCallPredef("copysign", 2);
+                break;
+
 
             case Opcode::i32__wrap_i64:
             case Opcode::i32__trunc_f32_s:
@@ -1936,11 +1946,26 @@ CNode* CGenerator::generateCStatement()
                 expression = generateCMemoryGrow();
                 break;
 
-    //      case Opcode::i32__extend8_s:
-    //      case Opcode::i32__extend16_s:
-    //      case Opcode::i64__extend8_s:
-    //      case Opcode::i64__extend16_s:
-    //      case Opcode::i64__extend32_s:
+            case Opcode::i32__extend8_s:
+                expression = generateCDoubleCast("int32_t", "int8_t");
+                break;
+
+            case Opcode::i32__extend16_s:
+                expression = generateCDoubleCast("int32_t", "int16_t");
+                break;
+
+            case Opcode::i64__extend8_s:
+                expression = generateCDoubleCast("int64_t", "int8_t");
+                break;
+
+            case Opcode::i64__extend16_s:
+                expression = generateCDoubleCast("int64_t", "int16_t");
+                break;
+
+            case Opcode::i64__extend32_s:
+                expression = generateCDoubleCast("int64_t", "int32_t");
+                break;
+
     //      case Opcode::ref__null:
     //      case Opcode::ref__is_null:
     //      case Opcode::ref__func:

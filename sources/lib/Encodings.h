@@ -394,6 +394,8 @@ class Opcode
             call_host = 0xe2,
             data = 0xe3,
             drop_keep = 0xe4,
+
+            //EXTNS
             i32__trunc_sat_f32_s = extns | 0x00,
             i32__trunc_sat_f32_u = extns | 0x01,
             i32__trunc_sat_f64_s = extns | 0x02,
