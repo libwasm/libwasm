@@ -382,7 +382,7 @@ InstructionV128* InstructionV128::parse(SourceContext& context, Opcode opcode)
     auto result = context.makeTreeNode<InstructionV128>();
 
     if (auto v128 = parseV128(context)) {
-        result->imm = std::move(*v128);
+        result->value = std::move(*v128);
     } else {
         context.msgs().error(tokens.peekToken(), "Missing or invalid v128 value.");
     }
@@ -395,7 +395,7 @@ InstructionV128* InstructionV128::read(BinaryContext& context)
     auto& data = context.data();
     auto result = context.makeTreeNode<InstructionV128>();
 
-    result->imm = data.getV128();
+    result->value = data.getV128();
 
     return result;
 }
@@ -405,7 +405,7 @@ void InstructionV128::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putV128(imm);
+    data.putV128(value);
 }
 
 void InstructionV128::check(CheckContext& context)
@@ -424,7 +424,7 @@ void InstructionV128::generate(std::ostream& os, InstructionContext& context)
 
     os << opcode << " i32x4";
 
-    v128 = imm;
+    v128 = value;
 
     for (int i = 0; i < 4; ++i) {
         os << " 0x" << std::hex << std::setw(8) << std::setfill('0') << a32[i];
@@ -849,7 +849,7 @@ InstructionShuffle* InstructionShuffle::parse(SourceContext& context, Opcode opc
     auto result = context.makeTreeNode<InstructionShuffle>();
 
     for (int i = 0; i < 16; ++i) {
-        result->imm[i] = requiredI8(context);
+        result->value[i] = requiredI8(context);
     }
 
     return result;
@@ -861,7 +861,7 @@ InstructionShuffle* InstructionShuffle::read(BinaryContext& context)
     auto result = context.makeTreeNode<InstructionShuffle>();
 
     for (int i = 0; i < 16; ++i) {
-        result->imm[i] = data.getI8();
+        result->value[i] = data.getI8();
     }
 
     return result;
@@ -874,7 +874,7 @@ void InstructionShuffle::write(BinaryContext& context)
     writeOpcode(context);
 
     for (int i = 0; i < 16; ++i) {
-        data.putI8(imm[i]);
+        data.putI8(value[i]);
     }
 }
 
@@ -888,7 +888,7 @@ void InstructionShuffle::generate(std::ostream& os, InstructionContext& context)
     os << opcode;
 
     for (int i = 0; i < 16; ++i) {
-        os << "  " << int32_t(imm[i]);
+        os << "  " << int32_t(value[i]);
     }
 }
 

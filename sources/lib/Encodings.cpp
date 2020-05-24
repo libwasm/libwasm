@@ -172,7 +172,7 @@ std::string_view ValueType::getCName() const
         case i64:          return "int64_t";
         case f32:          return "float";
         case f64:          return "double";
-        case v128:         return "v128";
+        case v128:         return "v128_t";
         case anyref:       return "void *";
         case exnref:       return "exnref";
         case nullref:      return "0";
@@ -180,6 +180,15 @@ std::string_view ValueType::getCName() const
         case void_:        return "void";
 
         default:           return std::string_view();
+    }
+}
+
+std::string_view ValueType::getCNullValue() const
+{
+    if (value == v128) {
+        return "{ 0, 0 }";
+    } else {
+        return "0";
     }
 }
 

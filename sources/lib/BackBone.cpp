@@ -3473,6 +3473,22 @@ void Expression::generateValue(std::ostream& os, Module* module)
             os << static_cast<InstructionF64*>(instruction)->getValue();
             return;
 
+        case Opcode::v128__const:
+            {
+                union
+                {
+                    int64_t a64[2];
+                    v128_t v128;
+                };
+
+                v128 = static_cast<InstructionV128*>(instruction)->getValue();
+
+                os << "{ 0x" << std::hex << std::setw(16) << std::setfill('0') << a64[0] <<
+                    "LL, 0x" << std::setw(16) << std::setfill('0') << a64[0] << std::dec << "LL }";
+            }
+
+            break;
+
         default:
             // TBI
             assert(false);

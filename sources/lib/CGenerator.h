@@ -42,6 +42,7 @@ class CNode
             kI64,
             kF32,
             kF64,
+            kV128,
             kIf,
             kLabel,
             kLoad,
@@ -474,6 +475,27 @@ class CF64 : public CNode
         double value = 0;
 };
 
+class CV128 : public CNode
+{
+    public:
+        static const CNodeKind kind = kV128;
+
+        CV128(v128_t value)
+           : CNode(kind), value(value)
+        {
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator& generator);
+
+        auto getValue() const
+        {
+            return value;
+        }
+
+    private:
+        v128_t value = { 0 };
+};
+
 class CIf : public CNode
 {
     public:
@@ -715,6 +737,7 @@ class CGenerator
         void generateCFunction();
         CNode* generateCStatement();
         CNode* generateCBranchStatement(uint32_t index, bool conditional = false);
+        CNode* makeCombinedOffset(Instruction* instruction);
 
         CNode* generateCBinaryExpression(std::string_view op);
         CNode* generateCBlock(Instruction* instruction);
@@ -726,9 +749,13 @@ class CGenerator
         CNode* generateCCast(std::string_view name);
         CNode* generateCDoubleCast(std::string_view name1, std::string_view name2);
         CNode* generateCDrop(Instruction* instruction);
+        CNode* generateCExtractLane(Instruction* instruction, const char* type);
+        CNode* generateCReplaceLane(Instruction* instruction, const char* type);
         CNode* generateCGlobalSet(Instruction* instruction);
         CNode* generateCIf(Instruction* instruction);
         CNode* generateCLoad(std::string_view name, Instruction* instruction);
+        CNode* generateCLoadSplat(std::string_view splatName, std::string_view loadName, Instruction* instruction);
+        CNode* generateCLoadExtend(std::string_view splatName, Instruction* instruction);
         CNode* generateCLocalSet(Instruction* instruction);
         CNode* generateCLoop(Instruction* instruction);
         CNode* generateCMemoryGrow();

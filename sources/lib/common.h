@@ -53,6 +53,15 @@ inline bool isHex(char c)
            (c >= 'A' && c <= 'F');
 }
 
+inline char toUpper(char c)
+{
+    if (c >= 'a' && c <= 'z') {
+        return char(c - ('a' - 'A'));
+    } else {
+        return c;
+    }
+}
+
 inline bool isIdChar(char c)
 {
     if (c >= '^' && c <= 'z') {

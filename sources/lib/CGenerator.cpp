@@ -8,8 +8,12 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <string>
 #include <optional>
+
+using namespace std::string_literals;
 
 namespace libwasm
 {
@@ -420,7 +424,7 @@ void CVariable::generateC(std::ostream& os, CGenerator& generator)
     os << type.getCName() << ' ' << name << " = ";
 
     if (initialValue == nullptr) {
-        os << '0';
+        os << type.getCNullValue();
     } else {
         initialValue->generateC(os, generator);
     }
@@ -518,6 +522,20 @@ void CF32::generateC(std::ostream& os, CGenerator& generator)
 void CF64::generateC(std::ostream& os, CGenerator& generator)
 {
     os << toString(value);
+}
+
+void CV128::generateC(std::ostream& os, CGenerator& generator)
+{
+    union
+    {
+        int64_t a64[2];
+        v128_t v128;
+    };
+
+    v128 = value;
+
+    os << "v128Makei64x2(0x" << std::hex << std::setw(16) << std::setfill('0') << a64[0] <<
+                    "LL, 0x" << std::setw(16) << std::setfill('0') << a64[0] << std::dec << "LL)";
 }
 
 void CReturn::generateC(std::ostream& os, CGenerator& generator)
@@ -1151,7 +1169,7 @@ CNode* CGenerator::generateCUBinaryExpression(std::string_view op, std::string_v
     return new CBinaryExpression(new CCast(type, left), new CCast(type, right), op);
 }
 
-CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction)
+CNode* CGenerator::makeCombinedOffset(Instruction* instruction)
 {
     auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
     auto offset = memoryInstruction->getOffset();
@@ -1174,7 +1192,30 @@ CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction
         combinedOffset = new CBinaryExpression(new CI64(offset), dynamicOffset, "+");
     }
 
-    return new CLoad(name, combinedOffset);
+    return combinedOffset;
+}
+
+CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction)
+{
+    return new CLoad(name, makeCombinedOffset(instruction));
+}
+
+CNode* CGenerator::generateCLoadSplat(std::string_view splatName, std::string_view loadName, Instruction* instruction)
+{
+    auto* result = new CCall(splatName);
+
+    result->addArgument(generateCLoad(loadName, instruction));
+
+    return result;
+}
+
+CNode* CGenerator::generateCLoadExtend(std::string_view loadName, Instruction* instruction)
+{
+    auto* result = new CCall(loadName);
+
+    result->addArgument(makeCombinedOffset(instruction));
+
+    return result;
 }
 
 CNode* CGenerator::generateCStore(std::string_view name, Instruction* instruction)
@@ -1343,6 +1384,32 @@ void CGenerator::generateCCallIndirect(Instruction* instruction, CNode*& express
     } else {
         expression = result;
     }
+}
+
+CNode* CGenerator::generateCExtractLane(Instruction* instruction, const char* type)
+{
+    auto laneInstruction = static_cast<InstructionIdx*>(instruction);
+    auto index = laneInstruction->getIndex();
+    auto* result = new CCall("v128ExtractLane"s + type);
+
+    result->addArgument(popExpression());
+    result->addArgument(new CI32(index));
+
+    return result;
+}
+
+CNode* CGenerator::generateCReplaceLane(Instruction* instruction, const char* type)
+{
+    auto laneInstruction = static_cast<InstructionIdx*>(instruction);
+    auto index = laneInstruction->getIndex();
+    auto* result = new CCall("v128ReplaceLane"s + type);
+    auto* newValue = popExpression();
+
+    result->addArgument(popExpression());
+    result->addArgument(newValue);
+    result->addArgument(new CI32(index));
+
+    return result;
 }
 
 void CGenerator::generateCFunction()
@@ -2035,188 +2102,649 @@ CNode* CGenerator::generateCStatement()
     //      case Opcode::table__fill:
 
             // SIMD
-     //     case Opcode::v128__load:
-     //     case Opcode::v128__store:
-     //     case Opcode::v128__const:
-     //     case Opcode::v8x16__shuffle:
-     //     case Opcode::i8x16__splat:
-     //     case Opcode::i8x16__extract_lane_s:
-     //     case Opcode::i8x16__extract_lane_u:
-     //     case Opcode::i8x16__replace_lane:
-     //     case Opcode::i16x8__splat:
-     //     case Opcode::i16x8__extract_lane_s:
-     //     case Opcode::i16x8__extract_lane_u:
-     //     case Opcode::i16x8__replace_lane:
-     //     case Opcode::i32x4__splat:
-     //     case Opcode::i32x4__extract_lane:
-     //     case Opcode::i32x4__replace_lane:
-     //     case Opcode::i64x2__splat:
-     //     case Opcode::i64x2__extract_lane:
-     //     case Opcode::i64x2__replace_lane:
-     //     case Opcode::f32x4__splat:
-     //     case Opcode::f32x4__extract_lane:
-     //     case Opcode::f32x4__replace_lane:
-     //     case Opcode::f64x2__splat:
-     //     case Opcode::f64x2__extract_lane:
-     //     case Opcode::f64x2__replace_lane:
-     //     case Opcode::i8x16__eq:
-     //     case Opcode::i8x16__ne:
-     //     case Opcode::i8x16__lt_s:
-     //     case Opcode::i8x16__lt_u:
-     //     case Opcode::i8x16__gt_s:
-     //     case Opcode::i8x16__gt_u:
-     //     case Opcode::i8x16__le_s:
-     //     case Opcode::i8x16__le_u:
-     //     case Opcode::i8x16__ge_s:
-     //     case Opcode::i8x16__ge_u:
-     //     case Opcode::i16x8__eq:
-     //     case Opcode::i16x8__ne:
-     //     case Opcode::i16x8__lt_s:
-     //     case Opcode::i16x8__lt_u:
-     //     case Opcode::i16x8__gt_s:
-     //     case Opcode::i16x8__gt_u:
-     //     case Opcode::i16x8__le_s:
-     //     case Opcode::i16x8__le_u:
-     //     case Opcode::i16x8__ge_s:
-     //     case Opcode::i16x8__ge_u:
-     //     case Opcode::i32x4__eq:
-     //     case Opcode::i32x4__ne:
-     //     case Opcode::i32x4__lt_s:
-     //     case Opcode::i32x4__lt_u:
-     //     case Opcode::i32x4__gt_s:
-     //     case Opcode::i32x4__gt_u:
-     //     case Opcode::i32x4__le_s:
-     //     case Opcode::i32x4__le_u:
-     //     case Opcode::i32x4__ge_s:
-     //     case Opcode::i32x4__ge_u:
-     //     case Opcode::f32x4__eq:
-     //     case Opcode::f32x4__ne:
-     //     case Opcode::f32x4__lt:
-     //     case Opcode::f32x4__gt:
-     //     case Opcode::f32x4__le:
-     //     case Opcode::f32x4__ge:
-     //     case Opcode::f64x2__eq:
-     //     case Opcode::f64x2__ne:
-     //     case Opcode::f64x2__lt:
-     //     case Opcode::f64x2__gt:
-     //     case Opcode::f64x2__le:
-     //     case Opcode::f64x2__ge:
-     //     case Opcode::v128__not:
-     //     case Opcode::v128__and:
-     //     case Opcode::v128__or:
-     //     case Opcode::v128__xor:
-     //     case Opcode::v128__bitselect:
-     //     case Opcode::i8x16__neg:
-     //     case Opcode::i8x16__any_true:
-     //     case Opcode::i8x16__all_true:
-     //     case Opcode::i8x16__shl:
-     //     case Opcode::i8x16__shr_s:
-     //     case Opcode::i8x16__shr_u:
-     //     case Opcode::i8x16__add:
-     //     case Opcode::i8x16__add_saturate_s:
-     //     case Opcode::i8x16__add_saturate_u:
-     //     case Opcode::i8x16__sub:
-     //     case Opcode::i8x16__sub_saturate_s:
-     //     case Opcode::i8x16__sub_saturate_u:
-     //     case Opcode::i8x16__mul:
-     //     case Opcode::i8x16__min_s:
-     //     case Opcode::i8x16__min_u:
-     //     case Opcode::i8x16__max_s:
-     //     case Opcode::i8x16__max_u:
-     //     case Opcode::i16x8__neg:
-     //     case Opcode::i16x8__any_true:
-     //     case Opcode::i16x8__all_true:
-     //     case Opcode::i16x8__shl:
-     //     case Opcode::i16x8__shr_s:
-     //     case Opcode::i16x8__shr_u:
-     //     case Opcode::i16x8__add:
-     //     case Opcode::i16x8__add_saturate_s:
-     //     case Opcode::i16x8__add_saturate_u:
-     //     case Opcode::i16x8__sub:
-     //     case Opcode::i16x8__sub_saturate_s:
-     //     case Opcode::i16x8__sub_saturate_u:
-     //     case Opcode::i16x8__mul:
-     //     case Opcode::i16x8__min_s:
-     //     case Opcode::i16x8__min_u:
-     //     case Opcode::i16x8__max_s:
-     //     case Opcode::i16x8__max_u:
-     //     case Opcode::i32x4__neg:
-     //     case Opcode::i32x4__any_true:
-     //     case Opcode::i32x4__all_true:
-     //     case Opcode::i32x4__shl:
-     //     case Opcode::i32x4__shr_s:
-     //     case Opcode::i32x4__shr_u:
-     //     case Opcode::i32x4__add:
-     //     case Opcode::i32x4__sub:
-     //     case Opcode::i32x4__mul:
-     //     case Opcode::i32x4__min_s:
-     //     case Opcode::i32x4__min_u:
-     //     case Opcode::i32x4__max_s:
-     //     case Opcode::i32x4__max_u:
-     //     case Opcode::i64x2__neg:
-     //     case Opcode::i64x2__any_true:
-     //     case Opcode::i64x2__all_true:
-     //     case Opcode::i64x2__shl:
-     //     case Opcode::i64x2__shr_s:
-     //     case Opcode::i64x2__shr_u:
-     //     case Opcode::i64x2__add:
-     //     case Opcode::i64x2__sub:
-     //     case Opcode::i64x2__mul:
-     //     case Opcode::f32x4__abs:
-     //     case Opcode::f32x4__neg:
-     //     case Opcode::f32x4__sqrt:
-     //     case Opcode::f32x4__add:
-     //     case Opcode::f32x4__sub:
-     //     case Opcode::f32x4__mul:
-     //     case Opcode::f32x4__div:
-     //     case Opcode::f32x4__min:
-     //     case Opcode::f32x4__max:
-     //     case Opcode::f64x2__abs:
-     //     case Opcode::f64x2__neg:
-     //     case Opcode::f64x2__sqrt:
-     //     case Opcode::f64x2__add:
-     //     case Opcode::f64x2__sub:
-     //     case Opcode::f64x2__mul:
-     //     case Opcode::f64x2__div:
-     //     case Opcode::f64x2__min:
-     //     case Opcode::f64x2__max:
-     //     case Opcode::i32x4__trunc_sat_f32x4_s:
-     //     case Opcode::i32x4__trunc_sat_f32x4_u:
-     //     case Opcode::i64x2__trunc_sat_f64x2_s:
-     //     case Opcode::i64x2__trunc_sat_f64x2_u:
-     //     case Opcode::f32x4__convert_i32x4_s:
-     //     case Opcode::f32x4__convert_i32x4_u:
-     //     case Opcode::f64x2__convert_i64x2_s:
-     //     case Opcode::f64x2__convert_i64x2_u:
-     //     case Opcode::v8x16__swizzle:
-     //     case Opcode::v8x16__load_splat:
-     //     case Opcode::v16x8__load_splat:
-     //     case Opcode::v32x4__load_splat:
-     //     case Opcode::v64x2__load_splat:
-     //     case Opcode::i8x16__narrow_i16x8_s:
-     //     case Opcode::i8x16__narrow_i16x8_u:
-     //     case Opcode::i16x8__narrow_i32x4_s:
-     //     case Opcode::i16x8__narrow_i32x4_u:
-     //     case Opcode::i16x8__widen_low_i8x16_s:
-     //     case Opcode::i16x8__widen_high_i8x16_s:
-     //     case Opcode::i16x8__widen_low_i8x16_u:
-     //     case Opcode::i16x8__widen_high_i8x16_u:
-     //     case Opcode::i32x4__widen_low_i16x8_s:
-     //     case Opcode::i32x4__widen_high_i16x8_s:
-     //     case Opcode::i32x4__widen_low_i16x8_u:
-     //     case Opcode::i32x4__widen_high_i16x8_u:
-     //     case Opcode::i16x8__load8x8_s:
-     //     case Opcode::i16x8__load8x8_u:
-     //     case Opcode::i32x4__load16x4_s:
-     //     case Opcode::i32x4__load16x4_u:
-     //     case Opcode::i64x2__load32x2_s:
-     //     case Opcode::i64x2__load32x2_u:
-     //     case Opcode::v128__andnot:
-     //     case Opcode::i8x16__avgr_u:
-     //     case Opcode::i16x8__avgr_u:
-     //     case Opcode::i8x16__abs:
-     //     case Opcode::i16x8__abs:
-     //     case Opcode::i32x4__abs:
+            case Opcode::v128__load:
+                expression = generateCLoad("loadV128", instruction);
+                break;
+
+            case Opcode::i16x8__load8x8_s:
+                expression = generateCLoadExtend("v128SLoadExti16x8", instruction);
+                break;
+
+            case Opcode::i16x8__load8x8_u:
+                expression = generateCLoadExtend("v128SLoadExtu16x8", instruction);
+                break;
+
+            case Opcode::i32x4__load16x4_s:
+                expression = generateCLoadExtend("v128SLoadExti32x4", instruction);
+                break;
+
+            case Opcode::i32x4__load16x4_u:
+                expression = generateCLoadExtend("v128SLoadExtu32x4", instruction);
+                break;
+
+            case Opcode::i64x2__load32x2_s:
+                expression = generateCLoadExtend("v128SLoadExti64x2", instruction);
+                break;
+
+            case Opcode::i64x2__load32x2_u:
+                expression = generateCLoadExtend("v128SLoadExtu64x2", instruction);
+                break;
+
+            case Opcode::v8x16__load_splat:
+                expression = generateCLoadSplat("v128Splati8x16", "loadI32", instruction);
+                break;
+
+            case Opcode::v16x8__load_splat:
+                expression = generateCLoadSplat("v128Splati16x8", "loadI32", instruction);
+                break;
+
+            case Opcode::v32x4__load_splat:
+                expression = generateCLoadSplat("v128Splati32x4", "loadI32", instruction);
+                break;
+
+            case Opcode::v64x2__load_splat:
+                expression = generateCLoadSplat("v128Splati64x2", "loadI64", instruction);
+                break;
+
+            case Opcode::v128__store:
+                expression = generateCLoad("storeV128", instruction);
+                break;
+
+            case Opcode::v128__const:
+                expression = new CV128(static_cast<InstructionV128*>(instruction)->getValue());
+                break;
+
+    //      case Opcode::v8x16__shuffle:
+    //      case Opcode::v8x16__swizzle:
+            case Opcode::i8x16__splat:
+                expression = generateCCallPredef("v128Splati8x16");
+                break;
+
+            case Opcode::i16x8__splat:
+                expression = generateCCallPredef("v128Splati16x8");
+                break;
+
+            case Opcode::i32x4__splat:
+                expression = generateCCallPredef("v128Splati32x4");
+                break;
+
+            case Opcode::i64x2__splat:
+                expression = generateCCallPredef("v128Splati64x2");
+                break;
+
+            case Opcode::f32x4__splat:
+                expression = generateCCallPredef("v128Splatf32x4");
+                break;
+
+            case Opcode::f64x2__splat:
+                expression = generateCCallPredef("v128Splatf64x2");
+                break;
+
+            case Opcode::i8x16__extract_lane_s:
+                expression = generateCExtractLane(instruction, "i8x16");
+                break;
+
+            case Opcode::i8x16__extract_lane_u:
+                expression = generateCExtractLane(instruction, "i8x16");
+                break;
+
+            case Opcode::i8x16__replace_lane:
+                expression = generateCReplaceLane(instruction, "i8x16");
+                break;
+
+            case Opcode::i16x8__extract_lane_s:
+                expression = generateCExtractLane(instruction, "i16x8");
+                break;
+
+            case Opcode::i16x8__extract_lane_u:
+                expression = generateCExtractLane(instruction, "u16x8");
+                break;
+
+            case Opcode::i16x8__replace_lane:
+                expression = generateCReplaceLane(instruction, "i16x8");
+                break;
+
+            case Opcode::i32x4__extract_lane:
+                expression = generateCExtractLane(instruction, "i32x4");
+                break;
+
+            case Opcode::i32x4__replace_lane:
+                expression = generateCReplaceLane(instruction, "i32x4");
+                break;
+
+            case Opcode::i64x2__extract_lane:
+                expression = generateCExtractLane(instruction, "i64x2");
+                break;
+
+            case Opcode::i64x2__replace_lane:
+                expression = generateCReplaceLane(instruction, "i64x2");
+                break;
+
+            case Opcode::f32x4__extract_lane:
+                expression = generateCExtractLane(instruction, "f32x4");
+                break;
+
+            case Opcode::f32x4__replace_lane:
+                expression = generateCReplaceLane(instruction, "f32x4");
+                break;
+
+            case Opcode::f64x2__extract_lane:
+                expression = generateCExtractLane(instruction, "f64x2");
+                break;
+
+            case Opcode::f64x2__replace_lane:
+                expression = generateCReplaceLane(instruction, "f64x2");
+                break;
+
+            case Opcode::i8x16__eq:
+                expression = generateCCallPredef("v128Eqi8x16", 2);
+                break;
+
+            case Opcode::i8x16__ne:
+                expression = generateCCallPredef("v128Nei8x16", 2);
+                break;
+
+            case Opcode::i8x16__lt_s:
+                expression = generateCCallPredef("v128Lti8x16", 2);
+                break;
+
+            case Opcode::i8x16__lt_u:
+                expression = generateCCallPredef("v128Ltu8x16", 2);
+                break;
+
+            case Opcode::i8x16__gt_s:
+                expression = generateCCallPredef("v128Gti8x16", 2);
+                break;
+
+            case Opcode::i8x16__gt_u:
+                expression = generateCCallPredef("v128Gtu8x16", 2);
+                break;
+
+            case Opcode::i8x16__le_s:
+                expression = generateCCallPredef("v128Lei8x16", 2);
+                break;
+
+            case Opcode::i8x16__le_u:
+                expression = generateCCallPredef("v128Leu8x16", 2);
+                break;
+
+            case Opcode::i8x16__ge_s:
+                expression = generateCCallPredef("v128Gei8x16", 2);
+                break;
+
+            case Opcode::i8x16__ge_u:
+                expression = generateCCallPredef("v128Geu8x16", 2);
+                break;
+
+            case Opcode::i16x8__eq:
+                expression = generateCCallPredef("v128Eqi16x8", 2);
+                break;
+
+            case Opcode::i16x8__ne:
+                expression = generateCCallPredef("v128Nei16x8", 2);
+                break;
+
+            case Opcode::i16x8__lt_s:
+                expression = generateCCallPredef("v128Lti16x8", 2);
+                break;
+
+            case Opcode::i16x8__lt_u:
+                expression = generateCCallPredef("v128Ltu16x8", 2);
+                break;
+
+            case Opcode::i16x8__gt_s:
+                expression = generateCCallPredef("v128Gti16x8", 2);
+                break;
+
+            case Opcode::i16x8__gt_u:
+                expression = generateCCallPredef("v128Gtu16x8", 2);
+                break;
+
+            case Opcode::i16x8__le_s:
+                expression = generateCCallPredef("v128Lei16x8", 2);
+                break;
+
+            case Opcode::i16x8__le_u:
+                expression = generateCCallPredef("v128Leu16x8", 2);
+                break;
+
+            case Opcode::i16x8__ge_s:
+                expression = generateCCallPredef("v128Gei16x8", 2);
+                break;
+
+            case Opcode::i16x8__ge_u:
+                expression = generateCCallPredef("v128Geu16x8", 2);
+                break;
+
+            case Opcode::i32x4__eq:
+                expression = generateCCallPredef("v128Eqi32x4", 2);
+                break;
+
+            case Opcode::i32x4__ne:
+                expression = generateCCallPredef("v128Nei32x4", 2);
+                break;
+
+            case Opcode::i32x4__lt_s:
+                expression = generateCCallPredef("v128Lti32x4", 2);
+                break;
+
+            case Opcode::i32x4__lt_u:
+                expression = generateCCallPredef("v128Ltu32x4", 2);
+                break;
+
+            case Opcode::i32x4__gt_s:
+                expression = generateCCallPredef("v128Gti32x4", 2);
+                break;
+
+            case Opcode::i32x4__gt_u:
+                expression = generateCCallPredef("v128Gtu32x4", 2);
+                break;
+
+            case Opcode::i32x4__le_s:
+                expression = generateCCallPredef("v128Lei32x4", 2);
+                break;
+
+            case Opcode::i32x4__le_u:
+                expression = generateCCallPredef("v128Leu32x4", 2);
+                break;
+
+            case Opcode::i32x4__ge_s:
+                expression = generateCCallPredef("v128Gei32x4", 2);
+                break;
+
+            case Opcode::i32x4__ge_u:
+                expression = generateCCallPredef("v128Geu32x4", 2);
+                break;
+
+            case Opcode::f32x4__eq:
+                expression = generateCCallPredef("v128Eqf32x4", 2);
+                break;
+
+            case Opcode::f32x4__ne:
+                expression = generateCCallPredef("v128Nef42x4", 2);
+                break;
+
+            case Opcode::f32x4__lt:
+                expression = generateCCallPredef("v128Ltf42x4", 2);
+                break;
+
+            case Opcode::f32x4__gt:
+                expression = generateCCallPredef("v128Gtf42x4", 2);
+                break;
+
+            case Opcode::f32x4__le:
+                expression = generateCCallPredef("v128Lef42x4", 2);
+                break;
+
+            case Opcode::f32x4__ge:
+                expression = generateCCallPredef("v128Gef42x4", 2);
+                break;
+
+            case Opcode::f64x2__eq:
+                expression = generateCCallPredef("v128Eqf64x2", 2);
+                break;
+
+            case Opcode::f64x2__ne:
+                expression = generateCCallPredef("v128Nef64x2", 2);
+                break;
+
+            case Opcode::f64x2__lt:
+                expression = generateCCallPredef("v128Ltf64x2", 2);
+                break;
+
+            case Opcode::f64x2__gt:
+                expression = generateCCallPredef("v128Gtf64x2", 2);
+                break;
+
+            case Opcode::f64x2__le:
+                expression = generateCCallPredef("v128Lef64x2", 2);
+                break;
+
+            case Opcode::f64x2__ge:
+                expression = generateCCallPredef("v128Gef64x2", 2);
+                break;
+
+            case Opcode::v128__not:
+                expression = generateCCallPredef("v128Noti64x2");
+                break;
+
+            case Opcode::v128__and:
+                expression = generateCCallPredef("v128Andi64x2", 2);
+                break;
+
+            case Opcode::v128__andnot:
+                expression = generateCCallPredef("v128AndNoti64x2", 2);
+                break;
+
+            case Opcode::v128__or:
+                expression = generateCCallPredef("v128Ori64x2", 2);
+                break;
+
+            case Opcode::v128__xor:
+                expression = generateCCallPredef("v128Xori64x2", 2);
+                break;
+
+    //      case Opcode::v128__bitselect:
+            case Opcode::i8x16__abs:
+                expression = generateCCallPredef("v128Absi8x16");
+                break;
+
+            case Opcode::i8x16__neg:
+                expression = generateCCallPredef("v128Negi8x16");
+                break;
+
+            case Opcode::i8x16__any_true:
+                expression = generateCCallPredef("v128SAnyTruei8x16", 2);
+                break;
+
+            case Opcode::i8x16__all_true:
+                expression = generateCCallPredef("v128SAllTruei8x16", 2);
+                break;
+
+    //      case Opcode::i8x16__narrow_i16x8_s:
+    //      case Opcode::i8x16__narrow_i16x8_u:
+            case Opcode::i8x16__shl:
+                expression = generateCCallPredef("v128Shli8x16", 2);
+                break;
+
+            case Opcode::i8x16__shr_s:
+                expression = generateCCallPredef("v128Shri8x16", 2);
+                break;
+
+            case Opcode::i8x16__shr_u:
+                expression = generateCCallPredef("v128Shru8x16", 2);
+                break;
+
+            case Opcode::i8x16__add:
+                expression = generateCCallPredef("v128Addi8x16", 2);
+                break;
+
+            case Opcode::i8x16__add_saturate_s:
+                expression = generateCCallPredef("v128SatAddi8x16", 2);
+                break;
+
+            case Opcode::i8x16__add_saturate_u:
+                expression = generateCCallPredef("v128SatAddu8x16", 2);
+                break;
+
+            case Opcode::i8x16__sub:
+                expression = generateCCallPredef("v128Subi8x16", 2);
+                break;
+
+            case Opcode::i8x16__sub_saturate_s:
+                expression = generateCCallPredef("v128SatSubi8x16", 2);
+                break;
+
+            case Opcode::i8x16__sub_saturate_u:
+                expression = generateCCallPredef("v128SatSubu8x16", 2);
+                break;
+
+            case Opcode::i8x16__min_s:
+                expression = generateCCallPredef("v128Mini8x16", 2);
+                break;
+
+            case Opcode::i8x16__min_u:
+                expression = generateCCallPredef("v128Minu8x16", 2);
+                break;
+
+            case Opcode::i8x16__max_s:
+                expression = generateCCallPredef("v128Maxi8x16", 2);
+                break;
+
+            case Opcode::i8x16__max_u:
+                expression = generateCCallPredef("v128Maxu8x16", 2);
+                break;
+
+            case Opcode::i8x16__avgr_u:
+                expression = generateCCallPredef("v128Avgru8x16", 2);
+                break;
+
+            case Opcode::i16x8__abs:
+                expression = generateCCallPredef("v128Absi8x16");
+                break;
+
+            case Opcode::i16x8__neg:
+                expression = generateCCallPredef("v128Negi8x16");
+                break;
+
+            case Opcode::i16x8__any_true:
+                expression = generateCCallPredef("v128SAnyTruei16x8", 2);
+                break;
+
+            case Opcode::i16x8__all_true:
+                expression = generateCCallPredef("v128SAllTruei16x8", 2);
+                break;
+
+    //      case Opcode::i16x8__narrow_i32x4_s:
+    //      case Opcode::i16x8__narrow_i32x4_u:
+    //      case Opcode::i16x8__widen_low_i8x16_s:
+    //      case Opcode::i16x8__widen_high_i8x16_s:
+    //      case Opcode::i16x8__widen_low_i8x16_u:
+    //      case Opcode::i16x8__widen_high_i8x16_u:
+            case Opcode::i16x8__shl:
+                expression = generateCCallPredef("v128Shli16x8", 2);
+                break;
+
+            case Opcode::i16x8__shr_s:
+                expression = generateCCallPredef("v128Shri16x8", 2);
+                break;
+
+            case Opcode::i16x8__shr_u:
+                expression = generateCCallPredef("v128Shru16x8", 2);
+                break;
+
+            case Opcode::i16x8__add:
+                expression = generateCCallPredef("v128Addi16x8", 2);
+                break;
+
+            case Opcode::i16x8__add_saturate_s:
+                expression = generateCCallPredef("v128SatAddi16x8", 2);
+                break;
+
+            case Opcode::i16x8__add_saturate_u:
+                expression = generateCCallPredef("v128SatAddu16x8", 2);
+                break;
+
+            case Opcode::i16x8__sub:
+                expression = generateCCallPredef("v128Subi16x8", 2);
+                break;
+
+            case Opcode::i16x8__sub_saturate_s:
+                expression = generateCCallPredef("v128SatSubi16x8", 2);
+                break;
+
+            case Opcode::i16x8__sub_saturate_u:
+                expression = generateCCallPredef("v128SatSubu16x8", 2);
+                break;
+
+            case Opcode::i16x8__mul:
+                expression = generateCCallPredef("v128Muli16x8", 2);
+                break;
+
+            case Opcode::i16x8__min_s:
+                expression = generateCCallPredef("v128Mini16x8", 2);
+                break;
+
+            case Opcode::i16x8__min_u:
+                expression = generateCCallPredef("v128Mini16x8", 2);
+                break;
+
+            case Opcode::i16x8__max_s:
+                expression = generateCCallPredef("v128Maxi16x8", 2);
+                break;
+
+            case Opcode::i16x8__max_u:
+                expression = generateCCallPredef("v128Maxu16x8", 2);
+                break;
+
+            case Opcode::i16x8__avgr_u:
+                expression = generateCCallPredef("v128Avgru16x8", 2);
+                break;
+
+            case Opcode::i32x4__abs:
+                expression = generateCCallPredef("v128Absi16x8");
+                break;
+
+            case Opcode::i32x4__neg:
+                expression = generateCCallPredef("v128Negi16x8");
+                break;
+
+            case Opcode::i32x4__any_true:
+                expression = generateCCallPredef("v128SAnyTruei32x4", 2);
+                break;
+
+            case Opcode::i32x4__all_true:
+                expression = generateCCallPredef("v128SAllTruei32x4", 2);
+                break;
+
+    //      case Opcode::i32x4__widen_low_i16x8_s:
+    //      case Opcode::i32x4__widen_high_i16x8_s:
+    //      case Opcode::i32x4__widen_low_i16x8_u:
+    //      case Opcode::i32x4__widen_high_i16x8_u:
+            case Opcode::i32x4__shl:
+                expression = generateCCallPredef("v128Shli32x4", 2);
+                break;
+
+            case Opcode::i32x4__shr_s:
+                expression = generateCCallPredef("v128Shri32x4", 2);
+                break;
+
+            case Opcode::i32x4__shr_u:
+                expression = generateCCallPredef("v128Shru32x4", 2);
+                break;
+
+            case Opcode::i32x4__add:
+                expression = generateCCallPredef("v128Addi32x4", 2);
+                break;
+
+            case Opcode::i32x4__sub:
+                expression = generateCCallPredef("v128Subi32x4", 2);
+                break;
+
+            case Opcode::i32x4__mul:
+                expression = generateCCallPredef("v128Muli32x4", 2);
+                break;
+
+            case Opcode::i32x4__min_s:
+                expression = generateCCallPredef("v128Mini32x4", 2);
+                break;
+
+            case Opcode::i32x4__min_u:
+                expression = generateCCallPredef("v128Mini32x4", 2);
+                break;
+
+            case Opcode::i32x4__max_s:
+                expression = generateCCallPredef("v128Maxi32x4", 2);
+                break;
+
+            case Opcode::i32x4__max_u:
+                expression = generateCCallPredef("v128Maxu32x4", 2);
+                break;
+
+            case Opcode::i64x2__neg:
+                expression = generateCCallPredef("v128Negi32x4");
+                break;
+
+            case Opcode::i64x2__shl:
+                expression = generateCCallPredef("v128Shli64x2", 2);
+                break;
+
+            case Opcode::i64x2__shr_s:
+                expression = generateCCallPredef("v128Shri64x2", 2);
+                break;
+
+            case Opcode::i64x2__shr_u:
+                expression = generateCCallPredef("v128Shru64x2", 2);
+                break;
+
+            case Opcode::i64x2__add:
+                expression = generateCCallPredef("v128Addi64x2", 2);
+                break;
+
+            case Opcode::i64x2__sub:
+                expression = generateCCallPredef("v128Subi64x2", 2);
+                break;
+
+            case Opcode::i64x2__mul:
+                expression = generateCCallPredef("v128Muli64x2", 2);
+                break;
+
+            case Opcode::f32x4__abs:
+                expression = generateCCallPredef("v128Absf32x4");
+                break;
+
+            case Opcode::f32x4__neg:
+                expression = generateCCallPredef("v128Negf32x4");
+                break;
+
+            case Opcode::f32x4__sqrt:
+                expression = generateCCallPredef("v128Sqrtf32x4");
+                break;
+
+            case Opcode::f32x4__add:
+                expression = generateCCallPredef("v128Addf32x4", 2);
+                break;
+
+            case Opcode::f32x4__sub:
+                expression = generateCCallPredef("v128Subf32x4", 2);
+                break;
+
+            case Opcode::f32x4__mul:
+                expression = generateCCallPredef("v128Mulf32x4", 2);
+                break;
+
+            case Opcode::f32x4__div:
+                expression = generateCCallPredef("v128Divf32x4", 2);
+                break;
+
+            case Opcode::f32x4__min:
+                expression = generateCCallPredef("v128Minf32x4", 2);
+                break;
+
+            case Opcode::f32x4__max:
+                expression = generateCCallPredef("v128Maxf32x4", 2);
+                break;
+
+            case Opcode::f64x2__abs:
+                expression = generateCCallPredef("v128Absf64x2");
+                break;
+
+            case Opcode::f64x2__neg:
+                expression = generateCCallPredef("v128Negf64x2");
+                break;
+
+            case Opcode::f64x2__sqrt:
+                expression = generateCCallPredef("v128Sqrtf64x2");
+                break;
+
+            case Opcode::f64x2__add:
+                expression = generateCCallPredef("v128Addf64x2", 2);
+                break;
+
+            case Opcode::f64x2__sub:
+                expression = generateCCallPredef("v128Subf64x2", 2);
+                break;
+
+            case Opcode::f64x2__mul:
+                expression = generateCCallPredef("v128Mulf64x2", 2);
+                break;
+
+            case Opcode::f64x2__div:
+                expression = generateCCallPredef("v128Divf64x2", 2);
+                break;
+
+            case Opcode::f64x2__min:
+                expression = generateCCallPredef("v128Minf64x2", 2);
+                break;
+
+            case Opcode::f64x2__max:
+                expression = generateCCallPredef("v128Maxf64x2", 2);
+                break;
+
+    //      case Opcode::i32x4__trunc_sat_f32x4_s:
+    //      case Opcode::i32x4__trunc_sat_f32x4_u:
+    //      case Opcode::f32x4__convert_i32x4_s:
+    //      case Opcode::f32x4__convert_i32x4_u:
             default:
                 std::cerr << "Unimplemented opcode '" << opcode << "' in generateCNode\n";
         }

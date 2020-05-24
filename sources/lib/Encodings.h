@@ -1279,6 +1279,7 @@ class ValueType
         bool isValidRef() const;
         std::string_view getName() const;
         std::string_view getCName() const;
+        std::string_view getCNullValue() const;
         
         static std::optional<ValueType> getEncoding(std::string_view v);
 

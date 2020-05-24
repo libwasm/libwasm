@@ -500,7 +500,7 @@ std::string toHexString(uint64_t value)
             auto digit = value & 0xf;
             value >>= 4;
             
-            result += char((digit < 1) ? (digit + '0') : (digit - 10 + 'a'));
+            result += char((digit < 10) ? (digit + '0') : (digit - 10 + 'a'));
         }
 
         std::reverse(result.begin(), result.end());
@@ -527,17 +527,15 @@ std::string toString(float value)
             i &= 0x7fffffff;
         }
 
-        if (i  == 0x7f800000) {
-            result +=  "INFINITY";
+        if (i == 0x7f800000) {
+            result += "INFINITY";
+        } else if (i != 0x7fc00000) {
+            result += "nan(";
+            result += "\"0x" + toHexString(i & 0x7fffff) + "\")";
         } else {
-            if (i != 0x7fc00000) {
-                result +=  "nan(";
-                result +=  "\"0x" + toHexString(i & 0x7fffff) + "\")";
-            } else {
-                result +=  "NAN";
-            }
+            result += "NAN";
         }
-    } else  {
+    } else {
         std::stringstream stream;
 
         stream << value;
@@ -565,13 +563,13 @@ std::string toString(double value)
             i &= 0x7fffffffffffffff;
         }
 
-        if (i  == 0x7ff0000000000000ull) {
+        if (i == 0x7ff0000000000000ull) {
             result +=  "INFINITY";
+        } else if (i != 0x7ff8000000000000ull) {
+            result += "nan(";
+            result += "\"0x" + toHexString(i & 0xfffffffffffffull) + "\")";
         } else {
-            if (i != 0x7ff8000000000000ull) {
-                result +=  "nan(";
-                result +=  "\"0x" + toHexString(i & 0xfffffffffffffull) + "\")";
-            }
+            result += "NAN";
         }
     } else  {
         std::stringstream stream;

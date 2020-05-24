@@ -65,3 +65,8 @@ compiler.Program('bin/makeOpcodeMap', ['sources/main/makeOpcodeMap.cpp', 'source
 
 Command('sources/lib/OpcodeTables.cpp', 'bin/makeOpcodeMap',
         'bin/makeOpcodeMap > sources/lib/OpcodeTables.cpp')
+
+generatedC = ['sources/c/simdFunctions.h', 'sources/c/simdFunctions.cpp']
+
+Command(generatedC, 'bin/generateSimd',
+        'bin/generateSimd sources/c/simdFunctions.h sources/c/simdFunctions.c')

@@ -254,7 +254,7 @@ class InstructionV128 : public Instruction
 
         v128_t getValue() const
         {
-            return imm;
+            return value;
         }
 
         virtual void write(BinaryContext& context) override;
@@ -265,7 +265,7 @@ class InstructionV128 : public Instruction
         static InstructionV128* read(BinaryContext& context);
 
     protected:
-        v128_t imm = { 0 };
+        v128_t value = { 0 };
 };
 
 class InstructionBlock : public Instruction
@@ -497,7 +497,7 @@ class InstructionShuffle : public Instruction
         static InstructionShuffle* read(BinaryContext& context);
 
     protected:
-        std::array<int8_t, 16> imm;
+        v128_t value;
 };
 
 class InstructionBrTable : public Instruction

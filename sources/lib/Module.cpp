@@ -665,10 +665,16 @@ void Module::generateCPreamble(std::ostream& os)
 
         os << "\n#define MEMORY " << memoryName << '\n';
 
+        makeLoadFunction(os, memoryName, "loadI8", "*(int8_t*)", "int32_t");
+        makeLoadFunction(os, memoryName, "loadU8", "*(uint8_t*)", "uint32_t");
+        makeLoadFunction(os, memoryName, "loadI16", "*(int16_t*)", "int32_t");
+        makeLoadFunction(os, memoryName, "loadU16", "*(uint16_t*)", "uint32_t");
         makeLoadFunction(os, memoryName, "loadI32", "*(int32_t*)", "int32_t");
+        makeLoadFunction(os, memoryName, "loadU32", "*(uint32_t*)", "uint32_t");
         makeLoadFunction(os, memoryName, "loadI64", "*(int64_t*)", "int64_t");
         makeLoadFunction(os, memoryName, "loadF32", "*(float*)", "float");
         makeLoadFunction(os, memoryName, "loadF64", "*(double*)", "double");
+        makeLoadFunction(os, memoryName, "loadV128", "*(v128_t*)", "v128_t");
 
         makeLoadFunction(os, memoryName, "loadI32U8", "(int32_t)*(uint8_t*)", "int32_t");
         makeLoadFunction(os, memoryName, "loadI32I8", "(int32_t)*(int8_t*)", "int32_t");
@@ -686,6 +692,7 @@ void Module::generateCPreamble(std::ostream& os)
         makeStoreFunction(os, memoryName, "storeI64", "*(int64_t*)", "int64_t");
         makeStoreFunction(os, memoryName, "storeF32", "*(float*)", "float");
         makeStoreFunction(os, memoryName, "storeF64", "*(double*)", "double");
+        makeStoreFunction(os, memoryName, "storeV128", "*(v128_t*)", "v128_t");
 
         makeStoreFunction(os, memoryName, "storeI32I8", "*(int8_t*)", "int32_t");
         makeStoreFunction(os, memoryName, "storeI32I16", "*(int16_t*)", "int32_t");

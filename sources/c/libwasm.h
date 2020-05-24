@@ -1,7 +1,15 @@
 // libwasm.h
 
+#ifndef LIBWASM_H
+
 #include <stdint.h>
 #include <math.h>
+
+#ifndef NOHARDWARE_SUPPORT
+#  ifdef __GNUC__
+#  define HARDWARE_SUPPORT
+#  endif
+#endif
 
 typedef struct
 {
@@ -15,290 +23,115 @@ typedef struct
     uint32_t size;
 } Table;
 
+typedef struct {
+    uint64_t low;
+    uint64_t high;
+} v128_t;
+
+#ifdef HARDWARE_SUPPORT
+typedef char     cx16_t  __attribute__ ((vector_size (16)));
+typedef int8_t   i8x16_t __attribute__ ((vector_size (16)));
+typedef uint8_t  u8x16_t __attribute__ ((vector_size (16)));
+typedef int16_t  i16x8_t __attribute__ ((vector_size (16)));
+typedef uint16_t u16x8_t __attribute__ ((vector_size (16)));
+typedef int32_t  i32x4_t __attribute__ ((vector_size (16)));
+typedef uint32_t u32x4_t __attribute__ ((vector_size (16)));
+typedef int64_t  i64x2_t __attribute__ ((vector_size (16)));
+typedef uint64_t u64x2_t __attribute__ ((vector_size (16)));
+
+typedef float    f32x4_t __attribute__ ((vector_size (16)));
+typedef double   f64x2_t __attribute__ ((vector_size (16)));
+#endif
+
 typedef union
 {
-    int8_t  v16x8[16];
-    int16_t v8x16[8];
-    int32_t v4x32[4];
-    int64_t v2x64[2];
+    v128_t   v128;
+    int8_t   i8[16];
+    uint8_t  u8[16];
+    int16_t  i16[8];
+    uint16_t u16[8];
+    int32_t  i32[4];
+    uint32_t u32[4];
+    int64_t  i64[2];
+    uint64_t u64[2];
+    float    f32[4];
+    double   f64[2];
+#ifdef HARDWARE_SUPPORT
+    cx16_t  cx16;
+    i8x16_t i8x16;
+    u8x16_t u8x16;
+    i16x8_t i16x8;
+    u16x8_t u16x8;
+    i32x4_t i32x4;
+    u32x4_t u32x4;
+    i64x2_t i64x2;
+    u64x2_t u64x2;
+    f32x4_t f32x4;
+    f64x2_t f64x2;
+#endif
 
-} V128;
+} v128_u;
 
 extern void initializeMemory(Memory*, uint32_t min, uint32_t max);
 extern void initializeTable(Table*, uint32_t min, uint32_t max);
 extern uint32_t growMemory(Memory*, uint32_t size);
 
-inline uint32_t reinterpretI32F32(float value)
-{
-    return *(uint32_t*)&value;
-}
+int32_t reinterpretI32F32(float value);
+int64_t reinterpretI64F64(double value);
+float reinterpretF32I32(int32_t value);
+double reinterpretF64I64(int64_t value);
 
-inline uint64_t reinterpretI64F64(double value)
-{
-    return *(uint64_t*)&value;
-}
-
-inline float reinterpretF32I32(uint32_t value)
-{
-    return *(float*)&value;
-}
-
-inline double reinterpretF64I64(uint64_t value)
-{
-    return *(double*)&value;
-}
-
-#ifdef __GNUC__
-inline uint32_t clz32(uint32_t value)
-{
-    return (value == 0) ? 32 : __builtin_clz(value);
-}
-
-inline uint32_t clz64(uint64_t value)
-{
-    return (value == 0) ? 64 : __builtin_clzll(value);
-}
-
-inline uint32_t ctz32(uint32_t value)
-{
-    return (value == 0) ? 32 : __builtin_ctz(value);
-}
-
-inline uint32_t ctz64(uint64_t value)
-{
-    return (value == 0) ? 64 : __builtin_ctzll(value);
-}
-
-inline uint32_t popcnt32(uint32_t value)
-{
-    return __builtin_popcount(value);
-}
-
-inline uint32_t popcnt64(uint64_t value)
-{
-    return __builtin_popcountll(value);
-}
+#ifdef HARDWARE_SUPPORT
+#define clz32(value) ( ((value) == 0) ? 32 : __builtin_clz(value))
+#define clz64(value) ( ((value) == 0) ? 64 : __builtin_clzl(value))
+#define ctz32(value) ( ((value) == 0) ? 32 : __builtin_ctz(value))
+#define ctz64(value) ( ((value) == 0) ? 64 : __builtin_ctzl(value))
+#define popcnt32(value) __builtin_popcount(value)
+#define popcnt64(value) __builtin_popcountll(value)
 #else
-inline uint32_t clz32(uint32_t value)
-{
-    if (value == 0) {
-        return 32;
-    }
-
-    uint32_t result = 0;
-
-    while ((value & (1u << 31)) != 0) {
-        count++;
-        value <<= 1;
-    }
-
-    return reesult;
-}
-
-inline uint32_t clz64(uint64_t value)
-{
-    if (value == 0) {
-        return 64;
-    }
-
-    uint32_t result = 0;
-
-    while ((value & (1ull << 63)) != 0) {
-        count++;
-        value <<= 1;
-    }
-
-    return reesult;
-}
-
-inline uint32_t ctz32(uint32_t value)
-{
-    if (value == 0) {
-        return 32;
-    }
-
-    uint32_t result = 0;
-
-    while ((value & 1) != 0) {
-        count++;
-        value >>= 1;
-    }
-
-    return reesult;
-}
-
-inline uint32_t ctz64(uint64_t value)
-{
-    if (value == 0) {
-        return 64;
-    }
-
-    uint32_t result = 0;
-
-    while ((value & 1) != 0) {
-        count++;
-        value >>= 1;
-    }
-
-    return reesult;
-}
-
-inline uint32_t popcnt32(uint32_t value)
-{
-    uint32_t result = 0;
-
-    while (value != 0) {
-        count += (value & 1);
-        value >>= 1;
-    }
-
-    return result;
-}
-
-inline uint32_t popcnt64(uint64_t value)
-{
-    uint32_t result = 0;
-
-    while (value != 0) {
-        count += uint32_t(value & 1);
-        value >>= 1;
-    }
-
-    return result;
-}
+uint32_t clz32(uint32_t value);
+uint32_t clz64(uint64_t value);
+uint32_t ctz32(uint32_t value);
+uint32_t ctz64(uint64_t value);
+uint32_t popcnt32(uint32_t value);
+uint32_t popcnt64(uint64_t value);
 #endif
 
-inline uint32_t rotl32(uint32_t value, uint32_t count)
-{
-    return ((value << count) | (value >> (32 - count)));
-}
+#define rotl32(value, count) (((uint32_t)(value) << (count)) | ((uint32_t)(value) >> (32 - (count))))
+#define rotr32(value, count) (((uint32_t)(value) >> (count)) | ((uint32_t)(value) << (32 - (count))))
+#define rotl64(value, count) (((uint64_t)(value) << (count)) | ((uint64_t)(value) >> (64 - (count))))
+#define rotr64(value, count) (((uint64_t)(value) >> (count)) | ((uint64_t)(value) << (64 - (count))))
 
-inline uint32_t rotr32(uint32_t value, uint32_t count)
-{
-    return ((value >> count) | (value << (32 - count)));
-}
+int32_t satI32F32(float f);
+uint32_t satU32F32(float f);
+int32_t satI32F64(double f);
+uint32_t satU32F64(double f);
+int64_t satI64F32(float f);
+uint64_t satU64F32(float f);
+int64_t satI64F64(double f);
+uint64_t satU64F64(double f);
 
-inline uint64_t rotl64(uint64_t value, uint64_t count)
-{
-    return ((value << count) | (value >> (64 - count)));
-}
+#define MAX_VALUE(v1,v2) ((v1 < v2) ? v2 : v1)
+#define MIN_VALUE(v1,v2) ((v1 < v2) ? v1 : v2)
+#define AVGR(v1, v2) (v1 + v2 + 1) / 2
+#define ABS_VALUE(v) ((v < 0) ? -v : v)
+#define U(v) ((v128_u)(v))
+#define V(v) U(v).v128
 
-inline uint64_t rotr64(uint64_t value, uint64_t count)
-{
-    return ((value >> count) | (value << (64 - count)));
-}
+/*
+ * 'simdFunctions.h' is generated.
+ * It contains macros for hardware simd support like:
+ *
+ *   #define v128Addi8x16(v1,v2) V(U(v1).i8x16 + U(v2).i8x16)
+ * 
+ * It contains function declarations for software simd support like:
+ *
+ *   v128Addi8x16(v128_t v1, v128_t v2);
+ * 
+ */
 
-inline int32_t satI32F32(float f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= -2147483648.0F) {
-        return -2147483648;
-    } else if (f >= 2147483647.0F) {
-        return 2147483647;
-    } else {
-        return (int32_t)f;
-    }
-}
+#include "simdFunctions.h"
 
-inline uint32_t satU32F32(float f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= 0.0F) {
-        return 0;
-    } else if (f >= 4294967295.0F) {
-        return 4294967295;
-    } else {
-        return (uint32_t)f;
-    }
-}
+#define v128AndNoti64x2(v1,v2) v128Andi64x2(v1, v128Noti64x2(v2))
 
-inline int32_t satI32F64(double f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= -2147483648.0) {
-        return -2147483648;
-    } else if (f >= 2147483647.0) {
-        return 2147483647;
-    } else {
-        return (int32_t)f;
-    }
-}
-
-inline uint32_t satU32F64(double f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= 0.0) {
-        return 0;
-    } else if (f >= 4294967295.0) {
-        return 4294967295;
-    } else {
-        return (uint32_t)f;
-    }
-}
-
-inline int64_t satI64F32(float f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= -9223372036854775808.0F) {
-        return 0x8000000000000000LL;
-    } else if (f >= 9223372036854775807.0F) {
-        return 9223372036854775807LL;
-    } else {
-        return (int64_t)f;
-    }
-}
-
-inline uint64_t satU64F32(float f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= 0.0F) {
-        return 0;
-    } else if (f >= 18446744073709551615.0F) {
-        return 18446744073709551615ULL;
-    } else {
-        return (uint64_t)f;
-    }
-}
-
-inline int64_t satI64F64(double f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= -9223372036854775808.0) {
-        return 0x8000000000000000LL;
-    } else if (f >= 9223372036854775807.0) {
-        return 9223372036854775807LL;
-    } else {
-        return (int64_t)f;
-    }
-}
-
-inline uint64_t satU64F64(double f)
-{
-    if (isnan(f)) {
-        return 0;
-    } else if (f <= 0.0) {
-        return 0;
-    } else if (f >= 18446744073709551615.0) {
-        return 18446744073709551615ULL;
-    } else {
-        return (uint64_t)f;
-    }
-}
-
-V128 makeV128(uint64_t v0, uint64_t v1)
-{
-    V128 result;
-
-    result.v2x64[0] = v0;
-    result.v2x64[1] = v1;
-
-    return result;
-}
-
+#endif
