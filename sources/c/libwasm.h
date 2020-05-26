@@ -110,6 +110,19 @@ int64_t satI64F32(float f);
 uint64_t satU64F32(float f);
 int64_t satI64F64(double f);
 uint64_t satU64F64(double f);
+int8_t satI8I16(int16_t v);
+uint8_t satU8I16(int16_t v);
+int16_t satI16I32(int32_t v);
+uint16_t satU16I32(int32_t v);
+
+v128_t satI32x4F32x4(v128_t f);
+v128_t satU32x4F32x4(v128_t f);
+v128_t convertF32x4I32x4(v128_t i);
+v128_t convertF32x4U32x4(v128_t i);
+v128_t narrowI8x16I16x8(v128_t v1, v128_t v2);
+v128_t narrowU8x16I16x8(v128_t v1, v128_t v2);
+v128_t narrowI16x8I32x4(v128_t v1, v128_t v2);
+v128_t narrowU16x8I32x4(v128_t v1, v128_t v2);
 
 #define MAX_VALUE(v1,v2) ((v1 < v2) ? v2 : v1)
 #define MIN_VALUE(v1,v2) ((v1 < v2) ? v1 : v2)

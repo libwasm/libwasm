@@ -1183,7 +1183,7 @@ class Global
 
     protected:
         ValueType type = 0;
-        Mut mut;
+        Mut mut = Mut::const_;
         std::string id;
         std::string externId;
 };

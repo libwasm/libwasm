@@ -2,6 +2,13 @@
 
 #include "libwasm.h"
 
+extern int32_t loadI8(uint64_t offset);
+extern uint32_t loadU8(uint64_t offset);
+extern int32_t loadI16(uint64_t offset);
+extern uint32_t loadU16(uint64_t offset);
+extern int32_t loadI32(uint64_t offset);
+extern uint32_t loadU32(uint64_t offset);
+
 int32_t reinterpretI32F32(float value)
 {
     return *(int32_t*)&value;
@@ -218,14 +225,150 @@ uint64_t satU64F64(double f)
     }
 }
 
+v128_t satI32x4F32x4(v128_t f)
+{
+    v128_u result;
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        result.i32[i] = satI32F32((U(f)).f32[i]);
+    }
+
+    return result.v128;
+}
+
+v128_t satU32x4F32x4(v128_t f)
+{
+    v128_u result;
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        result.u32[i] = satU32F32((U(f)).f32[i]);
+    }
+
+    return result.v128;
+}
+
+v128_t convertF32x4I32x4(v128_t f)
+{
+    v128_u result;
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        result.f32[i] = (U(f)).i32[i];
+    }
+
+    return result.v128;
+}
+
+v128_t convertF32x4U32x4(v128_t f)
+{
+    v128_u result;
+
+    for (uint32_t i = 0; i < 4; ++i) {
+        result.f32[i] = (U(f)).u32[i];
+    }
+
+    return result.v128;
+}
+
+int8_t satI8I16(int16_t v)
+{
+    if (v > 127) {
+        return 127;
+    } else if (v < -128) {
+        return -128;
+    } else {
+        return (int8_t)v;
+    }
+}
+
+uint8_t satU8I16(int16_t v)
+{
+    if (v > 255) {
+        return 255;
+    } else if (v < 0) {
+        return 0;
+    } else {
+        return (uint8_t)v;
+    }
+}
+
+int16_t satI16I32(int32_t v)
+{
+    if (v > 32767) {
+        return 32767;
+    } else if (v < -32768) {
+        return -32768;
+    } else {
+        return (int16_t)v;
+    }
+}
+
+uint16_t satU16I32(int32_t v)
+{
+    if (v > 65535) {
+        return 65535;
+    } else if (v < 0) {
+        return 0;
+    } else {
+        return (uint16_t)v;
+    }
+}
+
+v128_t narrowI8x16I16x8(v128_t v1, v128_t v2)
+{
+    v128_u result;
+
+    for (int i = 0; i < 8; ++i) {
+        result.i8[i] = satI8I16(U(v1).i16[i]);
+        result.i8[i + 8] = satI8I16(U(v2).i16[i]);
+    }
+
+    return result.v128;
+}
+
+v128_t narrowU8x16I16x8(v128_t v1, v128_t v2)
+{
+    v128_u result;
+
+    for (int i = 0; i < 8; ++i) {
+        result.u8[i] = satU8I16(U(v1).i16[i]);
+        result.i8[i + 8] = satU8I16(U(v2).i16[i]);
+    }
+
+    return result.v128;
+}
+
+v128_t narrowI16x8I32x4(v128_t v1, v128_t v2)
+{
+    v128_u result;
+
+    for (int i = 0; i < 4; ++i) {
+        result.i16[i] = satI16I32(U(v1).i32[i]);
+        result.i16[i + 4] = satI16I32(U(v2).i32[i]);
+    }
+
+    return result.v128;
+}
+
+v128_t narrowUU6x8I32x4(v128_t v1, v128_t v2)
+{
+    v128_u result;
+
+    for (int i = 0; i < 4; ++i) {
+        result.u16[i] = satU16I32(U(v1).i32[i]);
+        result.u16[i + 4] = satU16I32(U(v2).i32[i]);
+    }
+
+    return result.v128;
+}
+
 int8_t SatAddi8(int8_t v1, int8_t v2)
 {
     int32_t result = v1 + v2;
 
     if (result > 127) {
-        result = 127
+        result = 127;
     } else if (result < -128) {
-        result = -128
+        result = -128;
     }
 
     return (int8_t)result;
@@ -236,31 +379,31 @@ uint8_t SatAddu8(uint8_t v1, uint8_t v2)
     uint32_t result = v1 + v2;
 
     if (result > 255) {
-        result = 255
+        result = 255;
     }
 
     return (int8_t)result;
 }
 
-int16_t SatAddi8(int16_t v1, int16_t v2)
+int16_t SatAddi16(int16_t v1, int16_t v2)
 {
     int32_t result = v1 + v2;
 
     if (result > 32767) {
-        result = 32767
+        result = 32767;
     } else if (result < -32768) {
-        result = -32768
+        result = -32768;
     }
 
     return (int16_t)result;
 }
 
-uint16_t SatAddu8(uint16_t v1, uint16_t v2)
+uint16_t SatAddu16(uint16_t v1, uint16_t v2)
 {
     uint32_t result = v1 + v2;
 
     if (result > 65535) {
-        result = 65535
+        result = 65535;
     }
 
     return (int16_t)result;
@@ -271,9 +414,9 @@ int8_t SatSubi8(int8_t v1, int8_t v2)
     int32_t result = v1 - v2;
 
     if (result > 127) {
-        result = 127
+        result = 127;
     } else if (result < -128) {
-        result = -128
+        result = -128;
     }
 
     return (int8_t)result;
@@ -290,20 +433,20 @@ uint8_t SatSubu8(uint8_t v1, uint8_t v2)
     return (int8_t)result;
 }
 
-int16_t SatSubi8(int16_t v1, int16_t v2)
+int16_t SatSubi16(int16_t v1, int16_t v2)
 {
     int32_t result = v1 - v2;
 
     if (result > 32767) {
-        result = 32767
+        result = 32767;
     } else if (result < -32768) {
-        result = -32768
+        result = -32768;
     }
 
     return (int16_t)result;
 }
 
-uint16_t SatSubu8(uint16_t v1, uint16_t v2)
+uint16_t SatSubu16(uint16_t v1, uint16_t v2)
 {
     uint32_t result = v1 - v2;
 

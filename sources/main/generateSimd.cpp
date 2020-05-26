@@ -164,7 +164,7 @@ static void generateBinaryCall(std::string_view name, std::string_view type, uin
         "\n    v128_u result;"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = " << call << "(U(v1))." << type << "[i], U(v2))." << type << "[i]);"
+        "\n        result." << type << "[i] = " << call << "(U(v1)." << type << "[i], U(v2)." << type << "[i]);"
         "\n    }"
         "\n"
         "\n    return result.v128;"
@@ -183,7 +183,7 @@ static void generateUnaryCall(std::string_view name, std::string_view type, uint
         "\n    v128_u result;"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = " << call << "(U(v1))." << type << "[i]);"
+        "\n        result." << type << "[i] = " << call << "(U(v1)." << type << "[i]);"
         "\n    }"
         "\n"
         "\n    return result.v128;"
@@ -321,7 +321,7 @@ static void generateReplaceLane(std::string_view type, uint32_t count, std::stri
         "\n{"
         "\n    v128_u result = U(v1);"
         "\n"
-        "\n    result." << type << "[lane] = v1;"
+        "\n    result." << type << "[lane] = U(v1)." << type <<  "[lane];"
         "\n"
         "\n    return result.v128;"
         "\n}"
@@ -334,7 +334,7 @@ static void generateAnyTrue(std::string_view type, uint32_t count)
 
     functionDeclarations << "\nint32_t v128SAnyTrue" << fullType << "(v128_t v1);";
 
-    functionDefinitions << "\nvint32_t v128SAnyTrue" << fullType << "(v128_t v1)"
+    functionDefinitions << "\nint32_t v128SAnyTrue" << fullType << "(v128_t v1)"
         "\n{"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
         "\n        if (U(v1)." << type << "[i] != 0) return 1;"
@@ -351,7 +351,7 @@ static void generateAllTrue(std::string_view type, uint32_t count)
 
     functionDeclarations << "\nint32_t v128SAllTrue" << fullType << "(v128_t v1);";
 
-    functionDefinitions << "\nvint32_t v128SAllTrue" << fullType << "(v128_t v1)"
+    functionDefinitions << "\nint32_t v128SAllTrue" << fullType << "(v128_t v1)"
         "\n{"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
         "\n        if (U(v1)." << type << "[i] == 0) return 0;"
@@ -362,12 +362,49 @@ static void generateAllTrue(std::string_view type, uint32_t count)
         "\n";
 }
 
+static void generateWiden(std::string_view type, uint32_t count,
+        std::string_view sourceType, bool high)
+{
+    std::string fullType = makeFullType(type, count);
+    std::string sourceFullType = makeFullType(sourceType, count * 2);
+    std::string signature = "v128_t v128Widen";
+
+    signature += high ? "High" : "Low";
+    signature += fullType;
+    signature += sourceFullType;
+    signature += "(v128_t v1)";
+
+    functionDeclarations << '\n' << signature << ';';
+
+    functionDefinitions << '\n' << signature <<
+        "\n{"
+        "\n    v128_u result;"
+        "\n"
+        "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
+        "\n        result." << type << "[i] = (U(v1))." << sourceFullType << "[i";
+
+    if (high) {
+        functionDefinitions << " + " << count;
+    }
+
+    functionDefinitions << "];"
+        "\n    }"
+        "\n"
+        "\n    return result.v128;"
+        "\n}"
+        "\n";
+}
+
 static void generate()
 {
     generateMakeV128("i8", 16, "int8_t");
+    generateMakeV128("u8", 16, "uint8_t");
     generateMakeV128("i16", 8, "int16_t");
+    generateMakeV128("u16", 8, "uint16_t");
     generateMakeV128("i32", 4, "int32_t");
+    generateMakeV128("u32", 4, "uint32_t");
     generateMakeV128("i64", 2, "int64_t");
+    generateMakeV128("u64", 2, "uint64_t");
     generateMakeV128("f32", 4, "float");
     generateMakeV128("f64", 2, "double");
 
@@ -481,6 +518,14 @@ static void generate()
     generateAllTrue("i16", 8);
     generateAllTrue("i32", 4);
 
+    generateWiden("i16", 8, "i8", false);
+    generateWiden("i16", 8, "i8", true);
+    generateWiden("i16", 8, "u8", false);
+    generateWiden("i16", 8, "u8", true);
+    generateWiden("i32", 4, "i16", false);
+    generateWiden("i32", 4, "i16", true);
+    generateWiden("i32", 4, "u16", false);
+    generateWiden("i32", 4, "u16", true);
 }
 
 int main(int argc, char* argv[])

@@ -2441,8 +2441,14 @@ CNode* CGenerator::generateCStatement()
                 expression = generateCCallPredef("v128SAllTruei8x16", 2);
                 break;
 
-    //      case Opcode::i8x16__narrow_i16x8_s:
-    //      case Opcode::i8x16__narrow_i16x8_u:
+            case Opcode::i8x16__narrow_i16x8_s:
+                expression = generateCCallPredef("narrowI8x16I16x8", 2);
+                break;
+
+            case Opcode::i8x16__narrow_i16x8_u:
+                expression = generateCCallPredef("narrowU8x16I16x8", 2);
+                break;
+
             case Opcode::i8x16__shl:
                 expression = generateCCallPredef("v128Shli8x16", 2);
                 break;
@@ -2515,12 +2521,30 @@ CNode* CGenerator::generateCStatement()
                 expression = generateCCallPredef("v128SAllTruei16x8", 2);
                 break;
 
-    //      case Opcode::i16x8__narrow_i32x4_s:
-    //      case Opcode::i16x8__narrow_i32x4_u:
-    //      case Opcode::i16x8__widen_low_i8x16_s:
-    //      case Opcode::i16x8__widen_high_i8x16_s:
-    //      case Opcode::i16x8__widen_low_i8x16_u:
-    //      case Opcode::i16x8__widen_high_i8x16_u:
+            case Opcode::i16x8__narrow_i32x4_s:
+                expression = generateCCallPredef("narrowI16x8I32x4", 2);
+                break;
+
+            case Opcode::i16x8__narrow_i32x4_u:
+                expression = generateCCallPredef("narrowU16x8I32x4", 2);
+                break;
+
+            case Opcode::i16x8__widen_low_i8x16_s:
+                expression = generateCCallPredef("v128WidenLowi16x8i8x16");
+                break;
+
+            case Opcode::i16x8__widen_high_i8x16_s:
+                expression = generateCCallPredef("v128WidenHighi16x8i8x16");
+                break;
+
+            case Opcode::i16x8__widen_low_i8x16_u:
+                expression = generateCCallPredef("v128WidenLowi16x8u8x16");
+                break;
+
+            case Opcode::i16x8__widen_high_i8x16_u:
+                expression = generateCCallPredef("v128WidenHighi16x8u8x16");
+                break;
+
             case Opcode::i16x8__shl:
                 expression = generateCCallPredef("v128Shli16x8", 2);
                 break;
@@ -2597,10 +2621,22 @@ CNode* CGenerator::generateCStatement()
                 expression = generateCCallPredef("v128SAllTruei32x4", 2);
                 break;
 
-    //      case Opcode::i32x4__widen_low_i16x8_s:
-    //      case Opcode::i32x4__widen_high_i16x8_s:
-    //      case Opcode::i32x4__widen_low_i16x8_u:
-    //      case Opcode::i32x4__widen_high_i16x8_u:
+            case Opcode::i32x4__widen_low_i16x8_s:
+                expression = generateCCallPredef("v128WidenLowi32x4i16x8");
+                break;
+
+            case Opcode::i32x4__widen_high_i16x8_s:
+                expression = generateCCallPredef("v128WidenHighi32x4i16x8");
+                break;
+
+            case Opcode::i32x4__widen_low_i16x8_u:
+                expression = generateCCallPredef("v128WidenLowi32x4u16x8");
+                break;
+
+            case Opcode::i32x4__widen_high_i16x8_u:
+                expression = generateCCallPredef("v128WidenHighi32x4u16x8");
+                break;
+
             case Opcode::i32x4__shl:
                 expression = generateCCallPredef("v128Shli32x4", 2);
                 break;
@@ -2741,10 +2777,22 @@ CNode* CGenerator::generateCStatement()
                 expression = generateCCallPredef("v128Maxf64x2", 2);
                 break;
 
-    //      case Opcode::i32x4__trunc_sat_f32x4_s:
-    //      case Opcode::i32x4__trunc_sat_f32x4_u:
-    //      case Opcode::f32x4__convert_i32x4_s:
-    //      case Opcode::f32x4__convert_i32x4_u:
+            case Opcode::i32x4__trunc_sat_f32x4_s:
+                expression = generateCCallPredef("satI32x4F32x4", 1);
+                break;
+
+            case Opcode::i32x4__trunc_sat_f32x4_u:
+                expression = generateCCallPredef("satU32x4F32x4", 1);
+                break;
+
+            case Opcode::f32x4__convert_i32x4_s:
+                expression = generateCCallPredef("convertF32x4I32x4", 1);
+                break;
+
+            case Opcode::f32x4__convert_i32x4_u:
+                expression = generateCCallPredef("convertF32x4U32x4", 1);
+                break;
+
             default:
                 std::cerr << "Unimplemented opcode '" << opcode << "' in generateCNode\n";
         }
