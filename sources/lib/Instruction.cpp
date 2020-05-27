@@ -849,7 +849,11 @@ InstructionShuffle* InstructionShuffle::parse(SourceContext& context, Opcode opc
     auto result = context.makeTreeNode<InstructionShuffle>();
 
     for (int i = 0; i < 16; ++i) {
-        result->value[i] = requiredI8(context);
+        if (auto index = parseLane32Index(context)) {
+            result->value[i] = *index;
+        } else {
+            context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
+        }
     }
 
     return result;

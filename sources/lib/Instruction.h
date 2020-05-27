@@ -489,6 +489,11 @@ class InstructionShuffle : public Instruction
         {
         }
 
+        auto& getValue() const
+        {
+            return value;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;

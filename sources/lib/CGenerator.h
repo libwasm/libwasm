@@ -761,6 +761,7 @@ class CGenerator
         CNode* generateCMemoryGrow();
         CNode* generateCReturn(Instruction* instruction);
         CNode* generateCSelect(Instruction* instruction);
+        CNode* generateCShuffle(Instruction* instruction);
         CNode* generateCStore(std::string_view name, Instruction* instruction);
         CNode* generateCUBinaryExpression(std::string_view op, std::string_view type);
         CNode* generateCUnaryExpression(std::string_view op);

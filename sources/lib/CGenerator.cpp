@@ -1388,7 +1388,7 @@ void CGenerator::generateCCallIndirect(Instruction* instruction, CNode*& express
 
 CNode* CGenerator::generateCExtractLane(Instruction* instruction, const char* type)
 {
-    auto laneInstruction = static_cast<InstructionIdx*>(instruction);
+    auto* laneInstruction = static_cast<InstructionIdx*>(instruction);
     auto index = laneInstruction->getIndex();
     auto* result = new CCall("v128ExtractLane"s + type);
 
@@ -1400,7 +1400,7 @@ CNode* CGenerator::generateCExtractLane(Instruction* instruction, const char* ty
 
 CNode* CGenerator::generateCReplaceLane(Instruction* instruction, const char* type)
 {
-    auto laneInstruction = static_cast<InstructionIdx*>(instruction);
+    auto* laneInstruction = static_cast<InstructionIdx*>(instruction);
     auto index = laneInstruction->getIndex();
     auto* result = new CCall("v128ReplaceLane"s + type);
     auto* newValue = popExpression();
@@ -1408,6 +1408,29 @@ CNode* CGenerator::generateCReplaceLane(Instruction* instruction, const char* ty
     result->addArgument(popExpression());
     result->addArgument(newValue);
     result->addArgument(new CI32(index));
+
+    return result;
+}
+
+CNode* CGenerator::generateCShuffle(Instruction* instruction)
+{
+    auto* shuffleInstruction = static_cast<InstructionShuffle*>(instruction);
+    const auto mask = shuffleInstruction->getValue();
+    auto* result = new CCall("v128Shufflei8x16");
+
+    auto* newValue = popExpression();
+
+    result->addArgument(popExpression());
+    result->addArgument(newValue);
+
+    auto* makeCall = new CCall("v128Makei8x16");
+
+    for (int i = 0; i < 16; ++i) {
+        makeCall->addArgument(new CI32(mask[i]));
+    }
+
+    result->addArgument(makeCall);
+
 
     return result;
 }
@@ -2154,8 +2177,14 @@ CNode* CGenerator::generateCStatement()
                 expression = new CV128(static_cast<InstructionV128*>(instruction)->getValue());
                 break;
 
-    //      case Opcode::v8x16__shuffle:
-    //      case Opcode::v8x16__swizzle:
+            case Opcode::v8x16__shuffle:
+                expression = generateCShuffle(instruction);
+                break;
+
+            case Opcode::v8x16__swizzle:
+                expression = generateCCallPredef("v128Swizzlei8x16", 2);
+                break;
+
             case Opcode::i8x16__splat:
                 expression = generateCCallPredef("v128Splati8x16");
                 break;
@@ -2424,7 +2453,10 @@ CNode* CGenerator::generateCStatement()
                 expression = generateCCallPredef("v128Xori64x2", 2);
                 break;
 
-    //      case Opcode::v128__bitselect:
+            case Opcode::v128__bitselect:
+                expression = generateCCallPredef("v128Bitselect", 3);
+                break;
+
             case Opcode::i8x16__abs:
                 expression = generateCCallPredef("v128Absi8x16");
                 break;

@@ -457,6 +457,43 @@ uint16_t SatSubu16(uint16_t v1, uint16_t v2)
     return (int16_t)result;
 }
 
+#ifndef HARDWARE_SUPPORT
+v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3)
+{
+    v128_u result;
+
+    for (unsigned i = 0; i < 16; ++i) {
+        uint32_t index = U(v3).i8[i];
+
+        if (index < 16) {
+            result.i8[i] =  U(v1).i8[i];
+        } else {
+            result.i8[i] =  U(v2).i8[index - 16];
+        }
+    }
+
+    return result.v128;
+}
+
+#endif
+
+v128_t v128Swizzlei8x16(v128_t v1, v128_t v2)
+{
+    v128_u result;
+
+    for (unsigned i = 0; i < 16; ++i) {
+        uint32_t index = U(v2).i8[i];
+
+        if (index < 16) {
+            result.i8[i] =  U(v1).i8[i];
+        } else {
+            result.i8[i] =  0;
+        }
+    }
+
+    return result.v128;
+}
+
 /*
  * 'simdFunctions.c; is generated.  It contains function declarations for software simd support like:
  *
@@ -464,8 +501,8 @@ uint16_t SatSubu16(uint16_t v1, uint16_t v2)
  * {
  *     v128_u result;
  * 
- *     for (unsigned i = 0; i < count; ++i) {
- *         result.i8[i] = (U(v1)).i8[i] + U(v2)).i8[i];
+ *     for (unsigned i = 0; i < 16; ++i) {
+ *         result.i8[i] = U(v1).i8[i] + U(v2).i8[i];
  *     }
  * 
  *     return result.v128;

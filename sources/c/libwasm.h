@@ -131,6 +131,18 @@ v128_t narrowU16x8I32x4(v128_t v1, v128_t v2);
 #define U(v) ((v128_u)(v))
 #define V(v) U(v).v128
 
+#define v128Bitselect(v1,v2,v3) \
+    v128Ori64x2(v128Andi64x2(v1, v3), v128Andi64x2(v2, v128Noti64x2(v3)))
+
+#ifdef HARDWARE_SUPPORT
+#define v128Shufflei8x16(v1,v2,v3) \
+    V(__builtin_shuffle(U(v1).i8x16, U(v2).i8x16,  U(v3).i8x16))
+#else
+v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3);
+#endif
+
+v128_t v128Swizzlei8x16(v128_t v1, v128_t v2);
+
 /*
  * 'simdFunctions.h' is generated.
  * It contains macros for hardware simd support like:
