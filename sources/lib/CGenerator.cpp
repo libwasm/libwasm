@@ -926,7 +926,7 @@ std::vector<ValueType> CGenerator::getBlockResults(InstructionBlock* blockInstru
     return types;
 }
 
-static std::string makeResultName(unsigned label, size_t index)
+static std::string makeResultName(unsigned label, unsigned index)
 {
     std::string result("result");
 
