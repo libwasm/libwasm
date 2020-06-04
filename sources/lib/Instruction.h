@@ -3,8 +3,9 @@
 #ifndef INSTRUCTION_H
 #define INSTRUCTION_H
 
-#include "DataBuffer.h"
+#include "BackBone.h"
 #include "Context.h"
+#include "DataBuffer.h"
 #include "Encodings.h"
 #include "TreeNode.h"
 
@@ -268,7 +269,7 @@ class InstructionV128 : public Instruction
         v128_t value = { 0 };
 };
 
-class InstructionBlock : public Instruction
+class InstructionBlock : public TypeUse, public Instruction
 {
     public:
         InstructionBlock()

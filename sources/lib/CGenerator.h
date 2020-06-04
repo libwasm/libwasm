@@ -20,6 +20,7 @@ class CGenerator;
 
 class CodeEntry;
 class Instruction;
+class InstructionBlock;
 class InstructionContext;
 class Local;
 class Module;
@@ -501,8 +502,8 @@ class CIf : public CNode
     public:
         static const CNodeKind kind = kIf;
 
-        CIf(CNode* condition, unsigned label = 0, ValueType type = ValueType::void_)
-            : CNode(kind), condition(condition), label(label), type(type)
+        CIf(CNode* condition, unsigned label = 0, std::vector<ValueType> types = {})
+            : CNode(kind), condition(condition), label(label), types(std::move(types))
         {
             condition->link(this);
             thenStatements = new CCompound;
@@ -549,7 +550,7 @@ class CIf : public CNode
     private:
         CNode* condition = nullptr;
         unsigned label = 0;
-        ValueType type = ValueType::void_;
+        std::vector<ValueType> types;
         CNode* resultDeclaration = nullptr;
         CNode* labelDeclaration = nullptr;
         CCompound* thenStatements = nullptr;
@@ -738,6 +739,8 @@ class CGenerator
         CNode* generateCStatement();
         CNode* generateCBranchStatement(uint32_t index, bool conditional = false);
         CNode* makeCombinedOffset(Instruction* instruction);
+        std::vector<ValueType> getBlockResults(InstructionBlock* blockInstruction);
+        CNode* makeBlockResults(const std::vector<ValueType>& types);
 
         CNode* generateCBinaryExpression(std::string_view op);
         CNode* generateCBlock(Instruction* instruction);
@@ -771,7 +774,7 @@ class CGenerator
         void buildCTree();
         void skipUnreachable(unsigned count = 0);
 
-        unsigned pushLabel(ValueType type);
+        unsigned pushLabel(std::vector<ValueType> types);
         void popLabel();
 
         void pushExpression(CNode* expression);
@@ -787,16 +790,16 @@ class CGenerator
 
         struct LabelInfo
         {
-            LabelInfo(ValueType type, unsigned label)
-                : type(type), label(label)
+            LabelInfo(unsigned label)
+                : label(label)
             {
             }
 
-            ValueType type;
             unsigned label;
             bool backward = false;
             bool branchTarget = false;
             bool impliedTarget = false;
+            std::vector<ValueType> types;
         };
 
         std::vector<std::unique_ptr<Instruction>>::iterator instructionPointer;

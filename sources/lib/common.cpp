@@ -151,7 +151,7 @@ bool validUtf8(std::string_view string)
     while (p < endP) {
         char c = *(p++);
 
-        if (c & 0x80 == 0) {
+        if ((c & 0x80) == 0) {
             // nop
         } else if ((c & 0xd0) == 0xc0) {
             if (p == endP || (*(p++) & 0xc0) != 0x80) {
@@ -448,8 +448,6 @@ std::string cName(std::string_view name)
     };
 
     std::string result;
-
-    bool first = true;
 
     if (!isAlpha(name[0]) && name[0] != '_') {
         result += '_';

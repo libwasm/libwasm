@@ -16,6 +16,15 @@
 namespace libwasm
 {
 
+Expression:: ~Expression()
+{
+}
+
+void Expression::addInstruction(Instruction* instruction)
+{
+    instructions.emplace_back(instruction);
+}
+
 static Expression* requiredExpression(SourceContext& context, bool oneInstruction = false)
 {
     if (auto* expression = Expression::parse(context, oneInstruction)) {
@@ -24,16 +33,6 @@ static Expression* requiredExpression(SourceContext& context, bool oneInstructio
 
     context.msgs().error(context.tokens().peekToken(), "Missing or invalid expression.");
     return nullptr;
-}
-
-static bool requiredCloseParenthesis(SourceContext& context)
-{
-    if (requiredParenthesis(context, ')')) {
-        return true;
-    } else {
-        context.tokens().recover();
-        return false;
-    }
 }
 
 static Expression* makeI32Const0(SourceContext& context)
@@ -1163,7 +1162,7 @@ void TypeUse::write(BinaryContext& context) const
     data.putU32leb(signatureIndex);
 }
 
-void TypeUse::parse(SourceContext& context, TypeUse* result)
+void TypeUse::parse(SourceContext& context, TypeUse* result, bool forBlock)
 {
     auto* module = context.getModule();
     auto& tokens = context.tokens();
@@ -1189,7 +1188,9 @@ void TypeUse::parse(SourceContext& context, TypeUse* result)
         result->signature.reset(sig);
     }
 
-    result->checkSignature(context);
+    if (!forBlock) {
+        result->checkSignature(context);
+    }
 }
  
 void TypeUse::read(BinaryContext& context, TypeUse* result)
@@ -3595,6 +3596,28 @@ uint32_t ElementDeclaration::parseFunctionIndexes(SourceContext context)
     return result;
 }
 
+bool ElementDeclaration::getTableIndex(SourceContext& context)
+{
+    auto& msgs = context.msgs();
+    auto& tokens = context.tokens();
+
+    if (auto index = parseTableIndex(context)) {
+        tableIndex = *index;
+        return true;
+    } else if (startClause(context, "table")) {
+        if (auto index = parseTableIndex(context)) {
+            tableIndex = *index;
+        } else {
+            msgs.error(tokens.peekToken(), "Missing or invalid table index.");
+        }
+
+        requiredCloseParenthesis(context);
+        return true;
+    }
+
+    return false;
+}
+
 ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
@@ -3609,6 +3632,8 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 
     result->number = module->nextElementCount();
 
+    auto indexFound = result->getTableIndex(context);
+
     if (auto id = tokens.getId()) {
         result->id = *id;
 
@@ -3617,24 +3642,14 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
         }
     }
 
-    if (tokens.getKeyword("declare")) {
-        result->flags = SegmentFlagDeclared;
-    }
-
-    if (auto index = parseTableIndex(context)) {
-        result->tableIndex = *index;
-    } else if (startClause(context, "table")) {
-        if (auto index = parseTableIndex(context)) {
-            result->tableIndex = *index;
-        } else {
-            msgs.error(tokens.peekToken(), "Missing or invalid table index.");
-        }
-
-        requiredCloseParenthesis(context);
-    }
+    indexFound = indexFound || result->getTableIndex(context);
 
     if (result->tableIndex != 0) {
         result->flags = SegmentFlags(result->flags | SegmentFlagExplicitIndex);
+    }
+
+    if (tokens.getKeyword("declare")) {
+        result->flags = SegmentFlagDeclared;
     }
 
     if (result->flags != SegmentFlagDeclared) {
@@ -3750,7 +3765,7 @@ void ElementDeclaration::generate(std::ostream& os, Module* module)
         os << ')';
     }
 
-    if (flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+    if ((flags & (SegmentFlagPassive | SegmentFlagExplicitIndex)) != 0) {
         if ((flags & SegmentFlagElemExpr) != 0) {
             os << " " << elementType;
         }
@@ -3763,6 +3778,7 @@ void ElementDeclaration::generate(std::ostream& os, Module* module)
             os << ')';
         }
     } else {
+        os << " func";
         for (auto func : functionIndexes) {
             os << ' ' << func;
         }
@@ -3780,7 +3796,7 @@ void ElementDeclaration::show(std::ostream& os, Module* module)
         expression->generate(os, module);
     }
 
-    if (flags & (SegmentFlagPassive | SegmentFlagExplicitIndex) != 0) {
+    if ((flags & (SegmentFlagPassive | SegmentFlagExplicitIndex)) != 0) {
         os << ", element type=" << elementType;
     }
 

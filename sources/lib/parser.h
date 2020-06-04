@@ -9,6 +9,7 @@
 
 namespace libwasm
 {
+
 std::optional<ValueType> parseValueType(SourceContext& context);
 std::optional<ValueType> parseElementType(SourceContext& context);
 std::optional<uint32_t> parseTableIndex(SourceContext& context);
@@ -38,11 +39,14 @@ int32_t requiredI32(SourceContext& context);
 int64_t requiredI64(SourceContext& context);
 float requiredF32(SourceContext& context);
 double requiredF64(SourceContext& context);
+v128_t requiredV128(SourceContext context);
 std::string_view requiredString(SourceContext& context);
 bool requiredParenthesis(SourceContext& context, char parenthesis);
 bool requiredKeyword(SourceContext& context, std::string_view keyword);
 bool requiredStartClause(SourceContext& context, std::string_view name);
 std::optional<Limits> requiredLimits(SourceContext& context);
+bool requiredCloseParenthesis(SourceContext& context);
+
 };
 
 #endif

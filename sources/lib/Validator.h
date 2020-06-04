@@ -27,10 +27,11 @@ class Validator
         struct Frame
         {
             Frame(const std::vector<ValueType>& labelTypes,
-                    const std::vector<ValueType>& endTypes);
+                    const std::vector<ValueType>& endTypes, Instruction* instruction = nullptr);
 
             std::vector<ValueType> labelTypes;
             std::vector<ValueType> endTypes;
+            Instruction* instruction = nullptr;
             size_t height = 0;
             bool unreachable = false;
         };
@@ -61,6 +62,7 @@ class Validator
         ValueType popOperand();
         ValueType popOperand(ValueType expect);
         void pushOperands(const std::vector<ValueType>& types);
+        void pushOperands(const std::vector<std::unique_ptr<Local>>& locals);
         void popOperands(const std::vector<ValueType>& types);
         void popOperands(const std::vector<std::unique_ptr<Local>>& locals);
 
@@ -78,7 +80,7 @@ class Validator
         }
 
         void pushFrame(const std::vector<ValueType>& labelTypes,
-                const std::vector<ValueType>& endTypes);
+                const std::vector<ValueType>& endTypes, Instruction* instruction = nullptr);
         std::vector<ValueType> popFrame();
         void unreachable();
         const Frame& getFrame(size_t index);

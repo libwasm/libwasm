@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <math.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef NOHARDWARE_SUPPORT
 #  ifdef __GNUC__
 #  define HARDWARE_SUPPORT
@@ -158,5 +162,9 @@ v128_t v128Swizzlei8x16(v128_t v1, v128_t v2);
 #include "simdFunctions.h"
 
 #define v128AndNoti64x2(v1,v2) v128Andi64x2(v1, v128Noti64x2(v2))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

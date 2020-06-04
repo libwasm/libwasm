@@ -24,13 +24,13 @@ class Disassembler
 {
     public:
         Disassembler(std::istream& stream)
-          : context(msgs), data(context.data()), module(context.getModule())
+          : context(msgs), data(context.data())
         {
             good = readWasm(stream);
         }
 
         Disassembler(std::istream& stream, std::ostream& errorStream)
-          : msgs(errorStream), context(msgs), data(context.data()), module(context.getModule())
+          : msgs(errorStream), context(msgs), data(context.data())
         {
             good = readWasm(stream);
         }
@@ -101,7 +101,7 @@ class Disassembler
 
         BinaryContext context;
         DataBuffer& data;
-        Module* module = 0;
+        std::shared_ptr<Module> module = std::make_shared<Module>();
 };
 };
 

@@ -24,8 +24,8 @@ void validate(CheckContext& context)
 }
 
 Validator::Frame::Frame(const std::vector<ValueType>& labelTypes,
-        const std::vector<ValueType>& endTypes)
-  : labelTypes(labelTypes), endTypes(endTypes)
+        const std::vector<ValueType>& endTypes, Instruction* instruction)
+  : labelTypes(labelTypes), endTypes(endTypes), instruction(instruction)
 {
 }
 
@@ -135,10 +135,17 @@ void Validator::pushOperands(const std::vector<ValueType>& types)
     }
 }
 
+void Validator::pushOperands(const std::vector<std::unique_ptr<Local>>& locals)
+{
+    for (auto& local : locals) {
+        pushOperand(local->getType());
+    }
+}
+
 void Validator::popOperands(const std::vector<ValueType>& types)
 {
-    for (auto type : types) {
-        popOperand(type);
+    for (auto i = types.size(); i-- > 0; ) {
+        popOperand(types[i]);
     }
 }
 
@@ -166,9 +173,9 @@ void Validator::check(CodeEntry* code)
 }
 
 void Validator::pushFrame(const std::vector<ValueType>& labelTypes,
-        const std::vector<ValueType>& endTypes)
+        const std::vector<ValueType>& endTypes, Instruction* instruction)
 {
-    frames.emplace_back(labelTypes, endTypes);
+    frames.emplace_back(labelTypes, endTypes, instruction);
 
     auto& frame = frames.back();
 
@@ -305,36 +312,43 @@ void Validator::checkBlock()
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(currentInstruction);
     std::vector<ValueType> types;
-    auto resultType = blockInstruction->getResultType();
 
-    if (resultType != ValueType::void_) {
+    if (blockInstruction->getSignature() != nullptr) {
+        popOperands(blockInstruction->getSignature()->getParams());
+
+        types = blockInstruction->getSignature()->getResults();
+    } else if (auto resultType = blockInstruction->getResultType(); resultType != ValueType::void_) {
         types.push_back(resultType);
     }
 
     switch(currentInstruction->getOpcode()) {
         case Opcode::block:
-            pushFrame(types, types);
+            pushFrame(types, types, currentInstruction);
 
             break;
 
         case Opcode::loop:
-            pushFrame({}, types);
+            pushFrame({}, types, currentInstruction);
 
             break;
 
         case Opcode::try_:
-            pushFrame(types, types);
+            pushFrame(types, types, currentInstruction);
 
             break;
 
         case Opcode::if_:
             popOperand(ValueType::i32);
-            pushFrame(types, types);
+            pushFrame(types, types, currentInstruction);
 
             break;
 
         default:
             std::cerr << "Unimplemented opcode '" << currentInstruction->getOpcode() << " in checkBlock.\n";
+    }
+
+    if (blockInstruction->getSignature() != nullptr) {
+        pushOperands(blockInstruction->getSignature()->getParams());
     }
 }
 
@@ -490,9 +504,14 @@ void Validator::checkSpecial()
 
         case Opcode::else_:
             {
+                auto*  blockInstruction = static_cast<InstructionBlock*>(frames.back().instruction);
                 auto results = popFrame();
 
                 pushFrame(results, results);
+
+                if (blockInstruction->getSignature() != nullptr) {
+                    pushOperands(blockInstruction->getSignature()->getParams());
+                }
             }
 
             break;

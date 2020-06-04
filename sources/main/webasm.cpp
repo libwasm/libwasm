@@ -145,6 +145,7 @@ int main(int argc, char*argv[])
     unsigned warnings = 0;
 
     for (auto inputFile : inputFiles) {
+        std::cout << "Processing " << inputFile << std::endl;
         std::ifstream inputStream(inputFile, std::ios::binary);
 
         if (!inputStream.good()) {
@@ -155,6 +156,8 @@ int main(int argc, char*argv[])
         Assembler assembler(inputStream);
 
         if (assembler.isGood()) {
+            assembler.parse();
+
             if (wantShow || wantAsm) {
                 if (outputFile != nullptr) {
                     std::ofstream outputStream(outputFile);

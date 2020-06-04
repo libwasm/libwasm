@@ -869,7 +869,7 @@ std::string CGenerator::localName(Instruction* instruction)
     return result;
 }
 
-unsigned CGenerator::pushLabel(ValueType type)
+unsigned CGenerator::pushLabel(std::vector<ValueType> types)
 {
     size_t line = 0;
 
@@ -881,8 +881,8 @@ unsigned CGenerator::pushLabel(ValueType type)
         }
     }
 
-//  std::cout << "Push " << label << ", size=" << labelStack.size() << ", line=" << line << std::endl;
-    labelStack.emplace_back(type, label);
+    labelStack.emplace_back(label);
+    labelStack.back().types = std::move(types);
     return label++;
 }
 
@@ -913,30 +913,80 @@ std::string CGenerator::globalName(Instruction* instruction)
 
 }
 
+std::vector<ValueType> CGenerator::getBlockResults(InstructionBlock* blockInstruction)
+{
+    std::vector<ValueType> types;
+
+    if (auto* signature = blockInstruction->getSignature(); signature != nullptr) {
+        types = signature->getResults();
+    } else if (blockInstruction->getResultType() != ValueType::void_) {
+        types.push_back(blockInstruction->getResultType());
+    }
+
+    return types;
+}
+
+static std::string makeResultName(unsigned label, size_t index)
+{
+    std::string result("result");
+
+    result += toString(label);
+
+    if (index != 0) {
+        result += '_';
+        result += toString(index);
+    }
+
+    return result;
+}
+
+CNode* CGenerator::makeBlockResults(const std::vector<ValueType>& types)
+{
+    auto label = labelStack.back().label;
+    auto count = types.size();
+
+    if (count > 0) {
+        auto resultNode = new CCompound;
+
+        for (size_t i = 0; i < count; ++i) {
+            resultNode->addStatement(new CVariable(types[i], makeResultName(label, i)));
+        }
+
+        return resultNode;
+    }
+
+    return nullptr;
+}
+
 CNode* CGenerator::generateCBlock(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
-    auto resultType = blockInstruction->getResultType();
+    auto resultTypes = getBlockResults(blockInstruction);
     auto* result = new CCompound();
-    auto blockLabel = pushLabel(resultType);
-    std::string resultName = "result" + toString(blockLabel);
+    auto blockLabel = pushLabel(resultTypes);
+    auto label = labelStack.back().label;
     auto stackSize = expressionStack.size();
     auto labelStackSize = labelStack.size();
-    CNode* resultNode = nullptr;
+    auto types = getBlockResults(blockInstruction);
+    auto count = types.size();
+    auto* resultNode = makeBlockResults(types);
 
-    if (resultType != ValueType::void_) {
-        result->addStatement(resultNode = new CVariable(resultType, resultName));
+    if (resultNode != nullptr) {
+        result->addStatement(resultNode);
     }
 
     while (auto* statement = generateCStatement()) {
         result->addStatement(statement);
+        if (labelStack.size() < labelStackSize) {
+            break;
+        }
     }
 
     if (labelStackSize <= labelStack.size() && labelStack.back().branchTarget) {
         assert(labelStack.back().label == blockLabel);
 
-        if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
-            auto* resultNameNode = new CNameUse(resultName);
+        for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
+            auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
             result->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
         }
@@ -944,8 +994,8 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
         result->addStatement(new CLabel(blockLabel));
         popLabel();
 
-        if (resultType != ValueType::void_) {
-            pushExpression(new CNameUse(resultName));
+        for (size_t i = 0; i < count; ++i) {
+            pushExpression(new CNameUse(makeResultName(label, i)));
         }
     } else if (labelStackSize <= labelStack.size()) {
         assert(labelStack.back().label == blockLabel);
@@ -961,31 +1011,36 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
 CNode* CGenerator::generateCLoop(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
-    auto resultType = blockInstruction->getResultType();
+    auto resultTypes = getBlockResults(blockInstruction);
     auto* result = new CCompound();
-    auto blockLabel = pushLabel(resultType);
-    auto labelStackSize = labelStack.size();
-    std::string resultName = "result" + toString(blockLabel);
+    auto blockLabel = pushLabel(resultTypes);
+    auto label = labelStack.back().label;
     auto stackSize = expressionStack.size();
+    auto labelStackSize = labelStack.size();
+    auto types = getBlockResults(blockInstruction);
+    auto count = types.size();
+    auto* resultNode = makeBlockResults(types);
+
+    if (resultNode != nullptr) {
+        result->addStatement(resultNode);
+    }
 
     labelStack.back().branchTarget = true;
     labelStack.back().backward = true;
-
-    if (resultType != ValueType::void_) {
-        result->addStatement(new CVariable(resultType, resultName));
-    }
 
     result->addStatement(new CLabel(blockLabel));
 
     while (auto* statement = generateCStatement()) {
         result->addStatement(statement);
+        if (labelStack.size() < labelStackSize) {
+            break;
+        }
     }
 
-    if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
-        auto* resultNameNode = new CNameUse(resultName);
-        auto* value = popExpression();
+    for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
+        auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
-        result->addStatement(new CBinaryExpression(resultNameNode, value, "="));
+        result->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
     }
 
     if (labelStackSize <= labelStack.size()) {
@@ -994,8 +1049,8 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
         popLabel();
     }
 
-    if (resultType != ValueType::void_) {
-        pushExpression(new CNameUse(resultName));
+    for (size_t i = 0; i < count; ++i) {
+        pushExpression(new CNameUse(makeResultName(label, i)));
     }
 
     return result;
@@ -1004,41 +1059,50 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
 CNode* CGenerator::generateCIf(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
-    auto resultType = blockInstruction->getResultType();
+    auto resultTypes = getBlockResults(blockInstruction);
     auto* condition = popExpression();
-    auto* result = new CIf(condition, label, resultType);
-    auto blockLabel = pushLabel(resultType);
-    auto labelStackSize = labelStack.size();
-    std::string resultName = "result" + toString(blockLabel);
+    auto types = getBlockResults(blockInstruction);
+    auto* result = new CIf(condition, label, types);
+    auto blockLabel = pushLabel(resultTypes);
+    auto label = labelStack.back().label;
     auto stackSize = expressionStack.size();
+    auto labelStackSize = labelStack.size();
+    auto count = types.size();
+    auto* resultNode = makeBlockResults(types);
+
+    if (resultNode != nullptr) {
+        result->setResultDeclaration(resultNode);
+    }
+
 
     labelStack.back().impliedTarget = true;
 
-    if (resultType != ValueType::void_) {
-        result->setResultDeclaration(new CVariable(resultType, resultName));
-    }
-
     while (auto* statement = generateCStatement()) {
         result->addThenStatement(statement);
-        if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
-            auto* resultNameNode = new CNameUse(resultName);
-            auto* value = popExpression();
-
-            result->addThenStatement(new CBinaryExpression(resultNameNode, value, "="));
+        if (labelStack.size() < labelStackSize) {
+            break;
         }
+    }
+
+    for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
+        auto* resultNameNode = new CNameUse(makeResultName(label, i));
+
+        result->addThenStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
     }
 
     if (instructionPointer != instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
         ++instructionPointer;
         while (auto* statement = generateCStatement()) {
             result->addElseStatement(statement);
+            if (labelStack.size() < labelStackSize) {
+                break;
+            }
         }
 
-        if (resultType != ValueType::void_ && expressionStack.size() > stackSize) {
-            auto* resultNameNode = new CNameUse(resultName);
-            auto* value = popExpression();
+        for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
+            auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
-            result->addElseStatement(new CBinaryExpression(resultNameNode, value, "="));
+            result->addElseStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
         }
     }
 
@@ -1062,8 +1126,8 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
         popLabel();
     }
 
-    if (resultType != ValueType::void_) {
-        pushExpression(new CNameUse(resultName));
+    for (size_t i = 0; i < count; ++i) {
+        pushExpression(new CNameUse(makeResultName(label, i)));
     }
 
     return result;
@@ -1079,16 +1143,23 @@ CNode* CGenerator::generateCBranchStatement(uint32_t index, bool conditional)
         skipUnreachable(index);
     }
 
-    if (!labelInfo.backward && labelInfo.type != ValueType::void_) {
-        std::string resultName = "result" + toString(labelInfo.label);
-        auto* result = popExpression();
-        auto* assignment = new CBinaryExpression(new CNameUse(resultName), result, "=");
+    if (!labelInfo.backward && !labelInfo.types.empty()) {
         auto* compound = new CCompound;
+        auto count = labelInfo.types.size();
 
-        compound->addStatement(assignment);
+        for (auto i = count; i-- > 0; ) {
+            auto resultName = makeResultName(labelInfo.label, i);
+            auto* result = popExpression();
+            auto* assignment = new CBinaryExpression(new CNameUse(resultName), result, "=");
+
+            compound->addStatement(assignment);
+        }
+
         compound->addStatement(new CBr(labelInfo.label));
         if (conditional) {
-            pushExpression(new CNameUse(resultName));
+            for (unsigned i = 0; i < count; ++i) {
+                pushExpression(new CNameUse(makeResultName(labelInfo.label, i)));
+            }
         }
 
         return compound;
@@ -1441,13 +1512,14 @@ void CGenerator::generateCFunction()
 
     ValueType type = ValueType::void_;
     CNode* resultNode = nullptr;
+    auto resultTypes = function->getSignature()->getResults();
 
     if (!function->getSignature()->getResults().empty()) {
         type = function->getSignature()->getResults()[0];
         function->addStatement(resultNode = new CVariable(type, "result0"));
     }
 
-    pushLabel(type);
+    pushLabel(resultTypes);
 
     while (auto* statement = generateCStatement()) {
         function->addStatement(statement);

@@ -170,6 +170,12 @@ class SourceErrorHandler : public ErrorHandler
         }
 
         template<typename... Ts>
+        void warning(const Token& token, const Ts&... ts)
+        {
+            warning(token.getLineNumber(), token.getColumnNumber(), ts...);
+        }
+
+        template<typename... Ts>
         void warningWhen(bool condition, size_t lineNumber, size_t columnNumber, const Ts&... ts)
         {
             if (condition) {

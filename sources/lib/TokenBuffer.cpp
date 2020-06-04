@@ -270,7 +270,8 @@ std::optional<float> TokenBuffer::getF32()
 
     if (auto kind = token.getKind(); kind == Token::floating || kind == Token::integer) {
         pos++;
-        return toF32(token.getValue());
+        auto f = toF32(token.getValue());
+        return f;
     }
 
     return {};

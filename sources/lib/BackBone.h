@@ -6,7 +6,6 @@
 #include "Context.h"
 #include "DataBuffer.h"
 #include "Encodings.h"
-#include "Instruction.h"
 #include "TokenBuffer.h"
 #include "TreeNode.h"
 
@@ -17,18 +16,13 @@
 namespace libwasm
 {
 class Module;
+class Instruction;
 
 class Expression : public TreeNode
 {
     public:
-        virtual ~Expression() override
-        {
-        }
-
-        void addInstruction(Instruction* instruction)
-        {
-            instructions.emplace_back(instruction);
-        }
+        virtual ~Expression() override;
+        void addInstruction(Instruction* instruction);
 
         auto& getInstructions()
         {
@@ -749,7 +743,7 @@ class TypeUse
         void generateC(std::ostream& os, Module* module, size_t number = 0);
         void write(BinaryContext& context) const;
 
-        static void parse(SourceContext& context, TypeUse* result);
+        static void parse(SourceContext& context, TypeUse* result, bool forBlock = false);
         static void read(BinaryContext& context, TypeUse* result);
 
     protected:
@@ -1694,6 +1688,11 @@ class ElementDeclaration : public TreeNode
             expression.reset(value);
         }
 
+        auto& getRefExpressions()
+        {
+            return refExpressions;
+        }
+
         std::string_view getId() const
         {
             return id;
@@ -1702,11 +1701,6 @@ class ElementDeclaration : public TreeNode
         void setId(std::string_view value)
         {
             id = value;
-        }
-
-        auto& getRefExpressions()
-        {
-            return refExpressions;
         }
 
         void show(std::ostream& os, Module* module);
@@ -1721,7 +1715,7 @@ class ElementDeclaration : public TreeNode
         static ElementDeclaration* read(BinaryContext& context);
 
     private:
-
+        bool getTableIndex(SourceContext& context);
         SegmentFlags flags = SegmentFlagNone;
         uint32_t tableIndex = 0;
         ValueType elementType = ValueType(0);

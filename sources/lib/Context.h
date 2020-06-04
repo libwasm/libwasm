@@ -25,12 +25,12 @@ class Context
 
         auto* getModule()
         {
-            return module;
+            return module.get();
         }
 
-        auto& getModules()
+        void setModule(std::shared_ptr<Module>& m)
         {
-            return modules;
+            module = m;
         }
 
         DataBuffer& data()
@@ -40,8 +40,7 @@ class Context
 
     protected:
         DataBuffer dataBuffer;
-        Module* module;
-        std::vector<std::shared_ptr<Module>> modules;
+        std::shared_ptr<Module> module;
 };
 
 class BinaryContext : public Context

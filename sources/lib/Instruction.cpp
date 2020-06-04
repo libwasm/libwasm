@@ -378,14 +378,9 @@ void InstructionF64::generateCValue(std::ostream& os, InstructionContext& contex
 
 InstructionV128* InstructionV128::parse(SourceContext& context, Opcode opcode)
 {
-    auto& tokens = context.tokens();
     auto result = context.makeTreeNode<InstructionV128>();
 
-    if (auto v128 = parseV128(context)) {
-        result->value = std::move(*v128);
-    } else {
-        context.msgs().error(tokens.peekToken(), "Missing or invalid v128 value.");
-    }
+    result->value = requiredV128(context);
 
     return result;
 }
@@ -447,20 +442,15 @@ InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
         module->pushLabel({});
     }
 
-    if (startClause(context, "result")) {
-        if (auto value = parseValueType(context)) {
-            result->resultType = *value;
-        } else {
-            context.msgs().error(tokens.peekToken(), "Missing or invalid result type.");
-        }
+    TypeUse::parse(context, result, true);
 
-        if (!requiredParenthesis(context, ')')) {
-            tokens.recover();
+    if (result->signature) {
+        if (!result->signature->getParams().empty() || result->signature->getResults().size() > 1) {
+            result->checkSignature(context);
+        } else if (!result->signature->getResults().empty()) {
+            result->resultType = result->signature->getResults()[0];
+            result->signature.reset(nullptr);
         }
-    }
-
-    if (auto value = parseValueType(context)) {
-        result->resultType = *value;
     }
 
     return result;
@@ -470,7 +460,17 @@ InstructionBlock* InstructionBlock::read(BinaryContext& context)
 {
     auto result = context.makeTreeNode<InstructionBlock>();
 
-    result->resultType = ValueType(context.data().getI32leb());
+    auto type = context.data().getI32leb();
+
+    if (type >= 0) {
+        result->signatureIndex = type;
+
+        auto* typeDeclaration = context.getModule()->getType(result->signatureIndex);
+
+        result->signature.reset(context.makeTreeNode<Signature>(*typeDeclaration->getSignature()));
+    } else {
+        result->resultType = type;
+    }
 
     return result;
 }
@@ -480,19 +480,26 @@ void InstructionBlock::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putI32leb(int32_t(resultType));
+    if (signatureIndex != invalidIndex) {
+        data.putI32leb(signatureIndex);
+    } else {
+        data.putI32leb(int32_t(resultType));
+    }
 }
 
 void InstructionBlock::check(CheckContext& context)
 {
     context.checkValueType(this, resultType);
+    // TBI multi values
 }
 
 void InstructionBlock::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode;
 
-    if (resultType != ValueType::void_) {
+    if (signatureIndex != invalidIndex) {
+        signature->generate(os, context.getModule());
+    } else if (resultType != ValueType::void_) {
         os << " (result " << resultType << ')';
     }
 
@@ -1334,7 +1341,7 @@ void InstructionTableElementIdx::check(CheckContext& context)
 
 void InstructionTableElementIdx::generate(std::ostream& os, InstructionContext& context)
 {
-    os << opcode << ' ' << tableIndex << ' ' << elementIndex;
+    os << opcode << ' ' << uint32_t(tableIndex) << ' ' << elementIndex;
 }
 
 InstructionTable* InstructionTable::parse(SourceContext& context, Opcode opcode)
@@ -1579,7 +1586,7 @@ Opcode Instruction::readOpcode(BinaryContext& context)
 
 Instruction* Instruction::read(BinaryContext& context)
 {
-    auto result = context.makeTreeNode<Instruction>();
+    Instruction* result = nullptr;
 
     auto opcode = readOpcode(context);
 

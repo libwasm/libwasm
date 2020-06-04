@@ -3,6 +3,7 @@
 #include "Context.h"
 #include "BackBone.h"
 #include "Encodings.h"
+#include "Instruction.h"
 #include "Module.h"
 #include "Validator.h"
 
@@ -12,12 +13,7 @@
 namespace libwasm
 {
 
-Context::Context()
-{
-    module = new Module;
-    modules.emplace_back(module);
-}
-
+Context::Context() = default;
 Context::Context(const Context& other) = default;
 
 void BinaryContext::dumpSections(std::ostream& os)

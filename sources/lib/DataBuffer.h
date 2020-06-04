@@ -107,7 +107,7 @@ class DataBuffer
 
         void bump(int count = 1)
         {
-            assert (count < (endPointer - pointer));
+            assert (count <= (endPointer - pointer));
             pointer += count;
         }
 

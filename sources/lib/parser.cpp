@@ -481,7 +481,7 @@ float requiredF32(SourceContext& context)
         return *value;
     }
 
-    context.msgs().expected(tokens.peekToken(), "32-bit floating pointer number");
+    context.msgs().expected(tokens.peekToken(), "32-bit floating point number");
     return 0;
 }
 
@@ -493,8 +493,20 @@ double requiredF64(SourceContext& context)
         return *value;
     }
 
-    context.msgs().expected(tokens.peekToken(), "64-bit floating pointer number");
+    context.msgs().expected(tokens.peekToken(), "64-bit floating point number");
     return 0;
+}
+
+v128_t requiredV128(SourceContext context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = parseV128(context)) {
+        return *value;
+    }
+
+    context.msgs().expected(tokens.peekToken(), "128-bit vector number");
+    return {};
 }
 
 std::string_view requiredString(SourceContext& context)
@@ -567,6 +579,16 @@ std::optional<Limits> requiredLimits(SourceContext& context)
     }
 
     return result;
+}
+
+bool requiredCloseParenthesis(SourceContext& context)
+{
+    if (requiredParenthesis(context, ')')) {
+        return true;
+    } else {
+        context.tokens().recover();
+        return false;
+    }
 }
 
 };

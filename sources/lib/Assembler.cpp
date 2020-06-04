@@ -2,9 +2,12 @@
 
 #include "Assembler.h"
 
+#include "parser.h"
+
 #include <algorithm>
 #include <cctype>
 #include <tuple>
+#include <map>
 
 namespace libwasm
 {
@@ -25,12 +28,6 @@ bool Assembler::readFile(std::istream& stream)
 {
     return data.readFile(stream);
 }
-
-bool Assembler::readWat(std::istream& stream)
-{
-    return readFile(stream) &&
-        parse();
-};
 
 bool Assembler::lineComment()
 {
@@ -267,7 +264,14 @@ bool Assembler::parseNan()
     if (peekChars("nan")) {
         if (peekChar(3) == ':') {
             bump(4);
-            (void) parseInteger();
+            if (peekChars("canonical")) {
+                bump(9);
+            } else if (peekChars("arithmetic")) {
+                bump(10);
+            } else {
+                (void) parseInteger();
+            }
+
             return true;
         } else if (!isIdChar(peekChar(3))) {
             bump(3);
@@ -415,17 +419,14 @@ static SectionType checkImport(TokenBuffer& tokens, SectionType sectionType)
     return sectionType;
 }
 
-std::vector<Assembler::SectionElementIndex> Assembler::findSectionEntries(bool isModule)
+std::vector<Assembler::SectionElementIndex>
+    Assembler::findSectionEntries(size_t startPos, size_t endPos)
 {
     std::vector<SectionElementIndex> result;
 
-    while (!tokens.atEnd()) {
-        if (isModule && tokens.getPos() == tokens.size() - 1 && tokens.getParenthesis(')')) {
-            break;
-        }
+    tokens.setPos(startPos);
 
-        auto startPos = tokens.getPos();
-
+    while ((startPos = tokens.getPos()) != endPos) {
         if (tokens.getParenthesis('(')) {
             SectionType sectionType = SectionType::max + 1;
 
@@ -499,28 +500,10 @@ bool Assembler::checkSemantics()
     }
 }
 
-bool Assembler::parse()
+bool Assembler::parseModule(size_t startPos, size_t endPos)
 {
-    return tokenize() &&
-        doParse() &&
-        checkSemantics();
-}
-
-bool Assembler::doParse()
-{
-    bool isModule = false;
-    auto* module = context.getModule();
-
-    if (tokens.peekToken().isParenthesis('(') && tokens.peekToken(1).isKeyword("module")) {
-        tokens.bump(2);
-        if (auto id = tokens.getId()) {
-            module->setId(*id);
-        }
-
-        isModule = true;
-    }
-
-    auto entries = findSectionEntries(isModule);
+    auto errorCount = msgs.getErrorCount();
+    auto entries = findSectionEntries(startPos, endPos);
 
     if (auto positions = findSectionPositions(entries, SectionType::type); !positions.empty()) {
         auto* section = module->requiredTypeSection();
@@ -656,7 +639,136 @@ bool Assembler::doParse()
         }
     }
 
+    tokens.setPos(endPos);
+    checkSemantics();
+
+    return errorCount == msgs.getErrorCount();
+}
+
+bool Assembler::doParse()
+{
+    module = std::make_shared<Module>();
+    context.setModule(module);
+
+    bool hasModule = false;
+    size_t startPos = 0;
+    size_t endPos = tokens.size();
+
+    if (startClause(context, "module")) {
+        hasModule = true;
+        endPos = tokens.peekToken(-2).getCorrespondingIndex();
+
+        if (auto id = tokens.getId()) {
+            module->setId(*id);
+        }
+
+        startPos = tokens.getPos();
+    }
+
+    auto result = parseModule(startPos, endPos);
+
+    if (hasModule) {
+        requiredCloseParenthesis(context);
+    }
+
+    return result;
+}
+
+bool Assembler::doParseScript()
+{
+    script = std::make_shared<Script>();
+
+    if (tokens.getParenthesis('(')) {
+        if (auto key = tokens.getKeyword()) {
+            if (*key == "type" ||
+                    *key == "memory" ||
+                    *key == "table" ||
+                    *key == "global" ||
+                    *key == "func" ||
+                    *key == "start" ||
+                    *key == "export" ||
+                    *key == "import" ||
+                    *key == "datacount" ||
+                    *key == "elem" ||
+                    *key == "code" ||
+                    *key == "data") {
+
+                tokens.setPos(0);
+
+                module = std::make_shared<Module>();
+                context.setModule(module);
+
+                size_t startPos = 0;
+                size_t endPos = tokens.size();
+
+                if (auto id = tokens.getId()) {
+                    module->setId(*id);
+                }
+
+                if (parseModule(startPos, endPos)) {
+                    script->addModule(module);
+                }
+
+                return msgs.getErrorCount() == 0;
+            }
+        }
+    }
+
+    tokens.setPos(0);
+
+    std::map<std::string_view, int> ignoreds;
+
+    while (!tokens.atEnd()) {
+        if (startClause(context, "module")) {
+            module = std::make_shared<Module>();
+            context.setModule(module);
+
+            auto endPos = tokens.peekToken(-2).getCorrespondingIndex();
+
+            if (auto id = tokens.getId()) {
+                module->setId(*id);
+            }
+
+            if (tokens.peekKeyword("binary")) {
+                ++ignoreds["binary module"];
+                tokens.recover();
+                continue;
+            }
+
+            auto startPos = tokens.getPos();
+
+            if (parseModule(startPos, endPos)) {
+                script->addModule(module);
+            }
+
+            requiredCloseParenthesis(context);
+        } else if (auto* assertReturn = AssertReturn::parse(context); assertReturn != nullptr) {
+            auto p = std::shared_ptr<AssertReturn>(assertReturn);
+
+            script->addAssertReturn(p);
+        } else if (auto* invoke = Invoke::parse(context); invoke != nullptr) {
+            auto p = std::shared_ptr<Invoke>(invoke);
+
+            script->addInvoke(p);
+        } else if (tokens.getParenthesis('(')) {
+            ++ignoreds[tokens.peekToken().getValue()];
+            tokens.recover();
+        } else {
+            msgs.error(tokens.peekToken(), "Expected '('.");
+        }
+    }
+
+    for (const auto& ignored : ignoreds) {
+        std::cout << "   " << ignored.second << " '" << ignored.first  << "' Ignored.\n";
+    }
+
     return msgs.getErrorCount() == 0;
+}
+
+bool Assembler::parse()
+{
+    return tokenize() &&
+        doParseScript();
 }
 
 void Assembler::write(std::ostream& os)

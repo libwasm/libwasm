@@ -1,13 +1,14 @@
 // Assembler.h
 
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef ASSEMBLER_H
+#define ASSEMBLER_H
 
 #include "BackBone.h"
 #include "Context.h"
 #include "DataBuffer.h"
 #include "ErrorHandler.h"
 #include "Module.h"
+#include "Script.h"
 #include "Token.h"
 #include "TokenBuffer.h"
 #include "common.h"
@@ -23,15 +24,15 @@ class Assembler
 {
     public:
         Assembler(std::istream& stream)
-          : context(tokens, msgs), module(context.getModule())
+          : context(tokens, msgs)
         {
-            good = readWat(stream);
+            good = readFile(stream);
         }
 
         Assembler(std::istream& stream, std::ostream& errorStream)
-          : msgs(errorStream), context(tokens, msgs), module(context.getModule())
+          : msgs(errorStream), context(tokens, msgs)
         {
-            good = readWat(stream);
+            good = readFile(stream);
         }
 
         ~Assembler() = default;
@@ -78,6 +79,8 @@ class Assembler
             return context;
         }
 
+        bool parse();
+
     private:
         struct SectionElementIndex
         {
@@ -90,10 +93,9 @@ class Assembler
             size_t pos;
         };
 
-        bool readWat(std::istream& stream);
         bool readFile(std::istream& stream);
         bool tokenize();
-        std::vector<SectionElementIndex> findSectionEntries(bool module);
+        std::vector<SectionElementIndex> findSectionEntries(size_t startPos, size_t endPos);
         std::vector<size_t> findSectionPositions(
                 const std::vector<Assembler::SectionElementIndex>& entries, SectionType type);
 
@@ -133,13 +135,14 @@ class Assembler
         void whiteSpace();
         bool blockComment();
         bool lineComment();
-        bool parse();
         bool doParse();
+        bool parseModule(size_t startPos, size_t endPos);
         bool parseInteger(bool allowHex = true);
         bool parseNan();
         bool parseInf();
         bool parseString();
         bool parseHex();
+        bool doParseScript();
         bool checkSemantics();
         Token::TokenKind parseNumber();
 
@@ -154,7 +157,8 @@ class Assembler
         SourceErrorHandler msgs;
 
         SourceContext context;
-        Module* module = nullptr;
+        std::shared_ptr<Module> module;
+        std::shared_ptr<Script> script;
 };
 };
 

@@ -134,6 +134,8 @@ int main(int argc, char*argv[])
         Assembler assembler(inputStream);
 
         if (assembler.isGood()) {
+            assembler.parse();
+
             std::ofstream outputStream(outputFile);
 
             if (!outputStream.good()) {

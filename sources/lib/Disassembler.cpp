@@ -27,7 +27,7 @@ bool Disassembler::checkHeader()
 
 bool Disassembler::readSections()
 {
-    auto* module = context.getModule();
+    context.setModule(module);
 
     while (!data.atEnd()) {
         auto c = data.getU8();
