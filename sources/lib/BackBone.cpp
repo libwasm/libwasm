@@ -1186,6 +1186,14 @@ void TypeUse::parse(SourceContext& context, TypeUse* result, bool forBlock)
 
     if (auto* sig = Signature::parse(context); sig != nullptr) {
         result->signature.reset(sig);
+    } else if (result->signatureIndex != invalidIndex) {
+        auto* typeDeclaration = module->getType(result->signatureIndex);
+
+        result->signature.reset(context.makeTreeNode<Signature>(*typeDeclaration->getSignature()));
+
+        for (size_t i = 0, c = result->signature->getParams().size(); i < c; ++i) {
+            module->nextLocalCount();
+        }
     }
 
     if (!forBlock) {
@@ -1237,11 +1245,12 @@ void TypeUse::printCName(std::ostream& os, size_t number) const
 void TypeUse::generateC(std::ostream& os, Module* module, size_t number)
 {
     auto& results = signature->getResults();
+    auto resultCount = results.size();
 
-    if (results.empty()) {
-        os << "void";
-    } else {
+    if (resultCount == 1) {
         os << results[0].getCName();
+    } else {
+        os << "void";
     }
 
     os << ' ';
@@ -1250,6 +1259,15 @@ void TypeUse::generateC(std::ostream& os, Module* module, size_t number)
     os << '(';
 
     const char* separator = "";
+
+    if (resultCount > 1) {
+        for (size_t i = 0; i < resultCount; ++i) {
+            auto resultPointerName = makeResultName(0, i) + "_ptr";
+
+            os << separator << results[i].getCName() << " *" << resultPointerName;
+            separator = ", ";
+        }
+    }
 
     for (auto& param : signature->getParams()) {
         os << separator << param->getType().getCName() << ' ';

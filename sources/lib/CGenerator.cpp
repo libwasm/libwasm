@@ -851,6 +851,20 @@ CNode* CGenerator::popExpression()
     return result;
 }
 
+std::vector<std::string> CGenerator::getTemps(const std::vector<ValueType>& types)
+{
+    std::vector<std::string> result;
+    result.reserve(types.size());
+
+    for (auto& type : types) {
+        auto tempName = "temp_" + toString(temp++);
+
+        result.push_back(tempName);
+        tempNode->addStatement(new CVariable(type, tempName));
+    }
+
+    return result;
+}
 
 std::string CGenerator::localName(Instruction* instruction)
 {
@@ -924,20 +938,6 @@ std::vector<ValueType> CGenerator::getBlockResults(InstructionBlock* blockInstru
     }
 
     return types;
-}
-
-static std::string makeResultName(unsigned label, unsigned index)
-{
-    std::string result("result");
-
-    result += toString(label);
-
-    if (index != 0) {
-        result += '_';
-        result += toString(index);
-    }
-
-    return result;
 }
 
 CNode* CGenerator::makeBlockResults(const std::vector<ValueType>& types)
@@ -1418,6 +1418,8 @@ void CGenerator::generateCCall(Instruction* instruction, CNode*& expression, CNo
     auto* calledFunction = module->getFunction(functionIndex);
     auto* signature = calledFunction->getSignature();
     auto* result = new CCall(calledFunction->getCName(functionIndex));
+    auto& results = signature->getResults();
+    std::vector<std::string> temps;
 
     for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
         auto* argument = popExpression();
@@ -1425,12 +1427,25 @@ void CGenerator::generateCCall(Instruction* instruction, CNode*& expression, CNo
         result->addArgument(argument);
     }
 
+    if (results.size() > 1) {
+        temps = getTemps(results);
+
+        for (auto i = results.size(); i-- > 0; ) {
+            result->addArgument(new CUnaryExpression("&", new CNameUse(temps[i])));
+        }
+    }
+
     result->reverseArguments();
 
-    if (signature->getResults().empty()) {
+    if (results.empty()) {
         statement = result;
-    } else {
+    } else if (results.size() == 1) {
         expression = result;
+    } else {
+        statement = result;
+        for (const auto& temp : temps) {
+            pushExpression(new CNameUse(temp));
+        }
     }
 }
 
@@ -1441,6 +1456,8 @@ void CGenerator::generateCCallIndirect(Instruction* instruction, CNode*& express
     auto* tableIndex = popExpression();
     auto* result = new CCallIndirect(typeIndex, tableIndex);
     auto* signature = module->getType(typeIndex)->getSignature();
+    auto& results = signature->getResults();
+    std::vector<std::string> temps;
 
     for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
         auto* argument = popExpression();
@@ -1448,12 +1465,25 @@ void CGenerator::generateCCallIndirect(Instruction* instruction, CNode*& express
         result->addArgument(argument);
     }
 
+    if (results.size() > 1) {
+        temps = getTemps(results);
+
+        for (auto i = results.size(); i-- > 0; ) {
+            result->addArgument(new CUnaryExpression("&", new CNameUse(temps[i])));
+        }
+    }
+
     result->reverseArguments();
 
-    if (signature->getResults().empty()) {
+    if (results.empty()) {
         statement = result;
-    } else {
+    } else if (results.size() == 1) {
         expression = result;
+    } else {
+        statement = result;
+        for (const auto& temp : temps) {
+            pushExpression(new CNameUse(temp));
+        }
     }
 }
 
@@ -1510,42 +1540,60 @@ void CGenerator::generateCFunction()
 {
     function = new CFunction(module->getFunction(codeEntry->getNumber())->getSignature());
 
-    ValueType type = ValueType::void_;
-    CNode* resultNode = nullptr;
     auto resultTypes = function->getSignature()->getResults();
+    auto count = resultTypes.size();
 
-    if (!function->getSignature()->getResults().empty()) {
-        type = function->getSignature()->getResults()[0];
-        function->addStatement(resultNode = new CVariable(type, "result0"));
-    }
+    function->addStatement(tempNode = new CCompound);
 
     pushLabel(resultTypes);
+
+    auto* resultNode = makeBlockResults(resultTypes);
 
     while (auto* statement = generateCStatement()) {
         function->addStatement(statement);
     }
 
-    CNode* returnExpression = nullptr;
-
-    if (type != ValueType::void_ && !expressionStack.empty()) {
-        returnExpression = popExpression();
-    }
+    bool needsReturn = count != 0 && !expressionStack.empty();
 
     if (!labelStack.empty() && labelStack.back().branchTarget) {
-        if (returnExpression != nullptr) {
-            function->addStatement(new CBinaryExpression(new CNameUse("result0"), returnExpression, "="));
+        if (needsReturn) {
+            for (auto i = count; i-- > 0; ) {
+                auto* resultNameNode = new CNameUse(makeResultName(0, i));
+
+                function->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
+            }
         }
 
         function->addStatement(new CLabel(0));
 
-        if (returnExpression != nullptr) {
-            function->addStatement(new CReturn(new CNameUse("result0")));
+        if (needsReturn) {
+            if (count == 1) {
+                function->addStatement(new CReturn(new CNameUse("result0")));
+            } else {
+                for (size_t i = 0; i < count; ++i) {
+                    auto resultName = makeResultName(0, i);
+                    auto* resultNameNode  = new CNameUse(resultName);
+                    auto* resultPointerNode = new CNameUse('*' + resultName + "_ptr");
+
+                    function->addStatement(new CBinaryExpression(resultPointerNode, resultNameNode, "="));
+                }
+            }
         } else {
             delete resultNode;
         }
-    } else if (returnExpression != nullptr) {
+    } else if (needsReturn) {
+        if (count == 1) {
+            function->addStatement(new CReturn(popExpression()));
+        } else {
+            for (auto i = count; i-- > 0; ){
+                auto resultName = makeResultName(0, i);
+                auto* resultPointerNode = new CNameUse('*' + resultName + "_ptr");
+
+                function->addStatement(new CBinaryExpression(resultPointerNode, popExpression(), "="));
+            }
+        }
+
         delete resultNode;
-        function->addStatement(new CReturn(returnExpression));
     } else {
         delete resultNode;
     }

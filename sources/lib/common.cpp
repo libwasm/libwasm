@@ -579,4 +579,18 @@ std::string toString(double value)
     return result;
 }
 
+std::string makeResultName(unsigned label, unsigned index)
+{
+    std::string result("result");
+
+    result += toString(label);
+
+    if (index != 0) {
+        result += '_';
+        result += toString(index);
+    }
+
+    return result;
+}
+
 };

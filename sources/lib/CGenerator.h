@@ -780,6 +780,7 @@ class CGenerator
         void pushExpression(CNode* expression);
         CNode* popExpression();
 
+        std::vector<std::string> getTemps(const std::vector<ValueType>& types);
         void optimize();
 
         auto& getLabel(size_t index = 0)
@@ -805,6 +806,8 @@ class CGenerator
         std::vector<std::unique_ptr<Instruction>>::iterator instructionPointer;
         std::vector<std::unique_ptr<Instruction>>::iterator instructionEnd;
 
+        unsigned temp = 0;
+        CCompound* tempNode = nullptr;
         unsigned label = 0;
         std::string indentString = "";
         Module* module;

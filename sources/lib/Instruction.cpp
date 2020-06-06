@@ -450,6 +450,7 @@ InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
         } else if (!result->signature->getResults().empty()) {
             result->resultType = result->signature->getResults()[0];
             result->signature.reset(nullptr);
+            result->signatureIndex = invalidIndex;
         }
     }
 
@@ -480,10 +481,10 @@ void InstructionBlock::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    if (signatureIndex != invalidIndex) {
-        data.putI32leb(signatureIndex);
-    } else {
+    if (resultType != ValueType::void_ || signatureIndex == invalidIndex) {
         data.putI32leb(int32_t(resultType));
+    } else {
+        data.putI32leb(signatureIndex);
     }
 }
 
@@ -497,10 +498,10 @@ void InstructionBlock::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode;
 
-    if (signatureIndex != invalidIndex) {
-        signature->generate(os, context.getModule());
-    } else if (resultType != ValueType::void_) {
+    if (resultType != ValueType::void_) {
         os << " (result " << resultType << ')';
+    } else if (signatureIndex != invalidIndex) {
+        signature->generate(os, context.getModule());
     }
 
     if (context.getComments()) {

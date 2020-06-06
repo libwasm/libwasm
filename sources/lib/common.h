@@ -103,6 +103,7 @@ std::string toString(float value);
 std::string toString(double value);
 
 std::string cName(std::string_view name);
+std::string makeResultName(unsigned label, unsigned index);
 
 };
 
