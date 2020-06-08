@@ -632,7 +632,6 @@ class Local : public TreeNode
         }
 
         std::string getCName() const;
-        void printCName(std::ostream& os) const;
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
         void check(CheckContext& context);
@@ -733,8 +732,17 @@ class TypeUse
             signature.reset(value);
         }
 
-        std::string getCName(uint32_t number) const;
-        void printCName(std::ostream& os, size_t number) const;
+        void setNumber(uint32_t i)
+        {
+            number = i;
+        }
+
+        auto getNumber() const
+        {
+            return number;
+        }
+
+        std::string getCName() const;
 
         void checkSignature(SourceContext& context);
 
@@ -751,6 +759,7 @@ class TypeUse
         std::unique_ptr<Signature> signature;
         std::string id;
         std::string externId;
+        uint32_t number = 0;
 };
 
 class TypeDeclaration : public TreeNode
@@ -866,16 +875,6 @@ class ImportDeclaration : public TreeNode
             return name;
         }
 
-        void setNumber(uint32_t i)
-        {
-            number = i;
-        }
-
-        auto getNumber() const
-        {
-            return number;
-        }
-
         auto getKind() const
         {
             return kind;
@@ -901,7 +900,6 @@ class ImportDeclaration : public TreeNode
     protected:
         std::string moduleName;
         std::string name;
-        uint32_t number = 0;
         ExternalType kind;
 };
 
@@ -976,13 +974,24 @@ class Table
             limits = l;
         }
 
-        void printCName(std::ostream& os, size_t number) const;
+        void setNumber(uint32_t i)
+        {
+            number = i;
+        }
+
+        auto getNumber() const
+        {
+            return number;
+        }
+
+        std::string getCName() const;
 
     protected:
         ValueType type = 0;
         Limits limits;
         std::string id;
         std::string externId;
+        uint32_t number;
 };
 
 class TableImport : public Table, public ImportDeclaration
@@ -1036,12 +1045,23 @@ class Memory
             limits = l;
         }
 
-        void printCName(std::ostream& os, size_t number) const;
+        void setNumber(uint32_t i)
+        {
+            number = i;
+        }
+
+        auto getNumber() const
+        {
+            return number;
+        }
+
+        std::string getCName() const;
 
     protected:
         Limits limits;
         std::string id;
         std::string externId;
+        uint32_t number;
 };
 
 class MemoryImport : public Memory, public ImportDeclaration
@@ -1105,11 +1125,22 @@ class Event
             typeIndex = index;
         }
 
+        void setNumber(uint32_t i)
+        {
+            number = i;
+        }
+
+        auto getNumber() const
+        {
+            return number;
+        }
+
     protected:
         EventType attribute;
         uint32_t typeIndex;
         std::string id;
         std::string externId;
+        uint32_t number;
 };
 
 class EventImport : public Event, public ImportDeclaration
@@ -1172,14 +1203,24 @@ class Global
             mut = m;
         }
 
-        std::string getCName(uint32_t number) const;
-        void printCName(std::ostream& os, size_t number) const;
+        void setNumber(uint32_t i)
+        {
+            number = i;
+        }
+
+        auto getNumber() const
+        {
+            return number;
+        }
+
+        std::string getCName() const;
 
     protected:
         ValueType type = 0;
         Mut mut = Mut::const_;
         std::string id;
         std::string externId;
+        uint32_t number;
 };
 
 class GlobalImport : public Global, public ImportDeclaration

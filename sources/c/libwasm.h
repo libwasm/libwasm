@@ -15,16 +15,20 @@ extern "C" {
 #  endif
 #endif
 
+#define memoryPageSize 65536
+
 typedef struct
 {
     char* data;
-    uint32_t size;
+    uint32_t pageCount;
+    uint32_t maxPageCount;
 } Memory;
 
 typedef struct
 {
     void** functions;
-    uint32_t size;
+    uint32_t elemntCount;
+    uint32_t maxElementCount;
 } Table;
 
 typedef struct {
@@ -77,8 +81,8 @@ typedef union
 } v128_u;
 
 extern void initializeMemory(Memory*, uint32_t min, uint32_t max);
-extern void initializeTable(Table*, uint32_t min, uint32_t max);
 extern uint32_t growMemory(Memory*, uint32_t size);
+extern void initializeTable(Table*, uint32_t min, uint32_t max);
 
 int32_t reinterpretI32F32(float value);
 int64_t reinterpretI64F64(double value);

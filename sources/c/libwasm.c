@@ -9,6 +9,57 @@ extern uint32_t loadU16(uint64_t offset);
 extern int32_t loadI32(uint64_t offset);
 extern uint32_t loadU32(uint64_t offset);
 
+void initializeMemory(Memory* memory, uint32_t min, uint32_t max)
+{
+    memory->pageCount = min;
+    memory->maxPageCount = max;
+
+    if (min == 0) {
+        memory->data = NULL;
+    } else {
+        memory->data = calloc(min, memoryPageSize);
+    }
+}
+
+uint32_t growMemory(Memory* memory, uint32_t size)
+{
+    uint32_t pageCount = memory->pageCount + size;
+
+    if (pageCount == 0) {
+        return 0;
+    }
+
+    if (pageCount < memory->pageCount || pageCount > memory->maxPageCount) {
+        reurn -1;
+    }
+
+    char* data = realloc(memory->data, pageCount * memoryPageSize);
+
+    if (data == NULL) {
+        return -1;
+    }
+
+    uint32_t result = memory->pageCount;
+
+    memset(data + memory->pageCount * memoryPageSize, 0, size * memoryPageSize);
+    memory->pageCount = pageCount;
+    memory->data = data;
+
+    return result;
+}
+
+void initializeTable(Table* table, uint32_t min, uint32_t max)
+{
+    table->elemntCount = min;
+    table->maxElementCount = max;
+
+    if (min == 0) {
+        table->data = NULL;
+    } else {
+        memory->table = calloc(min, sizeof(void*));
+    }
+}
+
 int32_t reinterpretI32F32(float value)
 {
     return *(int32_t*)&value;

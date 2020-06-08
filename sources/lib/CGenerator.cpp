@@ -255,6 +255,7 @@ static unsigned binaryPrecedence(std::string_view op)
         std::string_view op;
         unsigned precedence;
     } precedences[] = {
+        { ".", 15 },
         { "*", 14 },
         { "/", 14 },
         { "%", 14 },
@@ -392,7 +393,13 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
     }
 
     left->generateC(os, generator);
-    os << ' ' << op << ' ';
+
+    if (op == ".") {
+        os << op;
+    } else {
+        os << ' ' << op << ' ';
+    }
+
     right->generateC(os, generator);
 
     if (parenthesis) {
@@ -432,7 +439,7 @@ void CVariable::generateC(std::ostream& os, CGenerator& generator)
 
 void CLoad::generateC(std::ostream& os, CGenerator& generator)
 {
-    os << name << '(';
+    os << name << "(&" << memory << ", ";
     offset->generateC(os, generator);
     os << ')';
 }
@@ -455,7 +462,9 @@ void CCallIndirect::reverseArguments()
 
 void CCallIndirect::generateC(std::ostream& os, CGenerator& generator)
 {
-    os << "((type" << typeIndex << ")TABLE.functions[";
+    auto* table = generator.getModule()->getTable(0);
+
+    os << "((type" << typeIndex << ')' << table->getCName() << ".functions[";
     tableIndex->generateC(os, generator);
 
     os << "])(";
@@ -549,7 +558,7 @@ void CReturn::generateC(std::ostream& os, CGenerator& generator)
 
 void CStore::generateC(std::ostream& os, CGenerator& generator)
 {
-    os << name << '(';
+    os << name << "(&" << memory << ", ";
     offset->generateC(os, generator);
     os << ", ";
     value->generateC(os, generator);
@@ -923,7 +932,7 @@ std::string CGenerator::globalName(Instruction* instruction)
     auto globalIndex = static_cast<InstructionGlobalIdx*>(instruction)->getIndex();
     auto* global = module->getGlobal(globalIndex);
 
-    return global->getCName(globalIndex);
+    return global->getCName();
 
 }
 
@@ -988,7 +997,7 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
         for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
             auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
-            result->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
+            result->addStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
         }
 
         result->addStatement(new CLabel(blockLabel));
@@ -1040,7 +1049,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
     for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
         auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
-        result->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
+        result->addStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
     }
 
     if (labelStackSize <= labelStack.size()) {
@@ -1087,7 +1096,7 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
     for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
         auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
-        result->addThenStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
+        result->addThenStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
     }
 
     if (instructionPointer != instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
@@ -1102,7 +1111,7 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
         for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
             auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
-            result->addElseStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
+            result->addElseStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
         }
     }
 
@@ -1150,7 +1159,7 @@ CNode* CGenerator::generateCBranchStatement(uint32_t index, bool conditional)
         for (auto i = count; i-- > 0; ) {
             auto resultName = makeResultName(labelInfo.label, i);
             auto* result = popExpression();
-            auto* assignment = new CBinaryExpression(new CNameUse(resultName), result, "=");
+            auto* assignment = new CBinaryExpression("=", new CNameUse(resultName), result);
 
             compound->addStatement(assignment);
         }
@@ -1222,7 +1231,7 @@ CNode* CGenerator::generateCBinaryExpression(std::string_view op)
     auto* right = popExpression();
     auto* left = popExpression();
 
-    return new CBinaryExpression(left, right, op);
+    return new CBinaryExpression(op, left, right);
 }
 
 CNode* CGenerator::generateCUnaryExpression(std::string_view op)
@@ -1237,7 +1246,7 @@ CNode* CGenerator::generateCUBinaryExpression(std::string_view op, std::string_v
     auto* right = popExpression();
     auto* left = popExpression();
 
-    return new CBinaryExpression(new CCast(type, left), new CCast(type, right), op);
+    return new CBinaryExpression(op, new CCast(type, left), new CCast(type, right));
 }
 
 CNode* CGenerator::makeCombinedOffset(Instruction* instruction)
@@ -1257,10 +1266,10 @@ CNode* CGenerator::makeCombinedOffset(Instruction* instruction)
         if (*value == 0) {
             combinedOffset = offsetEpression;
         } else {
-            combinedOffset = new CBinaryExpression(offsetEpression, new CI64(*value), "+");
+            combinedOffset = new CBinaryExpression("+", offsetEpression, new CI64(*value));
         }
     } else {
-        combinedOffset = new CBinaryExpression(new CI64(offset), dynamicOffset, "+");
+        combinedOffset = new CBinaryExpression("+", new CI64(offset), dynamicOffset);
     }
 
     return combinedOffset;
@@ -1268,7 +1277,10 @@ CNode* CGenerator::makeCombinedOffset(Instruction* instruction)
 
 CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction)
 {
-    return new CLoad(name, makeCombinedOffset(instruction));
+    auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
+    auto* memory = module->getMemory(0);
+
+    return new CLoad(name, memory->getCName(), makeCombinedOffset(instruction));
 }
 
 CNode* CGenerator::generateCLoadSplat(std::string_view splatName, std::string_view loadName, Instruction* instruction)
@@ -1293,6 +1305,7 @@ CNode* CGenerator::generateCStore(std::string_view name, Instruction* instructio
 {
     auto* valueToStore = popExpression();
     auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
+    auto* memory = module->getMemory(0);
     auto offset = memoryInstruction->getOffset();
     auto* dynamicOffset = popExpression();
     CNode* combinedOffset = nullptr;
@@ -1307,13 +1320,13 @@ CNode* CGenerator::generateCStore(std::string_view name, Instruction* instructio
         if (*value == 0) {
             combinedOffset = offsetEpression;
         } else {
-            combinedOffset = new CBinaryExpression(offsetEpression, new CI64(*value), "+");
+            combinedOffset = new CBinaryExpression("+", offsetEpression, new CI64(*value));
         }
     } else {
-        combinedOffset = new CBinaryExpression(new CI64(offset), dynamicOffset, "+");
+        combinedOffset = new CBinaryExpression("+", new CI64(offset), dynamicOffset);
     }
 
-    return new CStore(name, combinedOffset, valueToStore);
+    return new CStore(name, memory->getCName(), combinedOffset, valueToStore);
 }
 
 CNode* CGenerator::generateCLocalSet(Instruction* instruction)
@@ -1321,7 +1334,7 @@ CNode* CGenerator::generateCLocalSet(Instruction* instruction)
     auto* left = new CNameUse(localName(instruction));
     auto* right = popExpression();
 
-    return new CBinaryExpression(left, right, "=");
+    return new CBinaryExpression("=", left, right);
 }
 
 CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
@@ -1329,7 +1342,7 @@ CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
     auto* left = new CNameUse(globalName(instruction));
     auto* right = popExpression();
 
-    return new CBinaryExpression(left, right, "=");
+    return new CBinaryExpression("=", left, right);
 }
 
 CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentCount)
@@ -1346,11 +1359,21 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
     return result;
 }
 
+CNode* CGenerator::generateCMemorySize()
+{
+    auto* memory = module->getMemory(0);
+    auto* pageCount = new CBinaryExpression(".", new CNameUse(memory->getCName()),
+            new CNameUse("pageCount"));
+
+    return new CBinaryExpression("*",  pageCount, new CNameUse("memoryPageSize"));
+}
+
 CNode* CGenerator::generateCMemoryGrow()
 {
+    auto* memory = module->getMemory(0);
     auto* result = new CCall("growMemory");
 
-    result->addArgument(new CUnaryExpression("&", new CNameUse("MEMORY")));
+    result->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName())));
     result->addArgument(popExpression());
 
     return result;
@@ -1417,7 +1440,7 @@ void CGenerator::generateCCall(Instruction* instruction, CNode*& expression, CNo
     auto functionIndex = callInstruction->getIndex();
     auto* calledFunction = module->getFunction(functionIndex);
     auto* signature = calledFunction->getSignature();
-    auto* result = new CCall(calledFunction->getCName(functionIndex));
+    auto* result = new CCall(calledFunction->getCName());
     auto& results = signature->getResults();
     std::vector<std::string> temps;
 
@@ -1560,7 +1583,7 @@ void CGenerator::generateCFunction()
             for (auto i = count; i-- > 0; ) {
                 auto* resultNameNode = new CNameUse(makeResultName(0, i));
 
-                function->addStatement(new CBinaryExpression(resultNameNode, popExpression(), "="));
+                function->addStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
             }
         }
 
@@ -1575,7 +1598,7 @@ void CGenerator::generateCFunction()
                     auto* resultNameNode  = new CNameUse(resultName);
                     auto* resultPointerNode = new CNameUse('*' + resultName + "_ptr");
 
-                    function->addStatement(new CBinaryExpression(resultPointerNode, resultNameNode, "="));
+                    function->addStatement(new CBinaryExpression("=", resultPointerNode, resultNameNode));
                 }
             }
         } else {
@@ -1589,7 +1612,7 @@ void CGenerator::generateCFunction()
                 auto resultName = makeResultName(0, i);
                 auto* resultPointerNode = new CNameUse('*' + resultName + "_ptr");
 
-                function->addStatement(new CBinaryExpression(resultPointerNode, popExpression(), "="));
+                function->addStatement(new CBinaryExpression("=", resultPointerNode, popExpression()));
             }
         }
 
@@ -2160,7 +2183,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::memory__size:
-                expression = new CNameUse("MEMORY.size");
+                expression = generateCMemorySize();
                 break;
 
             case Opcode::memory__grow:
@@ -2290,7 +2313,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::v128__store:
-                expression = generateCLoad("storeV128", instruction);
+                expression = generateCStore("storeV128", instruction);
                 break;
 
             case Opcode::v128__const:

@@ -592,24 +592,6 @@ void Module::generateS(std::ostream& os)
     generate(os);
 }
 
-static void makeLoadFunction(std::ostream& os, std::string_view memory,
-        std::string_view name, std::string_view cast, std::string_view valueType)
-{
-    os << "\n" << valueType << " " << name << "(uint64_t offset)"
-          "\n{"
-          "\n  return " << cast << "(" << memory << ".data + offset);"
-          "\n}\n";
-}
-
-static void makeStoreFunction(std::ostream& os, std::string_view memory,
-        std::string_view name, std::string_view cast, std::string_view valueType)
-{
-    os << "\nvoid " << name << "(uint64_t offset, " << valueType << " value)"
-          "\n{"
-          "\n  " << cast << "(" << memory << ".data + offset) = value;"
-          "\n}\n";
-}
-
 void Module::generateCPreamble(std::ostream& os)
 {
     Table* table = nullptr;
@@ -635,8 +617,6 @@ void Module::generateCPreamble(std::ostream& os)
         } else {
             tableName = "table0";
         }
-
-        os << "\n#define TABLE " << tableName << '\n';
     }
 
     Memory* memory = nullptr;
@@ -662,44 +642,6 @@ void Module::generateCPreamble(std::ostream& os)
         } else {
             memoryName = "memory0";
         }
-
-        os << "\n#define MEMORY " << memoryName << '\n';
-
-        makeLoadFunction(os, memoryName, "loadI8", "*(int8_t*)", "int32_t");
-        makeLoadFunction(os, memoryName, "loadU8", "*(uint8_t*)", "uint32_t");
-        makeLoadFunction(os, memoryName, "loadI16", "*(int16_t*)", "int32_t");
-        makeLoadFunction(os, memoryName, "loadU16", "*(uint16_t*)", "uint32_t");
-        makeLoadFunction(os, memoryName, "loadI32", "*(int32_t*)", "int32_t");
-        makeLoadFunction(os, memoryName, "loadU32", "*(uint32_t*)", "uint32_t");
-        makeLoadFunction(os, memoryName, "loadI64", "*(int64_t*)", "int64_t");
-        makeLoadFunction(os, memoryName, "loadF32", "*(float*)", "float");
-        makeLoadFunction(os, memoryName, "loadF64", "*(double*)", "double");
-        makeLoadFunction(os, memoryName, "loadV128", "*(v128_t*)", "v128_t");
-
-        makeLoadFunction(os, memoryName, "loadI32U8", "(int32_t)*(uint8_t*)", "int32_t");
-        makeLoadFunction(os, memoryName, "loadI32I8", "(int32_t)*(int8_t*)", "int32_t");
-        makeLoadFunction(os, memoryName, "loadI32U16", "(int32_t)*(uint16_t*)", "int32_t");
-        makeLoadFunction(os, memoryName, "loadI32I16", "(int32_t)*(int16_t*)", "int32_t");
-
-        makeLoadFunction(os, memoryName, "loadI64U8", "(int64_t)*(uint8_t*)", "int64_t");
-        makeLoadFunction(os, memoryName, "loadI64I8", "(int64_t)*(int8_t*)", "int64_t");
-        makeLoadFunction(os, memoryName, "loadI64U16", "(int64_t)*(uint16_t*)", "int64_t");
-        makeLoadFunction(os, memoryName, "loadI64I16", "(int64_t)*(int16_t*)", "int64_t");
-        makeLoadFunction(os, memoryName, "loadI64U32", "(int64_t)*(uint32_t*)", "int64_t");
-        makeLoadFunction(os, memoryName, "loadI64I32", "(int64_t)*(int32_t*)", "int64_t");
-
-        makeStoreFunction(os, memoryName, "storeI32", "*(int32_t*)", "int32_t");
-        makeStoreFunction(os, memoryName, "storeI64", "*(int64_t*)", "int64_t");
-        makeStoreFunction(os, memoryName, "storeF32", "*(float*)", "float");
-        makeStoreFunction(os, memoryName, "storeF64", "*(double*)", "double");
-        makeStoreFunction(os, memoryName, "storeV128", "*(v128_t*)", "v128_t");
-
-        makeStoreFunction(os, memoryName, "storeI32I8", "*(int8_t*)", "int32_t");
-        makeStoreFunction(os, memoryName, "storeI32I16", "*(int16_t*)", "int32_t");
-
-        makeStoreFunction(os, memoryName, "storeI64I8", "*(int8_t*)", "int64_t");
-        makeStoreFunction(os, memoryName, "storeI64I16", "*(int16_t*)", "int64_t");
-        makeStoreFunction(os, memoryName, "storeI64I32", "*(int32_t*)", "int64_t");
     }
 }
 

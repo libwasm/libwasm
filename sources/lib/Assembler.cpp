@@ -373,6 +373,8 @@ bool Assembler::tokenize()
         if (kind == Token::string) {
             ++startPointer;
             --endPointer;
+        } else if (kind == Token::id) {
+            ++startPointer;
         }
 
         size_t size = endPointer - startPointer;

@@ -216,7 +216,7 @@ class CBinaryExpression : public CNode
     public:
         static const CNodeKind kind = kBinauryExpression;
 
-        CBinaryExpression(CNode* left, CNode* right, std::string_view op)
+        CBinaryExpression(std::string_view op, CNode* left, CNode* right)
             : CNode(kind), left(left), right(right), op(op)
         {
             left->link(this);
@@ -562,8 +562,8 @@ class CLoad : public CNode
     public:
         static const CNodeKind kind = kLoad;
 
-        CLoad(std::string_view name, CNode* offset)
-            : CNode(kind), name(name), offset(offset)
+        CLoad(std::string_view name, std::string_view memory, CNode* offset)
+            : CNode(kind), name(name), memory(memory), offset(offset)
         {
             offset->link(this);
         }
@@ -572,6 +572,7 @@ class CLoad : public CNode
 
     private:
         std::string_view name;
+        std::string memory;
         CNode* offset = nullptr;
 };
 
@@ -620,8 +621,8 @@ class CStore : public CNode
     public:
         static const CNodeKind kind = kStore;
 
-        CStore(std::string_view name, CNode* offset, CNode* value)
-            : CNode(kind), name(name), offset(offset), value(value)
+        CStore(std::string_view name, std::string_view memory, CNode* offset, CNode* value)
+            : CNode(kind), name(name), memory(memory), offset(offset), value(value)
         {
             offset->link(this);
             value->link(this);
@@ -631,6 +632,7 @@ class CStore : public CNode
 
     private:
         std::string_view name;
+        std::string memory;
         CNode* offset = nullptr;
         CNode* value = nullptr;
 };
@@ -728,6 +730,11 @@ class CGenerator
             return optimized;
         }
 
+        auto* getModule()
+        {
+            return module;
+        }
+
         void generateStatement(std::ostream& os, CNode* statement);
         void decrementUseCount(unsigned label);
 
@@ -761,6 +768,7 @@ class CGenerator
         CNode* generateCLoadExtend(std::string_view splatName, Instruction* instruction);
         CNode* generateCLocalSet(Instruction* instruction);
         CNode* generateCLoop(Instruction* instruction);
+        CNode* generateCMemorySize();
         CNode* generateCMemoryGrow();
         CNode* generateCReturn(Instruction* instruction);
         CNode* generateCSelect(Instruction* instruction);

@@ -1217,7 +1217,7 @@ void TypeUse::generate(std::ostream& os, Module* module)
     os << " (type " << signatureIndex << ')';
 }
 
-std::string TypeUse::getCName(uint32_t number) const
+std::string TypeUse::getCName() const
 {
     std::string result;
 
@@ -1231,17 +1231,6 @@ std::string TypeUse::getCName(uint32_t number) const
     return result;
 }
 
-void TypeUse::printCName(std::ostream& os, size_t number) const
-{
-    if (!id.empty()) {
-        os << cName(id);
-    } else if (!externId.empty()) {
-        os << cName(externId);
-    } else {
-        os << 'f' << number;
-    }
-}
-
 void TypeUse::generateC(std::ostream& os, Module* module, size_t number)
 {
     auto& results = signature->getResults();
@@ -1253,10 +1242,7 @@ void TypeUse::generateC(std::ostream& os, Module* module, size_t number)
         os << "void";
     }
 
-    os << ' ';
-    printCName(os, number);
-
-    os << '(';
+    os << ' ' << getCName() << '(';
 
     const char* separator = "";
 
@@ -1270,8 +1256,7 @@ void TypeUse::generateC(std::ostream& os, Module* module, size_t number)
     }
 
     for (auto& param : signature->getParams()) {
-        os << separator << param->getType().getCName() << ' ';
-        param->printCName(os);
+        os << separator << param->getType().getCName() << ' ' << param->getCName();
         separator = ", ";
     }
 
@@ -1370,15 +1355,19 @@ void FunctionImport::show(std::ostream& os, Module* module)
     os << '\n';
 }
 
-void Memory::printCName(std::ostream& os, size_t number) const
+std::string Memory::getCName() const
 {
+    std::string result;
+
     if (!id.empty()) {
-        os << cName(id);
+        result = cName(id);
     } else if (!externId.empty()) {
-        os << cName(externId);
+        result = cName(externId);
     } else {
-        os << "memory" << number;
+        result = "memory" + toString(number);
     }
+
+    return result;
 }
 
 void MemoryImport::write(BinaryContext& context) const
@@ -1455,9 +1444,7 @@ void MemoryImport::generate(std::ostream& os, Module* module)
 
 void MemoryImport::generateC(std::ostream& os, Module* module)
 {
-    os << "\nextern Memory ";
-    printCName(os, 0);
-    os << ';';
+    os << "\nextern Memory " << getCName() << ';';
 }
 
 void MemoryImport::show(std::ostream& os, Module* module)
@@ -1556,15 +1543,19 @@ void EventImport::show(std::ostream& os, Module* module)
     os << '\n';
 }
 
-void Table::printCName(std::ostream& os, size_t number) const
+std::string Table::getCName() const
 {
+    std::string result;
+
     if (!id.empty()) {
-        os << cName(id);
+        result = cName(id);
     } else if (!externId.empty()) {
-        os << cName(externId);
+        result = cName(externId);
     } else {
-        os << "table" << number;
+        result = "table" + toString(number);
     }
+
+    return result;
 }
 
 void TableImport::write(BinaryContext& context) const
@@ -1651,9 +1642,7 @@ void TableImport::generate(std::ostream& os, Module* module)
 
 void TableImport::generateC(std::ostream& os, Module* module)
 {
-    os << "\nextern Table ";
-    printCName(os, 0);
-    os << ';';
+    os << "\nextern Table " << getCName() << ';';
 }
 
 void TableImport::show(std::ostream& os, Module* module)
@@ -1744,10 +1733,7 @@ void GlobalImport::check(CheckContext& context)
 
 void GlobalImport::generateC(std::ostream& os, Module* module)
 {
-    os << "\nextern ";
-    os << type.getCName() << ' ';
-    printCName(os, 0);
-    os << ';';
+    os << "\nextern " << type.getCName() << ' ' << getCName() << ';';
 }
 
 void GlobalImport::generate(std::ostream& os, Module* module)
@@ -1798,9 +1784,9 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<FunctionImport>();
 
-    result->number = module->nextFunctionCount();
+    result->setNumber(module->nextFunctionCount());
 
-    makeExport(context, ExternalType::function, result->number);
+    makeExport(context, ExternalType::function, result->getNumber());
 
     if (!requiredStartClause(context, "import")) {
         tokens.setPos(startPos);
@@ -1810,7 +1796,7 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
     if (id) {
         result->setId(*id);
 
-        if (!module->addFunctionId(*id, result->number)) {
+        if (!module->addFunctionId(*id, result->getNumber())) {
             msgs.error(tokens.peekToken(-1), "Duplicate function id '", *id, "'.");
         }
     }
@@ -1855,9 +1841,9 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<TableImport>();
 
-    result->number = module->nextTableCount();
+    result->setNumber(module->nextTableCount());
 
-    makeExport(context, ExternalType::table, result->number);
+    makeExport(context, ExternalType::table, result->getNumber());
 
     if (!requiredStartClause(context, "import")) {
         tokens.setPos(startPos);
@@ -1867,7 +1853,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
     if (id) {
         result->setId(*id);
 
-        if (!module->addTableId(*id, result->number)) {
+        if (!module->addTableId(*id, result->getNumber())) {
             msgs.error(tokens.peekToken(-1), "Duplicate table id '", *id, "'.");
         }
     }
@@ -1922,9 +1908,9 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<MemoryImport>();
 
-    result->number = module->nextMemoryCount();
+    result->setNumber(module->nextMemoryCount());
 
-    makeExport(context, ExternalType::memory, result->number);
+    makeExport(context, ExternalType::memory, result->getNumber());
 
     if (!requiredStartClause(context, "import")) {
         tokens.setPos(startPos);
@@ -1934,7 +1920,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
     if (id) {
         result->setId(*id);
 
-        if (!module->addMemoryId(*id, result->number)) {
+        if (!module->addMemoryId(*id, result->getNumber())) {
             msgs.error(tokens.peekToken(-1), "Duplicate memory id '", *id, "'.");
         }
     }
@@ -1983,9 +1969,9 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<EventImport>();
 
-    result->number = module->nextEventCount();
+    result->setNumber(module->nextEventCount());
 
-    makeExport(context, ExternalType::event, result->number);
+    makeExport(context, ExternalType::event, result->getNumber());
 
     if (!requiredStartClause(context, "import")) {
         tokens.setPos(startPos);
@@ -1995,7 +1981,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
     if (id) {
         result->setId(*id);
 
-        if (!module->addEventId(*id, result->number)) {
+        if (!module->addEventId(*id, result->getNumber())) {
             msgs.error(tokens.peekToken(-1), "Duplicate event id '", *id, "'.");
         }
     }
@@ -2043,9 +2029,9 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<GlobalImport>();
 
-    result->number = module->nextGlobalCount();
+    result->setNumber(module->nextGlobalCount());
 
-    makeExport(context, ExternalType::global, result->number);
+    makeExport(context, ExternalType::global, result->getNumber());
 
     if (!requiredStartClause(context, "import")) {
         tokens.setPos(startPos);
@@ -2055,7 +2041,7 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
     if (id) {
         result->setId(*id);
 
-        if (!module->addGlobalId(*id, result->number)) {
+        if (!module->addGlobalId(*id, result->getNumber())) {
             msgs.error(tokens.peekToken(-1), "Duplicate global id '", *id, "'.");
         }
     }
@@ -2559,9 +2545,7 @@ void TableDeclaration::generate(std::ostream& os, Module* module)
 
 void TableDeclaration::generateC(std::ostream& os, Module* module)
 {
-    os << "\nTable ";
-    printCName(os, 0);
-    os << ";";
+    os << "\nTable " << getCName() << ';';
 }
 
 void TableSection::write(BinaryContext& context) const
@@ -2740,9 +2724,7 @@ void MemoryDeclaration::generate(std::ostream& os, Module* module)
 
 void MemoryDeclaration::generateC(std::ostream& os, Module* module)
 {
-    os << "\nMemory ";
-    printCName(os, 0);
-    os << ";";
+    os << "\nMemory " << getCName() << ';';
 }
 
 void MemorySection::write(BinaryContext& context) const
@@ -2937,7 +2919,7 @@ void GlobalDeclaration::generate(std::ostream& os, Module* module)
     os << ')';
 }
 
-std::string Global::getCName(uint32_t number) const
+std::string Global::getCName() const
 {
     std::string result;
 
@@ -2952,17 +2934,6 @@ std::string Global::getCName(uint32_t number) const
     return result;
 }
 
-void Global::printCName(std::ostream& os, size_t number) const
-{
-    if (!id.empty()) {
-        os << cName(id);
-    } else if (!externId.empty()) {
-        os << cName(externId);
-    } else {
-        os << "global" << number;
-    }
-}
-
 void GlobalDeclaration::generateC(std::ostream& os, Module* module)
 {
     os << '\n';
@@ -2971,9 +2942,7 @@ void GlobalDeclaration::generateC(std::ostream& os, Module* module)
         os << "static ";
     }
 
-    os << type.getCName() << ' ';
-
-    printCName(os, number);
+    os << type.getCName() << ' ' << getCName();
 
     if (expression) {
         os << " = ";
@@ -3918,15 +3887,6 @@ std::string Local::getCName() const
     }
 
     return result;
-}
-
-void Local::printCName(std::ostream& os) const
-{
-    if (!id.empty()) {
-        os << cName(id);
-    } else {
-        os << "local" << number;
-    }
 }
 
 Local* Local::parse(SourceContext& context)

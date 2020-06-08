@@ -277,13 +277,29 @@ static void generateSplat(std::string_view type, uint32_t count, std::string_vie
         "\n";
 }
 
+static void makeLoadFunction(std::string_view name, std::string_view cast, std::string_view valueType)
+{
+    functionDeclarations << "\n" << valueType << " " << name << "(Memory* memory, uint64_t offset)"
+          "\n{"
+          "\n  return " << cast << "(memory->data + offset);"
+          "\n}\n";
+}
+
+static void makeStoreFunction(std::string_view name, std::string_view cast, std::string_view valueType)
+{
+    functionDeclarations << "\nvoid " << name << "(Memory* memory, uint64_t offset, " << valueType << " value)"
+          "\n{"
+          "\n  " << cast << "(memory->data + offset) = value;"
+          "\n}\n";
+}
+
 static void generateLoadExtend(std::string_view type, uint32_t count)
 {
     std::string fullType = makeFullType(type, count);
 
-    functionDeclarations << "\nv128_t v128SLoadExt" << fullType << "(uint64_t offset);";
+    functionDeclarations << "\nv128_t v128SLoadExt" << fullType << "(Memory* memory, uint64_t offset);";
 
-    functionDefinitions << "\nv128_t v128SLoadExt" << fullType << "(uint64_t offset)"
+    functionDefinitions << "\nv128_t v128SLoadExt" << fullType << "(Memory* memory, uint64_t offset)"
         "\n{"
         "\n    return v128Make" << fullType << '(';
 
@@ -295,7 +311,7 @@ static void generateLoadExtend(std::string_view type, uint32_t count)
 
     const char* seperator = "";
     for (uint32_t i = 0; i < count; ++i) {
-        functionDefinitions << seperator << "load" << capitalizedType << "(offset + " << (size * i) << ')';
+        functionDefinitions << seperator << "load" << capitalizedType << "(memory, offset + " << (size * i) << ')';
         seperator = ", ";
     }
 
@@ -397,6 +413,42 @@ static void generateWiden(std::string_view type, uint32_t count,
 
 static void generate()
 {
+    makeLoadFunction("loadI8", "*(int8_t*)", "int32_t");
+    makeLoadFunction("loadU8", "*(uint8_t*)", "uint32_t");
+    makeLoadFunction("loadI16", "*(int16_t*)", "int32_t");
+    makeLoadFunction("loadU16", "*(uint16_t*)", "uint32_t");
+    makeLoadFunction("loadI32", "*(int32_t*)", "int32_t");
+    makeLoadFunction("loadU32", "*(uint32_t*)", "uint32_t");
+    makeLoadFunction("loadI64", "*(int64_t*)", "int64_t");
+    makeLoadFunction("loadF32", "*(float*)", "float");
+    makeLoadFunction("loadF64", "*(double*)", "double");
+    makeLoadFunction("loadV128", "*(v128_t*)", "v128_t");
+
+    makeLoadFunction("loadI32U8", "(int32_t)*(uint8_t*)", "int32_t");
+    makeLoadFunction("loadI32I8", "(int32_t)*(int8_t*)", "int32_t");
+    makeLoadFunction("loadI32U16", "(int32_t)*(uint16_t*)", "int32_t");
+    makeLoadFunction("loadI32I16", "(int32_t)*(int16_t*)", "int32_t");
+
+    makeLoadFunction("loadI64U8", "(int64_t)*(uint8_t*)", "int64_t");
+    makeLoadFunction("loadI64I8", "(int64_t)*(int8_t*)", "int64_t");
+    makeLoadFunction("loadI64U16", "(int64_t)*(uint16_t*)", "int64_t");
+    makeLoadFunction("loadI64I16", "(int64_t)*(int16_t*)", "int64_t");
+    makeLoadFunction("loadI64U32", "(int64_t)*(uint32_t*)", "int64_t");
+    makeLoadFunction("loadI64I32", "(int64_t)*(int32_t*)", "int64_t");
+
+    makeStoreFunction("storeI32", "*(int32_t*)", "int32_t");
+    makeStoreFunction("storeI64", "*(int64_t*)", "int64_t");
+    makeStoreFunction("storeF32", "*(float*)", "float");
+    makeStoreFunction("storeF64", "*(double*)", "double");
+    makeStoreFunction("storeV128", "*(v128_t*)", "v128_t");
+
+    makeStoreFunction("storeI32I8", "*(int8_t*)", "int32_t");
+    makeStoreFunction("storeI32I16", "*(int16_t*)", "int32_t");
+
+    makeStoreFunction("storeI64I8", "*(int8_t*)", "int64_t");
+    makeStoreFunction("storeI64I16", "*(int16_t*)", "int64_t");
+    makeStoreFunction("storeI64I32", "*(int32_t*)", "int64_t");
+
     generateMakeV128("i8", 16, "int8_t");
     generateMakeV128("u8", 16, "uint8_t");
     generateMakeV128("i16", 8, "int16_t");
