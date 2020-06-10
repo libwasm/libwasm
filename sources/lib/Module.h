@@ -34,6 +34,7 @@ class Global;
 class GlobalSection;
 class ImportDeclaration;
 class ImportSection;
+class Instruction;
 class InstructionFunctionIdx;
 class Local;
 class Memory;
@@ -382,13 +383,53 @@ class Module
 
         void startLocalFunctions()
         {
-            localFunctionStart = functionCount;
+            importedFunctionCount = functionCount;
             codeCount = functionCount;
         }
 
-        auto getLocalFunctionStart() const
+        auto getImportedFunctionCount() const
         {
-            return localFunctionStart;
+            return importedFunctionCount;
+        }
+
+        void startLocalMemories()
+        {
+            importedMemoryCount = memoryCount;
+        }
+
+        auto getImportedMemoryCount() const
+        {
+            return importedMemoryCount;
+        }
+
+        void startLocalTables()
+        {
+            importedTableCount = tableCount;
+        }
+
+        auto getImportedTableCount() const
+        {
+            return importedTableCount;
+        }
+
+        void startLocalEvents()
+        {
+            importedEventCount = eventCount;
+        }
+
+        auto getImportedEventCount() const
+        {
+            return importedEventCount;
+        }
+
+        void startLocalGlobals()
+        {
+            importedGlobalCount = globalCount;
+        }
+
+        auto getImportedGlobalCount() const
+        {
+            return importedGlobalCount;
         }
 
         Section* getSection(size_t index) const
@@ -560,7 +601,11 @@ class Module
         uint32_t exportCount = 0;
         uint32_t functionCount = 0;
         uint32_t globalCount = 0;
-        uint32_t localFunctionStart = 0;
+        uint32_t importedFunctionCount = 0;
+        uint32_t importedTableCount = 0;
+        uint32_t importedMemoryCount = 0;
+        uint32_t importedEventCount = 0;
+        uint32_t importedGlobalCount = 0;
         uint32_t memoryCount = 0;
         uint32_t tableCount = 0;
         uint32_t localCount = 0;
@@ -611,6 +656,7 @@ class Module
 
         void showSections(std::ostream& os, unsigned flags);
         void generateSections(std::ostream& os);
+        void generateInitExpression(std::ostream& os, Instruction* instruction);
         void generateCPreamble(std::ostream& os);
 };
 

@@ -532,6 +532,10 @@ bool Assembler::parseModule(size_t startPos, size_t endPos)
     }
 
     module->startLocalFunctions();
+    module->startLocalMemories();
+    module->startLocalTables();
+    module->startLocalEvents();
+    module->startLocalGlobals();
 
     if (auto positions = findSectionPositions(entries, SectionType::function); !positions.empty()) {
         auto* sections = module->requiredFunctionSection();

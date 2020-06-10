@@ -357,7 +357,7 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
 {
     bool parenthesis = needsParenthesis(this, op);
 
-    if (op == "="&& generator.getOptimized()) {
+    if (op == "=" && generator.getOptimized()) {
         if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kBinauryExpression) {
             auto* rightBinary = static_cast<CBinaryExpression*>(right);
             auto rightPrecedence = binaryPrecedence(rightBinary->getOp());
@@ -464,7 +464,7 @@ void CCallIndirect::generateC(std::ostream& os, CGenerator& generator)
 {
     auto* table = generator.getModule()->getTable(0);
 
-    os << "((type" << typeIndex << ')' << table->getCName() << ".functions[";
+    os << "((type" << typeIndex << ')' << table->getCName() << ".data[";
     tableIndex->generateC(os, generator);
 
     os << "])(";

@@ -2,6 +2,7 @@
 
 #include "Module.h"
 #include "BackBone.h"
+#include "Instruction.h"
 #include "Encodings.h"
 
 #include <algorithm>
@@ -592,57 +593,126 @@ void Module::generateS(std::ostream& os)
     generate(os);
 }
 
+void Module::generateInitExpression(std::ostream& os, Instruction* instruction)
+{
+    auto opcode = instruction->getOpcode();
+
+    switch (opcode) {
+        case Opcode::i32__const:
+            os << static_cast<InstructionI32*>(instruction)->getValue();
+            break;
+
+        case Opcode::i64__const:
+            os << static_cast<InstructionI64*>(instruction)->getValue();
+            break;
+
+        case Opcode::global__get:
+            {
+                auto globalIndex = static_cast<InstructionGlobalIdx*>(instruction)->getIndex();
+                auto* global = globalTable[globalIndex];
+
+                os <<  global->getCName();
+            }
+
+            break;
+        default:
+            assert(false);
+    }
+}
+
 void Module::generateCPreamble(std::ostream& os)
 {
-    Table* table = nullptr;
+    os << '\n';
+    os << "\nvoid initialize()"
+        "\n{";
 
-    if (auto* tableSection = getTableSection(); tableSection != nullptr) {
-        table = tableSection->getTables()[0].get();
-    } else if (auto* importSection = getImportSection(); importSection != nullptr) {
-        for (auto& import : importSection->getImports()) {
-            if (import->getKind() == ExternalType::table) {
-                table = static_cast<TableImport*>(import.get());
-                break;
+    for (uint32_t i = importedMemoryCount; i < memoryCount; ++i) {
+        auto* memory = memoryTable[i];
+        const auto& limits = memory->getLimits();
+
+        os << "\n    initializeMemory(&" << memory->getCName() << ", " << limits.min << ", " <<
+            (limits.hasMax() ? limits.max : 0xffff) << ");";
+    }
+
+    os << '\n';
+
+    if (auto* dataSection = getDataSection(); dataSection != nullptr) {
+        auto& segments = dataSection->getSegments();
+
+        for (auto& segment : segments) {
+            auto* memory = memoryTable[segment->getMemoryIndex()];
+            auto memoryName = memory->getCName();
+
+            os << "\n    memcpy(" << memoryName << ".data";
+
+            if (auto* expression = segment->getExpression(); expression != nullptr) {
+                os << " + ";
+                generateInitExpression(os, expression->getInstructions()[0].get());
+            }
+
+            os << ", \"";
+            generateCChars(os, segment->getInit());
+            os << "\", " << segment->getInit().size() << ");";
+        }
+
+        os << '\n';
+    }
+
+    for (uint32_t i = importedTableCount; i < tableCount; ++i) {
+        auto* table = tableTable[i];
+        const auto& limits = table->getLimits();
+
+        os << "\n    initializeTable(&" << table->getCName() << ", " << limits.min << ", " <<
+            (limits.hasMax() ? limits.max : 0xffffffff) << ");";
+    }
+
+    if (auto* elementSection = getElementSection(); elementSection != nullptr) {
+        auto& elements = elementSection->getElements();
+
+        os << "\n    uint32_t offset;";
+
+        for (auto& element : elements) {
+            auto* table = tableTable[element->getTableIndex()];
+            auto tableName = table->getCName();
+            auto flags = element->getFlags();
+
+            os << "\n    offset = ";
+            if (auto* expression = element->getExpression(); expression != nullptr) {
+                generateInitExpression(os, expression->getInstructions()[0].get());
+            } else {
+                os << '0';
+            }
+
+            os << ';';
+
+            if (flags & SegmentFlagElemExpr) {
+                for (auto& refExpression : element->getRefExpressions()) {
+                    auto* instruction = refExpression->getInstructions()[0].get();
+                    auto opcode = instruction->getOpcode();
+
+                    os << "\n    " << tableName << ".data[offset++] = ";
+
+                    if (opcode == Opcode::ref__null) {
+                        os << "NULL";
+                    } else {
+                        auto *f = static_cast<InstructionFunctionIdx*>(instruction);
+
+                        os << functionTable[f->getIndex()]->getCName();
+                    }
+
+                    os << ';';
+                }
+            } else {
+                for (auto index : element->getFunctionIndexes()) {
+                    os << "\n    " << tableName << ".data[offset++] = " <<
+                    functionTable[index]->getCName() << ';';
+                }
             }
         }
     }
 
-    if (table != nullptr) {
-        std::string tableName;
-
-        if (!table->getId().empty()) {
-            tableName = table->getId();
-        } else if (!table->getExternId().empty()) {
-            tableName = cName(table->getExternId());
-        } else {
-            tableName = "table0";
-        }
-    }
-
-    Memory* memory = nullptr;
-
-    if (auto* memorySection = getMemorySection(); memorySection != nullptr) {
-        memory = memorySection->getMemories()[0].get();
-    } else if (auto* importSection = getImportSection(); importSection != nullptr) {
-        for (auto& import : importSection->getImports()) {
-            if (import->getKind() == ExternalType::memory) {
-                memory = static_cast<MemoryImport*>(import.get());
-                break;
-            }
-        }
-    }
-
-    if (memory != nullptr) {
-        std::string memoryName;
-
-        if (!memory->getId().empty()) {
-            memoryName = memory->getId();
-        } else if (!memory->getExternId().empty()) {
-            memoryName = cName(memory->getExternId());
-        } else {
-            memoryName = "memory0";
-        }
-    }
+    os << "\n}";
+    os << '\n';
 }
 
 void Module::generateC(std::ostream& os, bool optimized)
@@ -677,12 +747,12 @@ void Module::generateC(std::ostream& os, bool optimized)
         tableSection->generateC(os, this);
     }
 
-    generateCPreamble(os);
-
     if (auto* functionSection = getFunctionSection(); functionSection != nullptr) {
         functionSection->generateC(os, this);
         os << '\n';
     }
+
+    generateCPreamble(os);
 
     if (auto* codeSection = getCodeSection(); codeSection != nullptr) {
         codeSection->generateC(os, this, optimized);

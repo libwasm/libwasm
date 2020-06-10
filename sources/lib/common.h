@@ -86,6 +86,7 @@ unsigned fromHex(char c);
 void dumpChars(std::ostream& os, std::string_view chars, size_t startOffset);
 std::pair<std::string, std::string> unEscape(std::string_view chars);
 void generateChars(std::ostream& os, std::string_view chars);
+void generateCChars(std::ostream& os, std::string_view chars);
 bool validUtf8(std::string_view string);
 
 int64_t toI64(std::string_view chars);

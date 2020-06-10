@@ -1292,9 +1292,6 @@ class FunctionDeclaration : public TypeUse, public TreeNode
 
         static FunctionDeclaration* parse(SourceContext& context);
         static FunctionDeclaration* read(BinaryContext& context);
-
-    protected:
-        uint32_t number = 0;
 };
 
 class FunctionSection : public Section
@@ -1348,9 +1345,6 @@ class TableDeclaration : public Table, public TreeNode
 
         static TableDeclaration* parse(SourceContext& context);
         static TableDeclaration* read(BinaryContext& context);
-
-    private:
-        uint32_t number = 0;
 };
 
 class TableSection : public Section
@@ -1404,9 +1398,6 @@ class MemoryDeclaration : public Memory, public TreeNode
 
         static MemoryDeclaration* parse(SourceContext& context);
         static MemoryDeclaration* read(BinaryContext& context);
-
-    private:
-        uint32_t number = 0;
 };
 
 class MemorySection : public Section
@@ -1459,9 +1450,6 @@ class EventDeclaration : public Event, public TreeNode
 
         static EventDeclaration* parse(SourceContext& context);
         static EventDeclaration* read(BinaryContext& context);
-
-    private:
-        uint32_t number = 0;
 };
 
 class EventSection : public Section
@@ -1522,7 +1510,6 @@ class GlobalDeclaration : public Global, public TreeNode
 
     private:
         std::unique_ptr<Expression> expression;
-        uint32_t number = 0;
 };
 
 class GlobalSection : public Section

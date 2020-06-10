@@ -26,7 +26,7 @@ typedef struct
 
 typedef struct
 {
-    void** functions;
+    void** data;
     uint32_t elemntCount;
     uint32_t maxElementCount;
 } Table;

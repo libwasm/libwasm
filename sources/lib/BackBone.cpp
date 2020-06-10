@@ -1392,6 +1392,7 @@ MemoryImport* MemoryImport::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<MemoryImport>();
 
+    module->addMemory(result);
     result->number = module->nextMemoryCount();
 
     if (auto id = tokens.getId()) {
@@ -1480,6 +1481,7 @@ EventImport* EventImport::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<EventImport>();
 
+    module->addEvent(result);
     result->number = module->nextEventCount();
 
     if (auto id = tokens.getId()) {
@@ -1678,8 +1680,8 @@ GlobalImport* GlobalImport::parse(SourceContext& context)
 
     auto result = context.makeTreeNode<GlobalImport>();
 
-    result->number = module->nextGlobalCount();
     module->addGlobal(result);
+    result->number = module->nextGlobalCount();
 
     if (auto id = tokens.getId()) {
         result->id = *id;
@@ -2391,7 +2393,7 @@ FunctionSection* FunctionSection::read(BinaryContext& context)
 
 void FunctionSection::check(CheckContext& context)
 {
-    uint32_t count = context.getModule()->getLocalFunctionStart();
+    uint32_t count = context.getModule()->getImportedFunctionCount();
 
     for (auto& function : functions) {
         context.msgs().errorWhen(function->getNumber() != count, function.get(),
@@ -2568,11 +2570,14 @@ void TableSection::write(BinaryContext& context) const
 
 TableSection* TableSection::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<TableSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
     auto& msgs = context.msgs();
+
+    module->startLocalTables();
 
     msgs.setSectionName("Table");
 
@@ -2747,11 +2752,14 @@ void MemorySection::write(BinaryContext& context) const
 
 MemorySection* MemorySection::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<MemorySection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
     auto& msgs = context.msgs();
+
+    module->startLocalMemories();
 
     msgs.setSectionName("Memory");
 
@@ -2972,11 +2980,14 @@ void GlobalSection::write(BinaryContext& context) const
 
 GlobalSection* GlobalSection::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<GlobalSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
     auto& msgs = context.msgs();
+
+    module->startLocalGlobals();
 
     msgs.setSectionName("Global");
 
@@ -3985,7 +3996,7 @@ CodeEntry* CodeEntry::parse(SourceContext& context)
 
     result->number = module->nextCodeCount();
 
-    module->startCode(result->number - module->getLocalFunctionStart());
+    module->startCode(result->number - module->getImportedFunctionCount());
 
     while (startClause(context, "local")) {
         while (!tokens.peekParenthesis(')')) {
@@ -4213,7 +4224,7 @@ void CodeSection::show(std::ostream& os, Module* module, unsigned flags)
 {
     os << "Code section:\n";
 
-    auto count = module->getLocalFunctionStart();
+    auto count = module->getImportedFunctionCount();
 
     for (auto& code : codes) {
         os << "  Code for function ";
@@ -4610,11 +4621,14 @@ void EventSection::write(BinaryContext& context) const
 
 EventSection* EventSection::read(BinaryContext& context)
 {
+    auto* module = context.getModule();
     auto& data = context.data();
     auto result = context.makeTreeNode<EventSection>();
     auto size = data.getU32leb();
     auto startPos = data.getPos();
     auto& msgs = context.msgs();
+
+    module->startLocalEvents();
 
     msgs.setSectionName("Event");
 
