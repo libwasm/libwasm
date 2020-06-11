@@ -158,7 +158,7 @@ void CheckContext::checkTableIndex(TreeNode* node, uint32_t index)
 
 void CheckContext::checkMemoryIndex(TreeNode* node, uint32_t index)
 {
-    errorHandler.errorWhen((index >= uint32_t(module->getMemoryCount())), node,
+    errorHandler.errorWhen((index != 0 && index >= uint32_t(module->getMemoryCount())), node,
             "Memory index (", index, ") is larger then maximum (", module->getMemoryCount(), ")");
 }
 
@@ -251,7 +251,7 @@ void CheckContext::checkInitExpression(Expression* expression, const ValueType& 
         return;
     }
 
-    if (expect == ValueType::anyref) {
+    if (expect == ValueType::nullref) {
         if (actual == ValueType::nullref || actual == ValueType::funcref) {
             return;
         }

@@ -750,6 +750,30 @@ class InstructionTableTable : public Instruction
         uint8_t src = 0;
 };
 
+class InstructionRefType : public Instruction
+{
+    public:
+        InstructionRefType()
+          : Instruction(ImmediateType::i32)
+        {
+        }
+
+        auto getType() const
+        {
+            return type;
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionRefType* parse(SourceContext& context, Opcode opcode);
+        static InstructionRefType* read(BinaryContext& context);
+
+    protected:
+        ValueType type = ValueType::void_;
+};
+
 };
 
 #endif

@@ -757,6 +757,11 @@ void CIf::setLabelDeclaration(CNode* node)
     labelDeclaration->link(this);
 }
 
+void CIf::addTempDeclaration(CNode* statement)
+{
+    tempDeclarations->addStatement(statement);
+}
+
 void CIf::addThenStatement(CNode* statement)
 {
     thenStatements->addStatement(statement);
@@ -772,6 +777,8 @@ void CIf::generateC(std::ostream& os, CGenerator& generator)
     if (resultDeclaration != nullptr) {
         generator.generateStatement(os, resultDeclaration);
     }
+
+    generator.generateStatement(os, tempDeclarations);
 
     os << "if (";
     condition->generateC(os, generator);
@@ -1078,18 +1085,40 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
     auto labelStackSize = labelStack.size();
     auto count = types.size();
     auto* resultNode = makeBlockResults(types);
+    std::vector<std::string> temps;
 
     if (resultNode != nullptr) {
         result->setResultDeclaration(resultNode);
     }
 
-
     labelStack.back().impliedTarget = true;
 
-    while (auto* statement = generateCStatement()) {
-        result->addThenStatement(statement);
-        if (labelStack.size() < labelStackSize) {
-            break;
+    if (auto* signature = blockInstruction->getSignature(); signature != nullptr) {
+        auto& params = signature->getParams();
+
+        if (!params.empty()) {
+            temps.reserve(params.size());
+
+            for (auto& param : params) {
+                auto tempName = "temp_" + toString(temp++);
+
+                temps.push_back(tempName);
+                result->addTempDeclaration(new CVariable(param->getType(), tempName, popExpression()));
+            }
+        }
+    }
+
+
+    if (instructionPointer != instructionEnd && instructionPointer->get()->getOpcode() != Opcode::else_) {
+        for (auto i = temps.size(); i-- > 0; ) {
+            pushExpression(new CNameUse(temps[i]));
+        }
+
+        while (auto* statement = generateCStatement()) {
+            result->addThenStatement(statement);
+            if (labelStack.size() < labelStackSize) {
+                break;
+            }
         }
     }
 
@@ -1101,6 +1130,11 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
 
     if (instructionPointer != instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
         ++instructionPointer;
+
+        for (auto i = temps.size(); i-- > 0; ) {
+            pushExpression(new CNameUse(temps[i]));
+        }
+
         while (auto* statement = generateCStatement()) {
             result->addElseStatement(statement);
             if (labelStack.size() < labelStackSize) {
@@ -1424,14 +1458,28 @@ CNode* CGenerator::generateCSelect(Instruction* instruction)
 CNode* CGenerator::generateCReturn(Instruction* instruction)
 {
     auto* signature = function->getSignature();
-
-    if (signature->getResults().empty()) {
-        return new CReturn;
-    } else {
-        return new CReturn(popExpression());
-    }
+    auto resultTypes = signature->getResults();
+    auto count = resultTypes.size();
 
     skipUnreachable();
+
+    if (count == 0) {
+        return new CReturn;
+    } else if (count == 1) {
+        return new CReturn(popExpression());
+    } else {
+        auto* result = new CCompound;
+
+        for (auto i = count; i-- > 0; ){
+            auto resultName = makeResultName(0, i);
+            auto* resultPointerNode = new CNameUse('*' + resultName + "_ptr");
+
+            result->addStatement(new CBinaryExpression("=", resultPointerNode, popExpression()));
+        }
+
+        result->addStatement(new CReturn);
+        return result;
+    }
 }
 
 void CGenerator::generateCCall(Instruction* instruction, CNode*& expression, CNode*& statement)

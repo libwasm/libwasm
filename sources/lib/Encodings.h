@@ -50,6 +50,7 @@ enum class ImmediateType
     memory0,
     indirect,
     depthEventIdx,
+    refType,
 };
 
 class OpcodePrefix
@@ -911,8 +912,8 @@ inline const Opcode::Info Opcode::info[] =
     { Opcode::i64__extend8_s, ImmediateType::none, SignatureCode::i64__i64, "i64.extend8_s", 0 },
     { Opcode::i64__extend16_s, ImmediateType::none, SignatureCode::i64__i64, "i64.extend16_s", 0 },
     { Opcode::i64__extend32_s, ImmediateType::none, SignatureCode::i64__i64, "i64.extend32_s", 0 },
-    { Opcode::ref__null, ImmediateType::none, SignatureCode::special, "ref.null", 0 },
-    { Opcode::ref__is_null, ImmediateType::none, SignatureCode::special, "ref.is_null", 0 },
+    { Opcode::ref__null, ImmediateType::refType, SignatureCode::special, "ref.null", 0 },
+    { Opcode::ref__is_null, ImmediateType::refType, SignatureCode::special, "ref.is_null", 0 },
     { Opcode::ref__func, ImmediateType::functionIdx, SignatureCode::special, "ref.func", 0 },
     { Opcode::alloca, ImmediateType::none, SignatureCode::void_, "alloca", 0 },
     { Opcode::br_unless, ImmediateType::none, SignatureCode::special, "br_unless", 0 },
@@ -1246,16 +1247,21 @@ class ValueType
     public:
         enum Value : int32_t
         {
-            i32 = -0x01,      // 0x7f
-            i64 = -0x02,      // 0x7e
-            f32 = -0x03,      // 0x7d
-            f64 = -0x04,      // 0x7c
-            v128 = -0x05,     // 0x7b
-            funcref = -0x10,  // 0x70
-            anyref = -0x11,   // 0x6f
-            nullref = -0x12,  // 0c6e
-            exnref = -0x18,   // 0x68
-            void_ = -0x40,    // 0x40
+            i32 = -0x01,       // 0x7f
+            i64 = -0x02,       // 0x7e
+            f32 = -0x03,       // 0x7d
+            f64 = -0x04,       // 0x7c
+            v128 = -0x05,      // 0x7b
+            i8 = -0x06,        // 0x7a
+            i16 = -0x07,       // 0x79
+            funcref = -0x10,   // 0x70
+            externref = -0x11, // 0x6f
+            nullref = -0x12,   // 0c6e
+            exnref = -0x18,    // 0x68
+            func = -0x20,      // 0x60
+            struct_ = -0x21,   // 0x5f
+            array = -0x22,     // 0x5e
+            void_ = -0x40,     // 0x40
         };
 
         ValueType() = default;
@@ -1279,9 +1285,11 @@ class ValueType
         bool isValidRef() const;
         std::string_view getName() const;
         std::string_view getCName() const;
+        std::string_view getRefName() const;
         std::string_view getCNullValue() const;
         
         static std::optional<ValueType> getEncoding(std::string_view v);
+        static std::optional<ValueType> getRefEncoding(std::string_view v);
 
     private:
         Value value = Value(0);

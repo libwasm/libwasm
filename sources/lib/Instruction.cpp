@@ -1428,6 +1428,42 @@ void InstructionTableTable::generate(std::ostream& os, InstructionContext& conte
     os << opcode;
 }
 
+InstructionRefType* InstructionRefType::parse(SourceContext& context, Opcode opcode)
+{
+    auto result = context.makeTreeNode<InstructionRefType>();
+
+    result->type = requiredRefType(context);
+
+    return result;
+}
+
+InstructionRefType* InstructionRefType::read(BinaryContext& context)
+{
+    auto result = context.makeTreeNode<InstructionRefType>();
+
+    result->type = context.data().getI32leb();
+
+    return result;
+}
+
+void InstructionRefType::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putI32leb(type);
+}
+
+void InstructionRefType::check(CheckContext& context)
+{
+    context.checkValueType(this, type);
+}
+
+void InstructionRefType::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode << " " << type.getRefName();
+}
+
 Instruction* Instruction::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -1486,6 +1522,7 @@ Instruction* Instruction::parse(SourceContext& context)
         case ImmediateType::memory:             result = InstructionMemory::parse(context, *opcode); break;
         case ImmediateType::memory0:            result = InstructionMemory0::parse(context, *opcode); break;
         case ImmediateType::indirect:           result = InstructionIndirect::parse(context, *opcode); break;
+        case ImmediateType::refType:            result = InstructionRefType::parse(context, *opcode); break;
         default:
             context.msgs().error(tokens.peekToken(-1), "Invalid encoding ", unsigned(encoding));
             return nullptr;
@@ -1625,6 +1662,7 @@ Instruction* Instruction::read(BinaryContext& context)
         case ImmediateType::memory:             result = InstructionMemory::read(context); break;
         case ImmediateType::memory0:            result = InstructionMemory0::read(context); break;
         case ImmediateType::indirect:           result = InstructionIndirect::read(context); break;
+        case ImmediateType::refType:            result = InstructionRefType::read(context); break;
         default:
             context.msgs().error("Invalid encoding ", unsigned(encoding));
             return nullptr;

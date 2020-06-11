@@ -85,7 +85,7 @@ ValueType Validator::popOperand(ValueType expect)
         return expect;
     }
 
-    if (expect == ValueType::anyref && actual.isValidRef()) {
+    if (expect == ValueType::nullref && actual.isValidRef()) {
         return actual;
     }
 
@@ -116,7 +116,7 @@ void Validator::peekOperand(ValueType expect, size_t index)
         return;
     }
 
-    if (expect == ValueType::anyref && actual.isValidRef()) {
+    if (expect == ValueType::nullref && actual.isValidRef()) {
         return;
     }
 
@@ -312,6 +312,11 @@ void Validator::checkBlock()
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(currentInstruction);
     std::vector<ValueType> types;
+    auto opcode = currentInstruction->getOpcode();
+
+    if (opcode == Opcode::if_) {
+        popOperand(ValueType::i32);
+    }
 
     if (blockInstruction->getSignature() != nullptr) {
         popOperands(blockInstruction->getSignature()->getParams());
@@ -321,7 +326,7 @@ void Validator::checkBlock()
         types.push_back(resultType);
     }
 
-    switch(currentInstruction->getOpcode()) {
+    switch(opcode) {
         case Opcode::block:
             pushFrame(types, types, currentInstruction);
 
@@ -338,7 +343,6 @@ void Validator::checkBlock()
             break;
 
         case Opcode::if_:
-            popOperand(ValueType::i32);
             pushFrame(types, types, currentInstruction);
 
             break;
@@ -477,7 +481,7 @@ void Validator::checkSpecial()
             break;
 
         case Opcode::ref__is_null:
-            popOperand(ValueType::anyref);
+            popOperand(ValueType::nullref);
 
             pushOperand(ValueType::i32);
             break;

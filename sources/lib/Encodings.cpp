@@ -19,6 +19,11 @@ std::optional<Opcode> Opcode::fromString(std::string_view name)
         }
     }
 
+    if (name == "get_global") return global__get;
+    if (name == "set_global") return global__set;
+    if (name == "get_local") return local__get;
+    if (name == "set_local") return local__set;
+
     return {};
 }
 
@@ -106,10 +111,15 @@ bool ValueType::isValid() const
         case f32:
         case f64:
         case v128:
-        case anyref:
-        case exnref:
+        case i8:
+        case i16:
         case funcref:
+        case externref:
         case nullref:
+        case exnref:
+        case func:
+        case struct_:
+        case array:
         case void_:
             return true;
 
@@ -136,10 +146,11 @@ bool ValueType::isValidNumeric() const
 bool ValueType::isValidRef() const
 {
     switch (value) {
-        case anyref:
-        case exnref:
         case funcref:
-        case nullref:
+        case externref:
+        case exnref:
+        case struct_:
+        case array:
             return true;
 
         default:
@@ -150,18 +161,36 @@ bool ValueType::isValidRef() const
 std::string_view ValueType::getName() const
 {
     switch (value) {
-        case i32:          return "i32";
-        case i64:          return "i64";
-        case f32:          return "f32";
-        case f64:          return "f64";
-        case v128:         return "v128";
-        case anyref:       return "anyref";
-        case exnref:       return "exnref";
-        case nullref:      return "nullref";
-        case funcref:      return "funcref";
-        case void_:        return "void";
+        case i32:       return "i32";
+        case i64:       return "i64";
+        case f32:       return "f32";
+        case f64:       return "f64";
+        case v128:      return "v128";
+        case i8:        return "i8";
+        case i16:       return "i16";
+        case funcref:   return "funcref";
+        case externref: return "extern";
+        case nullref:   return "nullref";
+        case exnref:    return "exnref";
+        case func:      return "func";
+        case struct_:   return "struct";
+        case array:     return "array";
+        case void_:     return "void";
 
-        default:           return std::string_view();
+        default:        return std::string_view();
+    }
+}
+
+std::string_view ValueType::getRefName() const
+{
+    switch (value) {
+        case funcref:   return "func";
+        case externref: return "extern";
+        case exnref:    return "exn";
+        case struct_:   return "struct";
+        case array:     return "array";
+
+        default:        return std::string_view();
     }
 }
 
@@ -173,11 +202,11 @@ std::string_view ValueType::getCName() const
         case f32:          return "float";
         case f64:          return "double";
         case v128:         return "v128_t";
-        case anyref:       return "void *";
-        case exnref:       return "exnref";
-        case nullref:      return "0";
+        case externref:    return "void *";
+        case exnref:       return "void*";
+        case nullref:      return "NULL";
         case funcref:      return "funcref";
-        case void_:        return "void";
+        case void_:        return "void*";
 
         default:           return std::string_view();
     }
@@ -199,16 +228,22 @@ struct ValueTypeEntry
 };
 
 ValueTypeEntry valueTypeMap[] = {
-    { "anyref", ValueType::anyref },
-    { "exnref", ValueType::exnref },
-    { "f32", ValueType::f32 },
-    { "f64", ValueType:: f64},
-    { "funcref", ValueType::funcref },
-    { "i32", ValueType::i32 },
-    { "i64", ValueType::i64 },
-    { "nullref", ValueType::nullref },
-    { "v128", ValueType::v128 },
-    { "void", ValueType::void_ }
+    { "anyfunc",    ValueType::funcref },
+    { "array",      ValueType::array},
+    { "exn",        ValueType::exnref },
+    { "externref",  ValueType::externref },
+    { "f32",        ValueType::f32 },
+    { "f64",        ValueType::f64},
+    { "func",       ValueType::func},
+    { "funcref",    ValueType::funcref },
+    { "i16",        ValueType::i16},
+    { "i32",        ValueType::i32 },
+    { "i64",        ValueType::i64 },
+    { "i8",         ValueType::i8},
+    { "nullref",    ValueType::nullref },
+    { "struct",     ValueType::struct_},
+    { "v128",       ValueType::v128 },
+    { "void",       ValueType::void_ },
 };
 
 std::optional<ValueType> ValueType::getEncoding(std::string_view n)
@@ -220,6 +255,17 @@ std::optional<ValueType> ValueType::getEncoding(std::string_view n)
             it != std::end(valueTypeMap) && it->name == n) {
         return it->encoding;
     }
+
+    return {};
+}
+
+std::optional<ValueType> ValueType::getRefEncoding(std::string_view n)
+{
+    if (n == "func") return funcref;
+    if (n == "extern") return externref;
+    if (n == "exn") return exnref;
+    if (n == "struct") return struct_;
+    if (n == "array") return array;
 
     return {};
 }

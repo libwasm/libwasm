@@ -38,6 +38,21 @@ std::optional<ValueType> parseValueType(SourceContext& context)
     return {};
 }
 
+std::optional<ValueType> parseRefType(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    auto pos = tokens.getPos();
+
+    if (auto value = tokens.getKeyword()) {
+        if (auto encoding = ValueType::getRefEncoding(*value)) {
+            return encoding;
+        }
+    }
+
+    tokens.setPos(pos);
+    return {};
+}
+
 std::optional<uint32_t> parseTableIndex(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -589,6 +604,30 @@ bool requiredCloseParenthesis(SourceContext& context)
         context.tokens().recover();
         return false;
     }
+}
+
+ValueType requiredValueType(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = parseValueType(context)) {
+        return *value;
+    }
+
+    context.msgs().expected(tokens.peekToken(), "value type");
+    return {};
+}
+
+ValueType requiredRefType(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+
+    if (auto value = parseRefType(context)) {
+        return *value;
+    }
+
+    context.msgs().expected(tokens.peekToken(), "value type");
+    return {};
 }
 
 };

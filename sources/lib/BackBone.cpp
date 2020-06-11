@@ -3594,28 +3594,6 @@ uint32_t ElementDeclaration::parseFunctionIndexes(SourceContext context)
     return result;
 }
 
-bool ElementDeclaration::getTableIndex(SourceContext& context)
-{
-    auto& msgs = context.msgs();
-    auto& tokens = context.tokens();
-
-    if (auto index = parseTableIndex(context)) {
-        tableIndex = *index;
-        return true;
-    } else if (startClause(context, "table")) {
-        if (auto index = parseTableIndex(context)) {
-            tableIndex = *index;
-        } else {
-            msgs.error(tokens.peekToken(), "Missing or invalid table index.");
-        }
-
-        requiredCloseParenthesis(context);
-        return true;
-    }
-
-    return false;
-}
-
 ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 {
     auto* module = context.getModule();
@@ -3630,8 +3608,6 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 
     result->number = module->nextElementCount();
 
-    auto indexFound = result->getTableIndex(context);
-
     if (auto id = tokens.getId()) {
         result->id = *id;
 
@@ -3640,7 +3616,18 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
         }
     }
 
-    indexFound = indexFound || result->getTableIndex(context);
+    if (auto index = parseTableIndex(context)) {
+        result->tableIndex = *index;
+    } else if (startClause(context, "table")) {
+        if (auto index = parseTableIndex(context)) {
+            result->tableIndex = *index;
+        } else {
+            msgs.error(tokens.peekToken(), "Missing or invalid table index.");
+        }
+
+        requiredCloseParenthesis(context);
+    }
+
 
     if (result->tableIndex != 0) {
         result->flags = SegmentFlags(result->flags | SegmentFlagExplicitIndex);
@@ -3665,9 +3652,14 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
     }
 
     if (auto type = parseValueType(context)) {
-        result->elementType = *type;
+        if (*type == ValueType::func) {
+            result->elementType = ValueType::funcref;
+            result->parseFunctionIndexes(context);
+        } else {
+            result->elementType = *type;
 
-        result->parseFunctionIndexExpressions(context);
+            result->parseFunctionIndexExpressions(context);
+        }
     } else {
         result->elementType = ValueType::funcref;
         result->parseFunctionIndexes(context);
@@ -3741,7 +3733,7 @@ void ElementDeclaration::check(CheckContext& context)
 
     for (auto& expression : refExpressions) {
         expression->check(context);
-        context.checkInitExpression(expression.get(), ValueType::anyref);
+        context.checkInitExpression(expression.get(), ValueType::nullref);
     }
 
     for (auto index : functionIndexes) {
@@ -3770,6 +3762,8 @@ void ElementDeclaration::generate(std::ostream& os, Module* module)
     }
 
     if (flags & SegmentFlagElemExpr) {
+        os << ' ' << elementType;
+
         for (auto& ref : refExpressions) {
             os << " (";
             ref->generate(os, module);

@@ -636,7 +636,7 @@ void Module::generateCPreamble(std::ostream& os)
 
     os << '\n';
 
-    if (auto* dataSection = getDataSection(); dataSection != nullptr) {
+    if (auto* dataSection = getDataSection(); dataSection != nullptr && memoryCount > 0) {
         auto& segments = dataSection->getSegments();
 
         for (auto& segment : segments) {

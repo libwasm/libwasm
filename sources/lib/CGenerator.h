@@ -506,6 +506,8 @@ class CIf : public CNode
             : CNode(kind), condition(condition), label(label), types(std::move(types))
         {
             condition->link(this);
+            tempDeclarations = new CCompound;
+            tempDeclarations->link(this);
             thenStatements = new CCompound;
             thenStatements->link(this);
             elseStatements = new CCompound;
@@ -516,6 +518,7 @@ class CIf : public CNode
 
         void setResultDeclaration(CNode* node);
         void setLabelDeclaration(CNode* node);
+        void addTempDeclaration(CNode* node);
         void addThenStatement(CNode* node);
         void addElseStatement(CNode* node);
         void removeResultDeclaration();
@@ -553,6 +556,7 @@ class CIf : public CNode
         std::vector<ValueType> types;
         CNode* resultDeclaration = nullptr;
         CNode* labelDeclaration = nullptr;
+        CCompound* tempDeclarations = nullptr;
         CCompound* thenStatements = nullptr;
         CCompound* elseStatements = nullptr;
 };

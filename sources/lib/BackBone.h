@@ -1743,7 +1743,6 @@ class ElementDeclaration : public TreeNode
         static ElementDeclaration* read(BinaryContext& context);
 
     private:
-        bool getTableIndex(SourceContext& context);
         SegmentFlags flags = SegmentFlagNone;
         uint32_t tableIndex = 0;
         ValueType elementType = ValueType(0);

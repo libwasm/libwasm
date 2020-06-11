@@ -11,6 +11,8 @@ namespace libwasm
 {
 
 std::optional<ValueType> parseValueType(SourceContext& context);
+std::optional<ValueType> parseRefType(SourceContext& context);
+std::optional<ValueType> parseRefType(SourceContext& context);
 std::optional<ValueType> parseElementType(SourceContext& context);
 std::optional<uint32_t> parseTableIndex(SourceContext& context);
 std::optional<uint32_t> parseTypeIndex(SourceContext& context);
@@ -32,6 +34,9 @@ std::optional<ExternalType> parseExternalType(SourceContext& context);
 
 bool startClause(SourceContext& context, std::string_view name);
 
+ValueType requiredValueType(SourceContext& context);
+ValueType requiredRefType(SourceContext& context);
+ValueType requiredRefType(SourceContext& context);
 int8_t requiredI8(SourceContext& context);
 uint8_t requiredU8(SourceContext& context);
 uint32_t requiredU32(SourceContext& context);

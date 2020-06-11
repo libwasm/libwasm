@@ -157,7 +157,7 @@ void ExpressionSBuilder::addSpecial(MetaInstruction* meta)
             break;
 
         case Opcode::ref__is_null:
-            meta->addOperand(ValueType::anyref);
+            meta->addOperand(ValueType::nullref);
 
             meta->addResult(ValueType::i32);
             break;
