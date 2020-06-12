@@ -702,7 +702,7 @@ class CGenerator
 
         using LabelMap = std::map<unsigned, LabelData>;
 
-        CGenerator(Module* module, CodeEntry* codeEntry, bool optimized = false);
+        CGenerator(const Module* module, CodeEntry* codeEntry, bool optimized = false);
         ~CGenerator();
 
         void generateC(std::ostream& os);
@@ -734,7 +734,7 @@ class CGenerator
             return optimized;
         }
 
-        auto* getModule()
+        const auto* getModule()
         {
             return module;
         }
@@ -822,7 +822,7 @@ class CGenerator
         CCompound* tempNode = nullptr;
         unsigned label = 0;
         std::string indentString = "";
-        Module* module;
+        const Module* module;
         std::vector<CNode*> expressionStack;
         CodeEntry* codeEntry;
         bool optimized = false;

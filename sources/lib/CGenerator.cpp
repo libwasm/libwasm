@@ -464,7 +464,7 @@ void CCallIndirect::generateC(std::ostream& os, CGenerator& generator)
 {
     auto* table = generator.getModule()->getTable(0);
 
-    os << "((type" << typeIndex << ')' << table->getCName() << ".data[";
+    os << "((type" << typeIndex << ')' << table->getCName(generator.getModule()) << ".data[";
     tableIndex->generateC(os, generator);
 
     os << "])(";
@@ -939,7 +939,7 @@ std::string CGenerator::globalName(Instruction* instruction)
     auto globalIndex = static_cast<InstructionGlobalIdx*>(instruction)->getIndex();
     auto* global = module->getGlobal(globalIndex);
 
-    return global->getCName();
+    return global->getCName(module);
 
 }
 
@@ -1314,7 +1314,7 @@ CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction
     auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
     auto* memory = module->getMemory(0);
 
-    return new CLoad(name, memory->getCName(), makeCombinedOffset(instruction));
+    return new CLoad(name, memory->getCName(module), makeCombinedOffset(instruction));
 }
 
 CNode* CGenerator::generateCLoadSplat(std::string_view splatName, std::string_view loadName, Instruction* instruction)
@@ -1360,7 +1360,7 @@ CNode* CGenerator::generateCStore(std::string_view name, Instruction* instructio
         combinedOffset = new CBinaryExpression("+", new CI64(offset), dynamicOffset);
     }
 
-    return new CStore(name, memory->getCName(), combinedOffset, valueToStore);
+    return new CStore(name, memory->getCName(module), combinedOffset, valueToStore);
 }
 
 CNode* CGenerator::generateCLocalSet(Instruction* instruction)
@@ -1396,7 +1396,7 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
 CNode* CGenerator::generateCMemorySize()
 {
     auto* memory = module->getMemory(0);
-    auto* pageCount = new CBinaryExpression(".", new CNameUse(memory->getCName()),
+    auto* pageCount = new CBinaryExpression(".", new CNameUse(memory->getCName(module)),
             new CNameUse("pageCount"));
 
     return new CBinaryExpression("*",  pageCount, new CNameUse("memoryPageSize"));
@@ -1407,7 +1407,7 @@ CNode* CGenerator::generateCMemoryGrow()
     auto* memory = module->getMemory(0);
     auto* result = new CCall("growMemory");
 
-    result->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName())));
+    result->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
     result->addArgument(popExpression());
 
     return result;
@@ -1488,7 +1488,7 @@ void CGenerator::generateCCall(Instruction* instruction, CNode*& expression, CNo
     auto functionIndex = callInstruction->getIndex();
     auto* calledFunction = module->getFunction(functionIndex);
     auto* signature = calledFunction->getSignature();
-    auto* result = new CCall(calledFunction->getCName());
+    auto* result = new CCall(calledFunction->getCName(module));
     auto& results = signature->getResults();
     std::vector<std::string> temps;
 
@@ -3100,7 +3100,7 @@ void CGenerator::generateC(std::ostream& os)
     function->generateC(os, *this);
 }
 
-CGenerator::CGenerator(Module* module, CodeEntry* codeEntry, bool optimized)
+CGenerator::CGenerator(const Module* module, CodeEntry* codeEntry, bool optimized)
   : module(module), codeEntry(codeEntry), optimized(optimized)
 {
     buildCTree();

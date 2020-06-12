@@ -59,7 +59,7 @@ class Assembler
 
         void generateC(std::ostream& os, bool optimized = false)
         {
-            module->generateC(os, optimized);
+            script->generateC(os, optimized);
         }
 
         void write(std::ostream& os);
@@ -135,7 +135,6 @@ class Assembler
         void whiteSpace();
         bool blockComment();
         bool lineComment();
-        bool doParse();
         bool parseModule(size_t startPos, size_t endPos);
         bool parseInteger(bool allowHex = true);
         bool parseNan();

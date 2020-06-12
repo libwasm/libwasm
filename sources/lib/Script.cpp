@@ -3,6 +3,7 @@
 #include "Script.h"
 
 #include "Context.h"
+#include "Module.h"
 #include "parser.h"
 
 namespace libwasm
@@ -148,6 +149,25 @@ void Script::addAssertReturn(std::shared_ptr<AssertReturn>& assertReturn)
 void Script::addInvoke(std::shared_ptr<Invoke>& invoke)
 {
     commands.emplace_back(invoke);
+}
+
+void Script::generateC(std::ostream& os, bool optimized)
+{
+    os << "\n#include \"libwasm.h\""
+          "\n"
+          "\n#include <stdint.h>"
+          "\n#include <math.h>"
+          "\n#include <string.h>"
+          "\n";
+
+    if (commands.size() == 1) {
+        auto& command = commands[0];
+
+        if (command.module) {
+            command.module->generateC(os, optimized);
+            return;
+        }
+    }
 }
 
 };

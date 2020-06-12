@@ -78,6 +78,8 @@ class Script
         void addAssertReturn(std::shared_ptr<AssertReturn>& assertReturn);
         void addInvoke(std::shared_ptr<Invoke>& invoke);
 
+        void generateC(std::ostream& os, bool optimized);
+
     private:
         struct Command
         {

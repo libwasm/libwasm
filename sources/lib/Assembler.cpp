@@ -651,35 +651,6 @@ bool Assembler::parseModule(size_t startPos, size_t endPos)
     return errorCount == msgs.getErrorCount();
 }
 
-bool Assembler::doParse()
-{
-    module = std::make_shared<Module>();
-    context.setModule(module);
-
-    bool hasModule = false;
-    size_t startPos = 0;
-    size_t endPos = tokens.size();
-
-    if (startClause(context, "module")) {
-        hasModule = true;
-        endPos = tokens.peekToken(-2).getCorrespondingIndex();
-
-        if (auto id = tokens.getId()) {
-            module->setId(*id);
-        }
-
-        startPos = tokens.getPos();
-    }
-
-    auto result = parseModule(startPos, endPos);
-
-    if (hasModule) {
-        requiredCloseParenthesis(context);
-    }
-
-    return result;
-}
-
 bool Assembler::doParseScript()
 {
     script = std::make_shared<Script>();

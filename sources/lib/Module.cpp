@@ -611,7 +611,7 @@ void Module::generateInitExpression(std::ostream& os, Instruction* instruction)
                 auto globalIndex = static_cast<InstructionGlobalIdx*>(instruction)->getIndex();
                 auto* global = globalTable[globalIndex];
 
-                os <<  global->getCName();
+                os <<  global->getCName(this);
             }
 
             break;
@@ -630,7 +630,7 @@ void Module::generateCPreamble(std::ostream& os)
         auto* memory = memoryTable[i];
         const auto& limits = memory->getLimits();
 
-        os << "\n    initializeMemory(&" << memory->getCName() << ", " << limits.min << ", " <<
+        os << "\n    initializeMemory(&" << memory->getCName(this) << ", " << limits.min << ", " <<
             (limits.hasMax() ? limits.max : 0xffff) << ");";
     }
 
@@ -641,7 +641,7 @@ void Module::generateCPreamble(std::ostream& os)
 
         for (auto& segment : segments) {
             auto* memory = memoryTable[segment->getMemoryIndex()];
-            auto memoryName = memory->getCName();
+            auto memoryName = memory->getCName(this);
 
             os << "\n    memcpy(" << memoryName << ".data";
 
@@ -662,7 +662,7 @@ void Module::generateCPreamble(std::ostream& os)
         auto* table = tableTable[i];
         const auto& limits = table->getLimits();
 
-        os << "\n    initializeTable(&" << table->getCName() << ", " << limits.min << ", " <<
+        os << "\n    initializeTable(&" << table->getCName(this) << ", " << limits.min << ", " <<
             (limits.hasMax() ? limits.max : 0xffffffff) << ");";
     }
 
@@ -673,7 +673,7 @@ void Module::generateCPreamble(std::ostream& os)
 
         for (auto& element : elements) {
             auto* table = tableTable[element->getTableIndex()];
-            auto tableName = table->getCName();
+            auto tableName = table->getCName(this);
             auto flags = element->getFlags();
 
             os << "\n    offset = ";
@@ -697,7 +697,7 @@ void Module::generateCPreamble(std::ostream& os)
                     } else {
                         auto *f = static_cast<InstructionFunctionIdx*>(instruction);
 
-                        os << functionTable[f->getIndex()]->getCName();
+                        os << functionTable[f->getIndex()]->getCName(this);
                     }
 
                     os << ';';
@@ -705,7 +705,7 @@ void Module::generateCPreamble(std::ostream& os)
             } else {
                 for (auto index : element->getFunctionIndexes()) {
                     os << "\n    " << tableName << ".data[offset++] = " <<
-                    functionTable[index]->getCName() << ';';
+                    functionTable[index]->getCName(this) << ';';
                 }
             }
         }
@@ -717,13 +717,6 @@ void Module::generateCPreamble(std::ostream& os)
 
 void Module::generateC(std::ostream& os, bool optimized)
 {
-    os << "\n#include \"libwasm.h\""
-          "\n"
-          "\n#include <stdint.h>"
-          "\n#include <math.h>"
-          "\n#include <string.h>"
-          "\n";
-
     if (auto* typeSection = getTypeSection(); typeSection != nullptr) {
         typeSection->generateC(os, this);
         os << '\n';
