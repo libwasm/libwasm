@@ -748,7 +748,8 @@ class CGenerator
 
         void generateCFunction();
         CNode* generateCStatement();
-        CNode* generateCBranchStatement(uint32_t index, bool conditional = false);
+        CCompound* saveBlockResults(uint32_t index);
+        void pushBlockResults(uint32_t index);
         CNode* makeCombinedOffset(Instruction* instruction);
         std::vector<ValueType> getBlockResults(InstructionBlock* blockInstruction);
         CNode* makeBlockResults(const std::vector<ValueType>& types);
@@ -756,6 +757,7 @@ class CGenerator
         CNode* generateCBinaryExpression(std::string_view op);
         CNode* generateCBlock(Instruction* instruction);
         CNode* generateCBr(Instruction* instruction);
+        CNode* generateCBrIf(CNode* condition, uint32_t index);
         CNode* generateCBrIf(Instruction* instruction);
         CNode* generateCBrUnless(Instruction* instruction);
         CNode* generateCBrTable(Instruction* instruction);

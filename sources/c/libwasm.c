@@ -2,12 +2,7 @@
 
 #include "libwasm.h"
 
-extern int32_t loadI8(uint64_t offset);
-extern uint32_t loadU8(uint64_t offset);
-extern int32_t loadI16(uint64_t offset);
-extern uint32_t loadU16(uint64_t offset);
-extern int32_t loadI32(uint64_t offset);
-extern uint32_t loadU32(uint64_t offset);
+#include <malloc.h>
 
 void initializeMemory(Memory* memory, uint32_t min, uint32_t max)
 {
@@ -30,7 +25,7 @@ uint32_t growMemory(Memory* memory, uint32_t size)
     }
 
     if (pageCount < memory->pageCount || pageCount > memory->maxPageCount) {
-        reurn -1;
+        return -1;
     }
 
     char* data = realloc(memory->data, pageCount * memoryPageSize);
@@ -56,7 +51,7 @@ void initializeTable(Table* table, uint32_t min, uint32_t max)
     if (min == 0) {
         table->data = NULL;
     } else {
-        memory->table = calloc(min, sizeof(void*));
+        table->data = calloc(min, sizeof(void*));
     }
 }
 
@@ -91,11 +86,11 @@ uint32_t clz32(uint32_t value)
     uint32_t result = 0;
 
     while ((value & (1u << 31)) != 0) {
-        count++;
+        result++;
         value <<= 1;
     }
 
-    return reesult;
+    return result;
 }
 
 uint32_t clz64(uint64_t value)
@@ -107,11 +102,11 @@ uint32_t clz64(uint64_t value)
     uint32_t result = 0;
 
     while ((value & (1ull << 63)) != 0) {
-        count++;
+        result++;
         value <<= 1;
     }
 
-    return reesult;
+    return result;
 }
 
 uint32_t ctz32(uint32_t value)
@@ -123,11 +118,11 @@ uint32_t ctz32(uint32_t value)
     uint32_t result = 0;
 
     while ((value & 1) != 0) {
-        count++;
+        result++;
         value >>= 1;
     }
 
-    return reesult;
+    return result;
 }
 
 uint32_t ctz64(uint64_t value)
@@ -139,11 +134,11 @@ uint32_t ctz64(uint64_t value)
     uint32_t result = 0;
 
     while ((value & 1) != 0) {
-        count++;
+        result++;
         value >>= 1;
     }
 
-    return reesult;
+    return result;
 }
 
 uint32_t popcnt32(uint32_t value)
@@ -151,7 +146,7 @@ uint32_t popcnt32(uint32_t value)
     uint32_t result = 0;
 
     while (value != 0) {
-        count += (value & 1);
+        result += (value & 1);
         value >>= 1;
     }
 
@@ -163,7 +158,7 @@ uint32_t popcnt64(uint64_t value)
     uint32_t result = 0;
 
     while (value != 0) {
-        count += uint32_t(value & 1);
+        result += (uint32_t)(value & 1);
         value >>= 1;
     }
 

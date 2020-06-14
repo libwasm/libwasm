@@ -3,6 +3,8 @@
 #ifndef LIBWASM_H
 
 #include <stdint.h>
+#include <string.h>
+#include <stdio.h>
 #include <math.h>
 
 #ifdef __cplusplus

@@ -1003,7 +1003,7 @@ void TypeDeclaration::generateC(std::ostream& os, const Module* module)
         os << results[0].getCName();
     }
 
-    os << "(*type" << number << ")(";
+    os << "(*" << module->getNamePrefix() << "type" << number << ")(";
 
     const char* separator = "";
 
@@ -1223,12 +1223,7 @@ static std::string buildCName(std::string_view id, std::string_view externId, co
         uint32_t number, const Module* module)
 {
     std::string result;
-    std::string prefix;
-
-    if (!module->getId().empty()) {
-        prefix += module->getId();
-        prefix += "__";
-    }
+    std::string prefix = module->getNamePrefix();
 
     if (!id.empty()) {
         result = prefix + cName(id);
@@ -1340,7 +1335,7 @@ FunctionImport* FunctionImport::read(BinaryContext& context)
 
 void FunctionImport::check(CheckContext& context)
 {
-    externId = name;
+    externId = moduleName + "__" + name;
     context.checkTypeIndex(this, signatureIndex);
     signature->check(context);
 }
@@ -1435,7 +1430,7 @@ MemoryImport* MemoryImport::read(BinaryContext& context)
 
 void MemoryImport::check(CheckContext& context)
 {
-    externId = name;
+    externId = moduleName + "__" + name;
     context.checkLimits(this, limits);
 }
 
@@ -1527,7 +1522,7 @@ EventImport* EventImport::read(BinaryContext& context)
 
 void EventImport::check(CheckContext& context)
 {
-    externId = name;
+    externId = moduleName + "__" + name;
     context.checkEventType(this, attribute);
     context.checkTypeIndex(this, typeIndex);
 }
@@ -1623,7 +1618,7 @@ TableImport* TableImport::read(BinaryContext& context)
 
 void TableImport::check(CheckContext& context)
 {
-    externId = name;
+    externId = moduleName + "__" + name;
     context.checkElementType(this, type);
     context.checkLimits(this, limits);
 }
@@ -1723,7 +1718,7 @@ GlobalImport* GlobalImport::read(BinaryContext& context)
 
 void GlobalImport::check(CheckContext& context)
 {
-    externId = name;
+    externId = moduleName + "__" + name;
     context.checkValueType(this, type);
     context.checkMut(this, mut);
 }
@@ -2189,7 +2184,7 @@ ImportSection* ImportSection::read(BinaryContext& context)
         ImportDeclaration* import = nullptr;
         auto kind = readExternalType(context);
 
-        switch (uint8_t(kind)) {
+        switch (kind) {
             case ExternalType::function: import = FunctionImport::read(context); break;
             case ExternalType::table:    import = TableImport::read(context); break;
             case ExternalType::memory:   import = MemoryImport::read(context); break;
@@ -3133,44 +3128,24 @@ void ExportDeclaration::check(CheckContext& context)
 {
     context.checkExternalType(this, uint8_t(kind));
 
-    switch(uint8_t(kind)) {
+    switch(kind) {
         case ExternalType::function:
-            if (auto* function = context.getModule()->getFunction(index); function != nullptr) {
-                function->setExternId(name);
-            }
-
             context.checkFunctionIndex(this, index);
             break;
 
         case ExternalType::table:
-            if (auto* table = context.getModule()->getTable(index); table != nullptr) {
-                table->setExternId(name);
-            }
-
             context.checkTableIndex(this, index);
             break;
 
         case ExternalType::memory:
-            if (auto* memory = context.getModule()->getMemory(index); memory != nullptr) {
-                memory->setExternId(name);
-            }
-
             context.checkMemoryIndex(this, index);
             break;
 
         case ExternalType::global:
-            if (auto* global = context.getModule()->getGlobal(index); global != nullptr) {
-                global->setExternId(name);
-            }
-
             context.checkGlobalIndex(this, index);
             break;
 
         case ExternalType::event:
-            if (auto* event = context.getModule()->getEvent(index); event != nullptr) {
-                event->setExternId(name);
-            }
-
             context.checkEventIndex(this, index);
             break;
 

@@ -1,12 +1,23 @@
 # libwasm
 
 Linwasm is a library to manipulate webassembly files from C++.
-It also contains an assembler (converting .wat to .wasm) and a dissassembler (converting .wasm to .wat)
+It also contains an assembler (converting a text file to a binary file, a dissassembler (converting a binary file
+to a text file) and a converter (converting a text file or a script file to C, or convertsings a text file to contain
+folded instructions).
 
 The assembler and disassembler are described first, because they can be used out of the box and require
 little documentation.
 
 The libray will be described last.
+
+### Conventions
+
+A *text file* is a file containing a module in text format. Text files usually have the *.wat* extension.
+
+A *binary file* is a file containing a module in binary format. Binary files usually have the *.wasm* extension.
+
+A *script file* is a file containing a script consisting of modules and script commands (invoke, assert_return etc...).
+Script files usually have the *.wast* extension.
 
 <P style="page-break-before: always">
 
@@ -16,13 +27,13 @@ The start the assembler use the command
 
      $ bin/webasm [*options*] *wat_files*
 
-*wat_files* is a list of one or more webassembly sources files, usually with the '.wat' extension.  
+*wat_files* is a list of one or more webassembly text files.
 
 *options* is a list of options.
 
 
 ### Options
-In the description of the options, the following example source file (called 'sample.wat') will be used:
+In the description of the options, the following example text file (called 'sample.wat') will be used:
 
       (module
         (type (;0;) (func (param i32 i32) (result i32)))
@@ -58,14 +69,14 @@ The *-h* option shows the help page.
 
 
 #### The *-a* option.
-The *-a* option specifies that a binary ouput file (usually a *.wasm* file) must be produced.
+The *-a* option specifies that a binary ouput file must be produced.
 The name of the output file must be given with thw *-o* option.
 
 
 #### The *-o* option.
 The *-o* option specifies the output file to be written.
 
-If the *-a* option is also given then the output file will be a binary (usually *.wasm* file).
+If the *-a* option is also given then the output file will be a binary file.
 
 If any of the the *-p* or *-P* options is also given then the output file
 will be a text file.
@@ -116,6 +127,7 @@ The *-P* produces the same output as the *-p* option, but adds the code to each 
 #### The *-S* option.
 The *-S* option prints assembler statistics.
 
+<P style="page-break-before: always">
 
 ## Disassembler.
 
@@ -123,7 +135,7 @@ The start the disassembler use the command
 
      $ bin/webdisasm [*options*] *wasm_files*
 
-*wasm_files* is a list of one or more webassembly binary files, usually with the '.wasm' extension.
+*wasm_files* is a list of one or more webassembly binary files.
 
 *options* is a list of options.
 
@@ -143,13 +155,13 @@ The *-h* option shows the help page.
      Usage: bin/webdisasm [options] wasm_files
      Options:
        Options:
-         -a          generate source file
+         -a          generate text file
          -d          dump raw file content
          -h          print this help message and exit
          -o <file>   specify output file.
          -p          print formatted file content
          -P          print formatted file content with disassembled code
-         -s          generate source file, using S-expressions for code
+         -s          generate text file, using S-expressions for code
          -S          print statistics
 
       The '-a' option cannot be combined with either '-d', '-p' or '-P' options.
@@ -160,11 +172,11 @@ The *-h* option shows the help page.
 
 
 #### The *-a* option.
-The *-a* option specifies that a source ouput file (usually a *.wat* file) must be produced.
+The *-a* option specifies that a text ouput file must be produced.
 The name of the output file must be given with thw *-o* option.
 
 #### The *-s* option.
-The *-s* option specifies that a source ouput file (usually a *.wat* file) must be produced.
+The *-s* option specifies that a text ouput file must be produced.
 The code will be emitted in S-expression format.
 The name of the output file must be given with thw *-o* option.
 
@@ -180,7 +192,7 @@ The name of the output file must be given with thw *-o* option.
 #### The *-o* option.
 The *-o* option specifies the output file to be written.
 
-If the *-a* option is also given then the output file will be a binary (usually *.wtm* file).
+If the *-a* option is also given then the output file will be a binary file.
 
 If any of the the *-d*, *-p* or *-P* options is also given then the output file
 will be a text file.
@@ -256,8 +268,8 @@ The *-S* option prints assembler statistics.
 
 ## The convertS program.
 
-The convertS program converts a text file into a new text file.
-This new text file can either be in sequential format or in S-expression format.
+The convertS program converts a text file into a new text file or a C file.
+The new text file can either be in sequential format or in S-expression format.
 
 The start the disassembler use the command
 
@@ -279,19 +291,21 @@ The *-h* option shows the help page.
      Usage: ../bin/convertS [options] wat_file
      Options:
        -a          generate sequential assmbler file
+       -c          generate C file
+       -C          generate optimized C file
        -s          generate S-expression assmbler file
        -h          print this help message and exit
        -o <file>   specify output file.
        -S          print statistics
 
-     Exactly one of '-a' or '-s' must be given.
+     Exactly one of '-a', '-s' or '-c' must be given.
 
 #### The *-a* option.
-The *-a* option specifies that a source ouput file (usually a *.wat* file) must be produced.
+The *-a* option specifies that a text ouput file must be produced.
 The name of the output file must be given with thw *-o* option.
 
 #### The *-s* option.
-The *-s* option specifies that a source ouput file (usually a *.wat* file) must be produced.
+The *-s* option specifies that a text ouput file must be produced.
 The code will be emitted in S-expression format.
 The name of the output file must be given with thw *-o* option.
 
@@ -304,6 +318,139 @@ The name of the output file must be given with thw *-o* option.
        (func (;0;) (type 0) (param $lhs i32) (param $rhs i32) (result i32)
          (i32.add (local.get 0) (local.get 1))))
 
+#### The *-c* option.
+The *-c* option specifies that a C file must be produced. In ths case the input file can be a script file.
+
+#### The *-C* option.
+The *-C* option works like the *-c* option, but generates enhanced C-code.  It is best to always use th*-C* code.
+The *-c* option is only used to help debug the code enhancer.
+
+##### Example
+
+The following webassemly code
+
+     (export "fib" (func $fib))
+      (func $fib (param $n i32) (result i32)
+       (if
+        (i32.lt_s
+         (local.get $n)
+         (i32.const 2)
+        )
+        (then (return
+         (i32.const 1))
+        )
+       )
+       (return
+        (i32.add
+         (call $fib
+          (i32.sub
+           (local.get $n)
+           (i32.const 2)
+          )
+         )
+         (call $fib
+          (i32.sub
+           (local.get $n)
+           (i32.const 1)
+          )
+         )
+        )
+       )
+      )
+
+is converted into the following C code:
+
+     int32_t __fib(int32_t __n)
+     {
+       int32_t result0 = 0;
+       if (__n < 2) {
+         return 1;
+       }
+       return __fib(__n - 2) + __fib(__n - 1);
+       return result0;
+     }
+
+##### Example
+
+The following script file
+
+     (module $algorothm
+       (export "fib" (func $fib))
+        (func $fib (param $n i32) (result i32)
+         (if
+          (i32.lt_s
+           (local.get $n)
+           (i32.const 2)
+          )
+          (then (return
+           (i32.const 1))
+          )
+         )
+         (return
+          (i32.add
+           (call $fib
+            (i32.sub
+             (local.get $n)
+             (i32.const 2)
+            )
+           )
+           (call $fib
+            (i32.sub
+             (local.get $n)
+             (i32.const 1)
+            )
+           )
+          )
+         )
+        )
+      )
+
+is converted to the following C file
+
+     #include "libwasm.h"
+
+     #include <stdint.h>
+     #include <math.h>
+     #include <string.h>
+
+     typedef int32_t(*algorothm__type0)(int32_t);
+
+     static int32_t algorothm__fib(int32_t n);
+
+
+     void algorothm__initialize()
+     {
+
+     }
+
+     static int32_t algorothm__fib(int32_t n)
+     {
+       if (n < 2) {
+         return 1;
+       }
+       return algorothm__fib(n - 2) + algorothm__fib(n - 1);
+     }
+
+
+     #define algorothm__fib algorothm__fib
+
+
+     int main()
+     {
+         algorothm__initialize();
+
+         int32_t result_0 = algorothm__fib(6);
+         int32_t expect_0 = 8;
+
+         if (result_0 != expect_0) {
+             printf("assert_return failed at line %d\n", 32);
+         }
+     }
+
+(assert_return (invoke "fib" (i32.const 6)) (i32.const 13))
+
+
+<P style="page-break-before: always">
 
 ## Library.
 
@@ -331,9 +478,11 @@ The Interface for the *Assembler* class is:
          public:
              Assembler(std::istream& stream)
              bool isGood() const
+             bool parse();
              void show(std::ostream& os, unsigned flags)
              void generate(std::ostream& os)
              void generateS(std::ostream& os)
+             void generateC(std::ostream& os, bool optimized = false)
              void write(std::ostream& os)
              auto getErrorCount() const;
              auto getWarningCount() const;
@@ -344,19 +493,29 @@ The Interface for the *Assembler* class is:
 The constructor takes an input stream as parameter.  The webassembly text will be read from that input stream.
 This allows to read from a file or a string.
 
-The constructor will create the internal structure known as the backbone.
+The constructor will tokenize text input and produce an internal vector of tokens.
+
 
 #### The *isGood* method.
 Once the *Assembler* is instantiated, the *isGood* method returns true if the input stream was
 successfuly read, false otherwise.
 
 
+#### The *parse* method.
+The *parse* method analyzes the tokens and produces an internal structore (aka the *backbone*).
+
+
 #### The *generate* and *generateS* methods.
 The *generate* method generates webassembly text code from the backbone into the given output stream.
 Code will be in sequential format.
 
+
 The *generateS* method generates webassembly text code from the backbone into the given output stream.
 Code will be in S_expression format.
+
+
+#### The *generateC* method.
+The *generateC* method generates C code into the given output stram.
 
 
 #### The *show* method.
@@ -408,7 +567,7 @@ This program can be compiled with the following command:
 
      $ clang++ -o test -std=c++17 test.cpp -I libwasmdir/sources/lib -L libwasmdir/lib -lwasm
 
-where 'test.cpp' is de name of the source file and 'libwasmdir' is de directory where libwasm is installed.
+where 'test.cpp' is de name of the text file and 'libwasmdir' is de directory where libwasm is installed.
 
 'g++' can be substituted for 'clang++'.
 
@@ -493,7 +652,7 @@ The *read* method reads the from a binary input.
 
 The *write* method writes the section to binary output.
 
-The *generate* method generates text format for the section to a source file.
+The *generate* method generates text format for the section to a text file.
 
 The *show* method generates readable output of the section. (see the *-p* option of *webasm* or *webdisasm*).
 
@@ -525,7 +684,7 @@ class TypeDeclaration
 
 The *read*, *write*, *generate*, *check* and *show* functions have the same purpose as described for the sections.
 
-The *parse* function parses an entry from a source input file.
+The *parse* function parses an entry from a text input file.
 
 
 The section entry classes will have in turn pointers to the elements they create and so on.  All these elements

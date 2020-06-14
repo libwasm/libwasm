@@ -620,10 +620,22 @@ void Module::generateInitExpression(std::ostream& os, Instruction* instruction)
     }
 }
 
+std::string Module::getNamePrefix() const
+{
+    std::string prefix;
+
+    if (!id.empty()) {
+        prefix += id;
+        prefix += "__";
+    }
+
+    return prefix;
+}
+
 void Module::generateCPreamble(std::ostream& os)
 {
     os << '\n';
-    os << "\nvoid initialize()"
+    os << "\nvoid " << getNamePrefix() << "initialize()"
         "\n{";
 
     for (uint32_t i = importedMemoryCount; i < memoryCount; ++i) {

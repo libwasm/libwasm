@@ -157,7 +157,7 @@ void generateCChars(std::ostream& os, std::string_view chars)
                 if (std::isprint(c)) {
                     os << c;
                 } else {
-                    os << "\\X";
+                    os << "\\x";
                     os << hexChar((c >> 4) & 0xf);
                     os << hexChar(c & 0xf);
                 }
@@ -550,7 +550,7 @@ std::string toString(float value)
         if (i == 0x7f800000) {
             result += "INFINITY";
         } else if (i != 0x7fc00000) {
-            result += "nan(";
+            result += "nanf(";
             result += "\"0x" + toHexString(i & 0x7fffff) + "\")";
         } else {
             result += "NAN";

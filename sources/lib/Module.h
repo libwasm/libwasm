@@ -591,6 +591,8 @@ class Module
             return useExpressionS;
         }
 
+        std::string getNamePrefix() const;
+
     protected:
         bool dataCountFlag = false;
         bool useExpressionS = false;

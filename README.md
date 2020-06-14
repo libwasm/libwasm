@@ -4,54 +4,13 @@ Linwasm is a library to manipulate webassembly files from C++.
 It also contains an assembler (converting .wat to .wasm), a dissassembler (converting .wasm to .wat), 
 a coonverter between sequential code and folded code and a coonverter from a text file to a C file.
 
-## New feature: generating c code.
+## New feature: generating c code for scripts (.wast files).
 
-The generation of c-code can be enabled with the '-c' option in convertS.
+The convertS program can now generate C code for scripts.  Only the *module*, *invoke* and *assert_return*
+commands are implemented.  The resulting C file can be compiled and run, giving error messages when an *assert_return*
+command fails.
 
-### Example:
-
-The following webassemly code
-
-     (export "fib" (func $fib))
-      (func $fib (param $n i32) (result i32)
-       (if
-        (i32.lt_s
-         (local.get $n)
-         (i32.const 2)
-        )
-        (then (return
-         (i32.const 1))
-        )
-       )
-       (return
-        (i32.add
-         (call $fib
-          (i32.sub
-           (local.get $n)
-           (i32.const 2)
-          )
-         )
-         (call $fib
-          (i32.sub
-           (local.get $n)
-           (i32.const 1)
-          )
-         )
-        )
-       )
-      )
-
-is converted into the following C code:
-
-     int32_t __fib(int32_t __n)
-     {
-       int32_t result0 = 0;
-       if (__n < 2) {
-         return 1;
-       }
-       return __fib(__n - 2) + __fib(__n - 1);
-       return result0;
-     }
+Refer to the documentation for an example.
 
 ## Installation
 You require a c++17 compliant C++compiler.
@@ -73,6 +32,9 @@ The scons parameters are:
         Dissable asserts
      CACHE_DIR=<directory name>
         sets the directory where  the scons cache will be stored (default = /tmp/scons_cache_dir)
+
+Note that scons has a *-jN* option to allow parallel compilations.
+
 
 You will find the library in the 'lib' directory and the programs in the 'bin' directory.
 

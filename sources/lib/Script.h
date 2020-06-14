@@ -17,13 +17,14 @@ namespace libwasm
 
 class Module;
 class SourceContext;
+class Script;
 
 class Invoke
 {
     public:
         Invoke() = default;
 
-        void generateC(std::ostream& os);
+        void generateC(std::ostream& os, const Script& script);
         static Invoke* parse(SourceContext& context);
 
         struct Value
@@ -46,6 +47,7 @@ class Invoke
                 v128_t   v128;
             };
 
+            void generateC(std::ostream& os) const;
             static Value parse(SourceContext& context);
         };
 
@@ -60,12 +62,16 @@ class AssertReturn
     public:
         AssertReturn() = default;
 
-        void generateC(std::ostream& os);
+        void generateC(std::ostream& os, const Script& script);
+        void generateSimpleC(std::ostream& os, std::string_view type, const Script& script);
+        void generateMultiValueC(std::ostream& os, const Script& script);
+        void generateV128C(std::ostream& os, const Script& script);
         static AssertReturn* parse(SourceContext& context);
 
     private:
         Invoke* invoke;
         std::vector<Invoke::Value> results;
+        size_t lineNumber = 0;
 };
 
 
@@ -77,6 +83,11 @@ class Script
         void addModule(std::shared_ptr<Module>& module);
         void addAssertReturn(std::shared_ptr<AssertReturn>& assertReturn);
         void addInvoke(std::shared_ptr<Invoke>& invoke);
+
+        const auto* getLastModule() const
+        {
+            return lastModule;
+        }
 
         void generateC(std::ostream& os, bool optimized);
 
@@ -103,8 +114,8 @@ class Script
             std::shared_ptr<Invoke> invoke;
         };
 
+        const Module* lastModule = nullptr;
         std::vector<Command> commands;
-
 };
 
 };

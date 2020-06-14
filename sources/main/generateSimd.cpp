@@ -42,7 +42,7 @@ static std::string makeFullType(std::string_view type, uint32_t count)
 }
 
 template<typename... Types>
-void generateOPerations(void (*function)(std::string_view, std::string_view, uint32_t, std::string_view),
+void generateOperations(void (*function)(std::string_view, std::string_view, uint32_t, std::string_view),
         std::string_view name, std::string_view op, Types... types)
 {
     (function(name, types.type, types.count, op), ...);
@@ -105,7 +105,7 @@ static void generateBinaryOperationFunction(std::string_view name, std::string_v
         "\n    v128_u result;"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = (U(v1))." << type << "[i] " << op << " U(v2))." << type << "[i];"
+        "\n        result." << type << "[i] = ((U(v1))." << type << "[i]) " << op << " ((U(v2))." << type << "[i]);"
         "\n    }"
         "\n"
         "\n    return result.v128;"
@@ -139,7 +139,7 @@ static void generateUnaryOperationFunction(std::string_view name, std::string_vi
         "\n    v128_u result;"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = " << op << "U(v1))." << type << "[i];"
+        "\n        result." << type << "[i] = " << op << "((U(v1))." << type << "[i]);"
         "\n    }"
         "\n"
         "\n    return result.v128;"
@@ -199,7 +199,7 @@ static void generateRelationalOp(std::string_view name, std::string_view type, u
     hardwareMacros << "\n#define v128" << name << fullType << "(v1,v2) "
         "V(U(v1)." << fullType << " " << op << " U(v2)." << fullType << ')';
 
-    softwareDeclarations << "\nv128" << name << fullType << "(v128_t v1, v128_t v2);";
+    softwareDeclarations << "\nv128_t v128" << name << fullType << "(v128_t v1, v128_t v2);";
 
     auto resultType = type;
 
@@ -209,7 +209,7 @@ static void generateRelationalOp(std::string_view name, std::string_view type, u
         resultType = "i64";
     }
 
-    softwareDefinitions << "\nv128" << name << fullType << "(v128_t v1, v128_t v2)"
+    softwareDefinitions << "\nv128_t v128" << name << fullType << "(v128_t v1, v128_t v2)"
         "\n{"
         "\n    v128_u result;"
         "\n"
@@ -243,14 +243,14 @@ static void generateShiftOp(std::string_view name, std::string_view type, uint32
     hardwareMacros << "\n#define v128" << name << fullType << "(v1,v2) "
         "V(U(v1)." << fullType << " " << op << " v2)";
 
-    softwareDeclarations << "\nv128" << name << fullType << "(v128_t v1, int32_t v2);";
+    softwareDeclarations << "\nv128_t v128" << name << fullType << "(v128_t v1, int32_t v2);";
 
-    softwareDefinitions << "\nv128" << name << fullType << "(v128_t v1, int32_t v2)"
+    softwareDefinitions << "\nv128_t v128" << name << fullType << "(v128_t v1, int32_t v2)"
         "\n{"
         "\n    v128_u result;"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = (U(v1))." << type << "[i] " << op << " v2];"
+        "\n        result." << type << "[i] = ((U(v1))." << type << "[i]) " << op << " v2;"
         "\n    }"
         "\n"
         "\n    return result.v128;"
@@ -279,7 +279,9 @@ static void generateSplat(std::string_view type, uint32_t count, std::string_vie
 
 static void makeLoadFunction(std::string_view name, std::string_view cast, std::string_view valueType)
 {
-    functionDeclarations << "\n" << valueType << " " << name << "(Memory* memory, uint64_t offset)"
+    functionDeclarations << "\n" << valueType << " " << name << "(Memory* memory, uint64_t offset);";
+
+    functionDefinitions << "\n" << valueType << " " << name << "(Memory* memory, uint64_t offset)"
           "\n{"
           "\n  return " << cast << "(memory->data + offset);"
           "\n}\n";
@@ -287,7 +289,8 @@ static void makeLoadFunction(std::string_view name, std::string_view cast, std::
 
 static void makeStoreFunction(std::string_view name, std::string_view cast, std::string_view valueType)
 {
-    functionDeclarations << "\nvoid " << name << "(Memory* memory, uint64_t offset, " << valueType << " value)"
+    functionDeclarations << "\nvoid " << name << "(Memory* memory, uint64_t offset, " << valueType << " value);";
+    functionDefinitions << "\nvoid " << name << "(Memory* memory, uint64_t offset, " << valueType << " value)"
           "\n{"
           "\n  " << cast << "(memory->data + offset) = value;"
           "\n}\n";
@@ -397,7 +400,7 @@ static void generateWiden(std::string_view type, uint32_t count,
         "\n    v128_u result;"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = (U(v1))." << sourceFullType << "[i";
+        "\n        result." << type << "[i] = (U(v1))." << sourceType << "[i";
 
     if (high) {
         functionDefinitions << " + " << count;
@@ -467,13 +470,13 @@ static void generate()
     generateLoadExtend("i64", 2);
     generateLoadExtend("u64", 2);
 
-    generateOPerations(generateBinaryOp, "Add", "+", Type("i8", 16), Type("i16", 8), Type("i32", 4),
+    generateOperations(generateBinaryOp, "Add", "+", Type("i8", 16), Type("i16", 8), Type("i32", 4),
             Type("i64", 2), Type("f32", 4), Type("f64", 2));
 
-    generateOPerations(generateBinaryOp, "Sub", "-", Type("i8", 16), Type("i16", 8), Type("i32", 4),
+    generateOperations(generateBinaryOp, "Sub", "-", Type("i8", 16), Type("i16", 8), Type("i32", 4),
             Type("i64", 2), Type("f32", 4), Type("f64", 2));
 
-    generateOPerations(generateBinaryOp, "Mul", "*", Type("i8", 16), Type("i16", 8), Type("i32", 4),
+    generateOperations(generateBinaryOp, "Mul", "*", Type("i8", 16), Type("i16", 8), Type("i32", 4),
             Type("i64", 2), Type("f32", 4), Type("f64", 2));
 
     generateBinaryOp("Div", "f32", 4, "/");
@@ -483,7 +486,7 @@ static void generate()
     generateBinaryOp("And", "i64", 2, "|");
     generateBinaryOp("Xor", "i64", 2, "^");
 
-    generateOPerations(generateUnaryOp, "Neg", "-", Type("i8", 16), Type("i16", 8), Type("i32", 4),
+    generateOperations(generateUnaryOp, "Neg", "-", Type("i8", 16), Type("i16", 8), Type("i32", 4),
             Type("i64", 2), Type("f32", 4), Type("f64", 2));
 
     generateUnaryOp("Not", "i64", 2, "~");
@@ -491,11 +494,11 @@ static void generate()
     generateBinaryCall("Avgr", "u8", 16, "AVGR");
     generateBinaryCall("Avgr", "u16", 8, "AVGR");
 
-    generateOPerations(generateBinaryCall, "Max", "MAX_VALUE", Type("i8", 16), Type("i16", 8), Type("i32", 4),
+    generateOperations(generateBinaryCall, "Max", "MAX_VALUE", Type("i8", 16), Type("i16", 8), Type("i32", 4),
             Type("i64", 2), Type("f32", 4), Type("f64", 2),
             Type("u8", 16), Type("u16", 8), Type("u32", 4), Type("u64", 2));
 
-    generateOPerations(generateBinaryCall, "Min", "MIN_VALUE", Type("i8", 16), Type("i16", 8), Type("i32", 4),
+    generateOperations(generateBinaryCall, "Min", "MIN_VALUE", Type("i8", 16), Type("i16", 8), Type("i32", 4),
             Type("i64", 2), Type("f32", 4), Type("f64", 2),
             Type("u8", 16), Type("u16", 8), Type("u32", 4), Type("u64", 2));
 

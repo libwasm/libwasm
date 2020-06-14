@@ -464,7 +464,8 @@ void CCallIndirect::generateC(std::ostream& os, CGenerator& generator)
 {
     auto* table = generator.getModule()->getTable(0);
 
-    os << "((type" << typeIndex << ')' << table->getCName(generator.getModule()) << ".data[";
+    os << "((" << generator.getModule()->getNamePrefix() << "type" << typeIndex << ')' <<
+        table->getCName(generator.getModule()) << ".data[";
     tableIndex->generateC(os, generator);
 
     os << "])(";
@@ -711,25 +712,27 @@ void CCompound::optimizeIfs(CGenerator& generator)
 
             generator.decrementUseCount(label);
 
-            if (branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
-                    branchStatement != nullptr) {
-                label = branchStatement->getLabel();
-                labelStatement = findLabel(node->getParent(), label);
+            if (ifStatement->getThenStatements()->getLastChild() != nullptr) {
+                if (branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
+                        branchStatement != nullptr) {
+                    label = branchStatement->getLabel();
+                    labelStatement = findLabel(node->getParent(), label);
 
-                if (labelStatement == nullptr) {
-                    return;
-                }
-
-                for (auto* next = node->getParent()->getNext(); ; next = node->getParent()->getNext()) {
-                    ifStatement->addElseStatement(next);
-
-                    if (next == labelStatement) {
-                        break;
+                    if (labelStatement == nullptr) {
+                        return;
                     }
-                }
 
-                delete branchStatement;
-                generator.decrementUseCount(label);
+                    for (auto* next = node->getParent()->getNext(); ; next = node->getParent()->getNext()) {
+                        ifStatement->addElseStatement(next);
+
+                        if (next == labelStatement) {
+                            break;
+                        }
+                    }
+
+                    delete branchStatement;
+                    generator.decrementUseCount(label);
+                }
             }
         });
 }
@@ -1176,38 +1179,31 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
     return result;
 }
 
-CNode* CGenerator::generateCBranchStatement(uint32_t index, bool conditional)
+CCompound* CGenerator::saveBlockResults(uint32_t index)
 {
     auto& labelInfo = getLabel(index);
+    auto* compound = new CCompound;
+    auto& types = labelInfo.types;
+    auto count = types.size();
 
-    labelInfo.branchTarget = true;
+    for (auto i = count; i-- > 0; ) {
+        auto resultName = makeResultName(labelInfo.label, i);
+        auto* result = popExpression();
+        auto* assignment = new CBinaryExpression("=", new CNameUse(resultName), result);
 
-    if (!conditional) {
-        skipUnreachable(index);
+        compound->addStatement(assignment);
     }
 
-    if (!labelInfo.backward && !labelInfo.types.empty()) {
-        auto* compound = new CCompound;
-        auto count = labelInfo.types.size();
+    return compound;
+}
 
-        for (auto i = count; i-- > 0; ) {
-            auto resultName = makeResultName(labelInfo.label, i);
-            auto* result = popExpression();
-            auto* assignment = new CBinaryExpression("=", new CNameUse(resultName), result);
+void CGenerator::pushBlockResults(uint32_t index)
+{
+    auto& labelInfo = getLabel(index);
+    auto count = labelInfo.types.size();
 
-            compound->addStatement(assignment);
-        }
-
-        compound->addStatement(new CBr(labelInfo.label));
-        if (conditional) {
-            for (unsigned i = 0; i < count; ++i) {
-                pushExpression(new CNameUse(makeResultName(labelInfo.label, i)));
-            }
-        }
-
-        return compound;
-    } else {
-        return new CBr(labelInfo.label);
+    for (unsigned i = 0; i < count; ++i) {
+        pushExpression(new CNameUse(makeResultName(labelInfo.label, i)));
     }
 }
 
@@ -1215,8 +1211,43 @@ CNode* CGenerator::generateCBr(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
+    auto& labelInfo = getLabel(index);
 
-    return generateCBranchStatement(index);
+    labelInfo.branchTarget = true;
+
+    if (!labelInfo.backward && !labelInfo.types.empty()) {
+        auto* result = saveBlockResults(index);
+
+        result->addStatement(new CBr(labelInfo.label));
+        skipUnreachable(index);
+
+        return result;
+    } else {
+        skipUnreachable(index);
+
+        return new CBr(labelInfo.label);
+    }
+}
+
+CNode* CGenerator::generateCBrIf(CNode* condition, uint32_t index)
+{
+    auto& labelInfo = getLabel(index);
+    auto* ifNode = new CIf(condition);
+
+    labelInfo.branchTarget = true;
+
+    ifNode->addThenStatement(new CBr(labelInfo.label));
+
+    if (!labelInfo.backward && !labelInfo.types.empty()) {
+        auto* result = saveBlockResults(index);
+
+        result->addStatement(ifNode);
+
+        pushBlockResults(index);
+        return result;
+    }
+
+    return ifNode;
 }
 
 CNode* CGenerator::generateCBrIf(Instruction* instruction)
@@ -1224,10 +1255,8 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
     auto* condition = popExpression();
-    auto* ifNode = new CIf(condition);
 
-    ifNode->addThenStatement(generateCBranchStatement(index, true));
-    return ifNode;
+    return generateCBrIf(condition, index);
 }
 
 CNode* CGenerator::generateCBrUnless(Instruction* instruction)
@@ -1235,28 +1264,37 @@ CNode* CGenerator::generateCBrUnless(Instruction* instruction)
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
     auto* condition = notExpression(popExpression());
-    auto* ifNode = new CIf(condition);
+    auto& labelInfo = getLabel(index);
 
-    ifNode->addThenStatement(generateCBranchStatement(index, true));
-    return ifNode;
+    return generateCBrIf(condition, index);
 }
 
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionBrTable*>(instruction);
-    auto* condition = popExpression();
+    auto temps = getTemps({ValueType::i32});
     auto defaultLabel = branchInstruction->getDefaultLabel();
-    auto* result = new CSwitch(condition);
+    auto& labelInfo = getLabel(defaultLabel);
+    auto* result = new CCompound;
 
-    condition->link(result);
-    result->setDefault(generateCBranchStatement(defaultLabel, true));
+    labelInfo.branchTarget = true;
+
+    result->addStatement(new CBinaryExpression("=", new CNameUse(temps[0]), popExpression()));
 
     unsigned count = 0;
     for (auto label : branchInstruction->getLabels()) {
-        result->addCase(count++, generateCBranchStatement(label, true));
+        auto* condition = new CBinaryExpression("==", new CNameUse(temps[0]), new CI32(count++));
+        result->addStatement(generateCBrIf(condition, label));
     }
 
+    if (!labelInfo.backward && !labelInfo.types.empty()) {
+        result->addStatement(saveBlockResults(defaultLabel));
+    }
+
+    result->addStatement(new CBr(labelInfo.label));
+
     skipUnreachable();
+
     return result;
 }
 
@@ -1620,6 +1658,10 @@ void CGenerator::generateCFunction()
 
     auto* resultNode = makeBlockResults(resultTypes);
 
+    if (resultNode != nullptr) {
+        function->addStatement(resultNode);
+    }
+
     while (auto* statement = generateCStatement()) {
         function->addStatement(statement);
     }
@@ -1649,8 +1691,6 @@ void CGenerator::generateCFunction()
                     function->addStatement(new CBinaryExpression("=", resultPointerNode, resultNameNode));
                 }
             }
-        } else {
-            delete resultNode;
         }
     } else if (needsReturn) {
         if (count == 1) {
@@ -2733,7 +2773,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i16x8__neg:
-                expression = generateCCallPredef("v128Negi8x16");
+                expression = generateCCallPredef("v128Negi16x8");
                 break;
 
             case Opcode::i16x8__any_true:
@@ -2833,7 +2873,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i32x4__neg:
-                expression = generateCCallPredef("v128Negi16x8");
+                expression = generateCCallPredef("v128Negi32x4");
                 break;
 
             case Opcode::i32x4__any_true:
@@ -2901,7 +2941,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i64x2__neg:
-                expression = generateCCallPredef("v128Negi32x4");
+                expression = generateCCallPredef("v128Negi64x2");
                 break;
 
             case Opcode::i64x2__shl:
