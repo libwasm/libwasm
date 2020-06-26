@@ -19,7 +19,7 @@ if ('sources/lib/OpcodeTables.cpp' not in libSources):
 
 gcc = Environment(CC='gcc',
                   CXX='g++',
-                  CCFLAGS='-std=c++17')
+                  CXXFLAGS='-std=c++17')
 
 if DEBUG == '1':
     gcc.Append(CCFLAGS=' -g')
@@ -32,7 +32,7 @@ if NDEBUG == '1':
 
 clang = Environment(CC='clang',
                     CXX='clang++',
-                    CCFLAGS='-std=c++17')
+                    CXXFLAGS='-std=c++17')
 
 if DEBUG == '1':
     clang.Append(CCFLAGS=' -g')
