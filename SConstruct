@@ -12,6 +12,7 @@ CacheDir(CACHE_DIR)
 
 libSources=glob.glob('sources/lib/*.cpp')
 mainSources=glob.glob('sources/main/*.cpp')
+libCSources='sources/c/libwasm.c'
 
 if ('sources/lib/OpcodeTables.cpp' not in libSources):
     libSources.append('sources/lib/OpcodeTables.cpp')
@@ -23,7 +24,8 @@ gcc = Environment(CC='gcc',
 if DEBUG == '1':
     gcc.Append(CCFLAGS=' -g')
 else:
-    gcc.Append(CCFLAGS=' -g -O3 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses')
+    gcc.Append(CCFLAGS=' -g -O3')
+    gcc.Append(CXXFLAGS=' -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses')
 
 if NDEBUG == '1':
     gcc.Append(CCFLAGS=' -DNDEBUG')
@@ -35,7 +37,8 @@ clang = Environment(CC='clang',
 if DEBUG == '1':
     clang.Append(CCFLAGS=' -g')
 else:
-    clang.Append(CCFLAGS=' -g -O3 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-lambda-capture')
+    clang.Append(CCFLAGS=' -g -O3')
+    clang.Append(CXXFLAGS=' -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-lambda-capture')
 
 if NDEBUG == '1':
     clang.Append(CCFLAGS=' -DNDEBUG')
@@ -67,6 +70,9 @@ Command('sources/lib/OpcodeTables.cpp', 'bin/makeOpcodeMap',
         'bin/makeOpcodeMap > sources/lib/OpcodeTables.cpp')
 
 generatedC = ['sources/c/simdFunctions.h', 'sources/c/simdFunctions.cpp']
+Depends('lib/libwasmc', generatedC)
 
 Command(generatedC, 'bin/generateSimd',
         'bin/generateSimd sources/c/simdFunctions.h sources/c/simdFunctions.c')
+
+wasmlib=compiler.Library('lib/libwasmc', libCSources)

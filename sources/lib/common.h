@@ -106,7 +106,7 @@ std::string toString(float value, bool hexfloat = false);
 std::string toString(double value, bool hexfloat = false);
 
 std::string cName(std::string_view name);
-std::string makeResultName(unsigned label, unsigned index);
+std::string makeResultName(unsigned label, size_t index);
 
 };
 

@@ -420,7 +420,7 @@ void CI32::generateC(std::ostream& os, CGenerator& generator)
 
 void CI64::generateC(std::ostream& os, CGenerator& generator)
 {
-    if (value == 0x8000000000000000ULL) {
+    if (uint64_t(value) == 0x8000000000000000ULL) {
         os << "0x8000000000000000ULL";
     } else {
         os << value << "LL";
@@ -1464,7 +1464,6 @@ CNode* CGenerator::generateCBrUnless(Instruction* instruction)
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
     auto* condition = notExpression(popExpression());
-    auto& labelInfo = getLabel(index);
     auto* branch = generateCBrIf(condition, index);
 
     if (condition->hasSideEffects()) {
@@ -1480,7 +1479,6 @@ CNode* CGenerator::generateCBrTable(Instruction* instruction)
     auto temp = getTemp(ValueType::i32);
     auto defaultLabel = branchInstruction->getDefaultLabel();
     auto& labelInfo = getLabel(defaultLabel);
-    auto& types = labelInfo.types;
     auto* result = new CCompound;
     auto* index = popExpression();
 
@@ -1590,7 +1588,6 @@ CNode* CGenerator::generateCShift(std::string_view op, std::string_view type)
 
 void CGenerator::generateCLoad(std::string_view name, Instruction* instruction, ValueType type)
 {
-    auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
     auto* memory = module->getMemory(0);
 
     pushExpression(new CLoad(name, memory->getCName(module), makeCombinedOffset(instruction)), type);

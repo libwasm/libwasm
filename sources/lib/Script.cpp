@@ -131,13 +131,15 @@ void Invoke::Value::generateC(std::ostream& os) const
         case ValueType::v128:
             os << "v128Makei64x2(" << i64x2[0] << ", " << i64x2[1] << ')';
             break;
+
+        default:
+            break;
     }
 }
 
 Invoke* Invoke::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
-    auto& msgs = context.msgs();
 
     if (!startClause(context, "invoke")) {
         return nullptr;

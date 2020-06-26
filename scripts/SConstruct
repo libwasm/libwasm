@@ -1,0 +1,59 @@
+import os
+import glob
+
+Decider('MD5-timestamp')
+
+CACHE_DIR = ARGUMENTS.get('CACHE_DIR', '/tmp/scons_cache_dir')
+DEBUG = ARGUMENTS.get('DEBUG', '0')
+NDEBUG   = ARGUMENTS.get('NDEBUG', '0')
+GCC = ARGUMENTS.get('GCC', '0')
+
+CacheDir(CACHE_DIR)
+
+convertS = '../bin/convertS'
+libSources = '../sources/c/libwasm.c'
+
+gcc = Environment(CC='gcc',
+                  CXX='g++')
+
+if DEBUG == '1':
+    gcc.Append(CCFLAGS=' -g -Wno-unused-value')
+else:
+    gcc.Append(CCFLAGS=' -g -O2 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-value')
+
+if NDEBUG == '1':
+    gcc.Append(CCFLAGS=' -DNDEBUG')
+
+clang = Environment(CC='clang',
+                    CXX='clang++')
+
+if DEBUG == '1':
+    clang.Append(CCFLAGS=' -g -Wno-unused-value')
+else:
+    clang.Append(CCFLAGS=' -g -O2 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-lambda-capture -Wno-unused-value')
+
+if NDEBUG == '1':
+    clang.Append(CCFLAGS=' -DNDEBUG')
+
+if GCC == '1':
+    compiler=gcc
+else:
+    compiler=clang
+
+scripts = glob.glob('wast/*')
+
+for source in scripts:
+    name = os.path.split(source)[1]
+    name = name.replace('.wast', '')
+
+    cName = 'c/' + name + '.c'
+    executable = 'exe/' + name
+    outName = 'result/' + name
+
+    Command(cName, [source, convertS], convertS + ' -C -o ' + cName + ' ' + source)
+
+    compiler.Program(executable, cName,
+            LIBS=['libwasmc', 'm'], LIBPATH='../lib',
+            CPPPATH=['.', '../sources/c'])
+
+    Command(outName, executable, executable + '>' + outName)

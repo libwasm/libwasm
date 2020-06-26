@@ -4,13 +4,11 @@ Linwasm is a library to manipulate webassembly files from C++.
 It also contains an assembler (converting .wat to .wasm), a dissassembler (converting .wasm to .wat), 
 a converter between sequential code and folded code and a converter from a text file to a C file.
 
-## New feature: generating c code for scripts (.wast files).
+## New feature: Added testsuite
 
-The convertS program can now generate C code for scripts.  Only the *module*, *invoke* and *assert_return*
-commands are implemented.  The resulting C file can be compiled and run, giving error messages when an *assert_return*
-command fails.
+A large subset of the wabt testsuite base directory was added to the 'script' directory.
 
-Refer to the documentation for an example.
+Refer to the documentation for more information.
 
 ## Installation
 You require a c++17 compliant C++compiler.
@@ -43,6 +41,14 @@ Compile all cpp files in the 'sources/lib' directory and put the resulting objec
 file.
 
 Compile each of the the cpp files in 'sources/main' and link with the above library.
+
+## Testing
+
+In the 'script' directory enter
+
+     $ scons <parameters...>
+
+The same scons parameters described above apply.
 
 ## Documentation
 

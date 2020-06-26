@@ -625,7 +625,7 @@ std::string toString(double value, bool hexfloat)
     return result;
 }
 
-std::string makeResultName(unsigned label, unsigned index)
+std::string makeResultName(unsigned label, size_t index)
 {
     std::string result("result");
 
@@ -633,7 +633,7 @@ std::string makeResultName(unsigned label, unsigned index)
 
     if (index != 0) {
         result += '_';
-        result += toString(index);
+        result += toString(uint32_t(index));
     }
 
     return result;

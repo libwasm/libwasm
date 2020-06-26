@@ -150,7 +150,7 @@ class CCompound : public CNode
             return child == nullptr;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addStatement(CNode* statement);
         void optimize(CGenerator& generator);
@@ -168,7 +168,7 @@ class CCompoundExpression : public CNode
         {
         }
 
-        virtual bool hasSideEffects() const
+        virtual bool hasSideEffects() const override
         {
             for (auto* expression = child; expression != nullptr; expression = expression->getNext()) {
                 if (expression->hasSideEffects()) {
@@ -179,7 +179,7 @@ class CCompoundExpression : public CNode
             return false;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addExpression(CNode* expression);
 };
@@ -194,7 +194,7 @@ class CBr : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getLabel() const
         {
@@ -216,7 +216,7 @@ class CSwitch : public CNode
             condition->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         struct Case
         {
@@ -255,7 +255,7 @@ class CBinaryExpression : public CNode
             right->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void setOp(std::string_view o)
         {
@@ -277,7 +277,7 @@ class CBinaryExpression : public CNode
             return left;
         }
 
-        virtual bool hasSideEffects() const
+        virtual bool hasSideEffects() const override
         {
             return left->hasSideEffects() || right->hasSideEffects();
         }
@@ -299,7 +299,7 @@ class CCallIndirect : public CNode
             tableIndex->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addArgument(CNode* argument);
         void reverseArguments();
@@ -330,12 +330,12 @@ class CCall : public CNode
             pure = p;
         }
 
-        virtual bool hasSideEffects() const
+        virtual bool hasSideEffects() const override
         {
             return !pure;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addArgument(CNode* argument);
         void reverseArguments();
@@ -357,12 +357,12 @@ class CCast : public CNode
             operand->link(this);
         }
 
-        virtual bool hasSideEffects() const
+        virtual bool hasSideEffects() const override
         {
             return operand->hasSideEffects();
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
         std::string_view type;
@@ -384,7 +384,7 @@ class CLabel : public CNode
             return label;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
         unsigned label = 0;
@@ -408,7 +408,7 @@ class CVariable : public CNode
             return name;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
         ValueType type;
@@ -428,7 +428,7 @@ class CFunction : public CNode
             statements->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addStatement(CNode* statement);
 
@@ -460,7 +460,7 @@ class CI32 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
         {
@@ -486,7 +486,7 @@ class CI64 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
         {
@@ -512,7 +512,7 @@ class CF32 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
         {
@@ -538,7 +538,7 @@ class CF64 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
         {
@@ -564,7 +564,7 @@ class CV128 : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
         {
@@ -597,7 +597,7 @@ class CIf : public CNode
             elseStatements->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void setResultDeclaration(CNode* node);
         void setLabelDeclaration(CNode* node);
@@ -655,12 +655,12 @@ class CLoad : public CNode
             offset->link(this);
         }
 
-        virtual bool hasSideEffects() const
+        virtual bool hasSideEffects() const override
         {
             return offset->hasSideEffects();
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
         std::string_view name;
@@ -678,7 +678,7 @@ class CNameUse : public CNode
         {
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         std::string_view getName() const
         {
@@ -707,7 +707,7 @@ class CReturn : public CNode
             }
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
         CNode* value = nullptr;
@@ -725,7 +725,7 @@ class CStore : public CNode
             value->link(this);
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
         std::string_view name;
@@ -763,13 +763,13 @@ class CTernaryExpression : public CNode
             return falseExpression;
         }
 
-        virtual bool hasSideEffects() const
+        virtual bool hasSideEffects() const override
         {
             return condition->hasSideEffects() || trueExpression->hasSideEffects() ||
                 falseExpression->hasSideEffects();;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
         CNode* condition = nullptr;
@@ -798,9 +798,9 @@ class CUnaryExpression : public CNode
             return operand;
         }
 
-        virtual void generateC(std::ostream& os, CGenerator& generator);
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
-        virtual bool hasSideEffects() const
+        virtual bool hasSideEffects() const override
         {
             return operand->hasSideEffects();
         }

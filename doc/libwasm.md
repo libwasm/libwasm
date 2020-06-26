@@ -749,8 +749,20 @@ The *name* field contains the name of the instruction as it appears in a text fi
 
 The *align* file specifies the memory alignment for the instruction.
 
-### The Context classes
+<P style="page-break-before: always">
 
-To be done.
+## C-code generation.
 
+libwasm allows to generate C code thru the *generateC* member of th *Assembler* class.
 
+The generated C-code has the same semantics as the original ebassembly text, with very few exception.
+The code does not handle traps or division by zero.  The format of an arithmetic Nan is slightly different from the one
+used by the WABT interpreter.
+
+The generated C code can be tested with a subset of the WABT testsuite that can be found in the 'script' directory.
+
+In that directory just enter
+
+     scons -j6
+
+This should yield no errors.
