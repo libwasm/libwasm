@@ -994,21 +994,31 @@ void TypeDeclaration::generate(std::ostream& os, Module* module)
 void TypeDeclaration::generateC(std::ostream& os, const Module* module)
 {
     auto& results = signature->getResults();
+    auto resultCount = results.size();
 
     os << "\ntypedef ";
 
-    if (results.empty()) {
-        os << "void";
-    } else {
+    if (resultCount == 1) {
         os << results[0].getCName();
+    } else {
+        os << "void";
     }
 
     os << "(*" << module->getNamePrefix() << "type" << number << ")(";
 
     const char* separator = "";
 
+    if (resultCount > 1) {
+        for (size_t i = 0; i < resultCount; ++i) {
+            auto resultPointerName = makeResultName(0, i) + "_ptr";
+
+            os << separator << results[i].getCName() << " *" << resultPointerName;
+            separator = ", ";
+        }
+    }
+
     for (auto& param : signature->getParams()) {
-        os << separator << param->getType().getCName();
+        os << separator << param->getType().getCName() << ' ' << param->getCName();
         separator = ", ";
     }
 
@@ -2313,7 +2323,7 @@ void FunctionDeclaration::generateC(std::ostream& os, const Module* module)
 {
     os << '\n';
 
-    if (externId.empty()) {
+    if (!isExported) {
         os << "static ";
     }
 
@@ -2926,7 +2936,7 @@ void GlobalDeclaration::generateC(std::ostream& os, const Module* module)
 {
     os << '\n';
 
-    if (externId.empty()) {
+    if (!isExported) {
         os << "static ";
     }
 
@@ -2934,7 +2944,7 @@ void GlobalDeclaration::generateC(std::ostream& os, const Module* module)
 
     if (expression) {
         os << " = ";
-        expression->generateValue(os, module);
+        expression->generateCValue(os, module);
     }
 
     os << ';';
@@ -3130,22 +3140,42 @@ void ExportDeclaration::check(CheckContext& context)
 
     switch(kind) {
         case ExternalType::function:
+            if (auto* function = context.getModule()->getFunction(index); function != nullptr) {
+                function->setExported();
+            }
+
             context.checkFunctionIndex(this, index);
             break;
 
         case ExternalType::table:
+            if (auto* table = context.getModule()->getTable(index); table != nullptr) {
+                table->setExported();
+            }
+
             context.checkTableIndex(this, index);
             break;
 
         case ExternalType::memory:
+            if (auto* memory = context.getModule()->getMemory(index); memory != nullptr) {
+                memory->setExported();
+            }
+
             context.checkMemoryIndex(this, index);
             break;
 
         case ExternalType::global:
+            if (auto* global = context.getModule()->getGlobal(index); global != nullptr) {
+                global->setExported();
+            }
+
             context.checkGlobalIndex(this, index);
             break;
 
         case ExternalType::event:
+            if (auto* event = context.getModule()->getEvent(index); event != nullptr) {
+                event->setExported();
+            }
+
             context.checkEventIndex(this, index);
             break;
 
@@ -3409,7 +3439,7 @@ void Expression::generate(std::ostream& os, Module* module)
     }
 }
 
-void Expression::generateValue(std::ostream& os, const Module* module)
+void Expression::generateCValue(std::ostream& os, const Module* module)
 {
     assert(instructions.size() == 1);
 
@@ -3444,6 +3474,16 @@ void Expression::generateValue(std::ostream& os, const Module* module)
 
                 os << "{ 0x" << std::hex << std::setw(16) << std::setfill('0') << a64[0] <<
                     "LL, 0x" << std::setw(16) << std::setfill('0') << a64[0] << std::dec << "LL }";
+            }
+
+            break;
+
+        case Opcode::global__get:
+            {
+                auto globalIndex = static_cast<InstructionGlobalIdx*>(instruction)->getIndex();
+                auto* global = module->getGlobal(globalIndex);
+
+                os << global->getCName(module);
             }
 
             break;
@@ -3569,10 +3609,14 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
     result->number = module->nextElementCount();
 
     if (auto id = tokens.getId()) {
-        result->id = *id;
+        if (auto index = module->getTableIndex(*id); index != invalidIndex) {
+            result->tableIndex = index;
+        } else {
+            result->id = *id;
 
-        if (!module->addElementId(*id, result->number)) {
-            msgs.error(tokens.peekToken(-1), "Duplicate element id.");
+            if (!module->addElementId(*id, result->number)) {
+                msgs.error(tokens.peekToken(-1), "Duplicate element id.");
+            }
         }
     }
 
@@ -4065,7 +4109,7 @@ void CodeEntry::generateC(std::ostream& os, const Module* module, bool optimized
 
     os << '\n';
 
-    if (function->getExternId().empty()) {
+    if (!function->getExported()) {
         os << "static ";
     }
 

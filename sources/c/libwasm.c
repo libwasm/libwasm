@@ -4,6 +4,116 @@
 
 #include <malloc.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define MAX_VALUE(v1,v2) ((v1 < v2) ? v2 : v1)
+#define MIN_VALUE(v1,v2) ((v1 < v2) ? v1 : v2)
+#define AVGR(v1, v2) (v1 + v2 + 1) / 2
+#define ABS_VALUE(v) ((v < 0) ? -v : v)
+#define U(v) ((v128_u)(v))
+
+uint32_t rotl32(uint32_t value, uint32_t count)
+{
+    count %= 32;
+
+    if (count == 0) {
+        return value;
+    }
+
+    return (value << count) | (value >> (32 - count));
+}
+
+uint32_t rotr32(uint32_t value, uint32_t count)
+{
+    count %= 32;
+
+    if (count == 0) {
+        return value;
+    }
+
+    return (value >> count) | (value << (32 - count));
+}
+
+uint64_t rotl64(uint64_t value, uint32_t count)
+{
+    count %= 64;
+
+    if (count == 0) {
+        return value;
+    }
+
+    return (value << count) | (value >> (64 - count));
+}
+
+uint64_t rotr64(uint64_t value, uint32_t count)
+{
+    count %= 64;
+
+    if (count == 0) {
+        return value;
+    }
+
+    return (value >> count) | (value << (64 - count));
+}
+
+float nanF32(uint32_t x)
+{
+    uint32_t bits = 0x7f800000 | *(uint32_t*)&x;
+    return *(float*)&bits;
+}
+
+double nanF64(uint64_t x)
+{
+    uint64_t bits = 0x7ff0000000000000ULL | *(uint64_t*)&x;
+    return *(double*)&bits;
+}
+
+float minF32(float v1, float v2)
+{
+    if (isnan(v1) || isnan(v2)) {
+        return NAN;
+    } else if (v1 == 0 && v2 == 0) {
+        return (*(int32_t*)&v1 < *(int32_t*)&v2) ? v1 : v2;
+    } else {
+        return (v1 < v2) ? v1 : v2;
+    }
+}
+
+double minF64(double v1, double v2)
+{
+    if (isnan(v1) || isnan(v2)) {
+        return NAN;
+    } else if (v1 == 0 && v2 == 0) {
+        return (*(int64_t*)&v1 < *(int64_t*)&v2) ? v1 : v2;
+    } else {
+        return (v1 < v2) ? v1 : v2;
+    }
+}
+
+float maxF32(float v1, float v2)
+{
+    if (isnan(v1) || isnan(v2)) {
+        return NAN;
+    } else if (v1 == 0 && v2 == 0) {
+        return (*(int32_t*)&v1 < *(int32_t*)&v2) ? v2 : v1;
+    } else {
+        return (v1 < v2) ? v2 : v1;
+    }
+}
+
+double maxF64(double v1, double v2)
+{
+    if (isnan(v1) || isnan(v2)) {
+        return NAN;
+    } else if (v1 == 0 && v2 == 0) {
+        return (*(int64_t*)&v1 < *(int64_t*)&v2) ? v2 : v1;
+    } else {
+        return (v1 < v2) ? v2 : v1;
+    }
+}
+
 void initializeMemory(Memory* memory, uint32_t min, uint32_t max)
 {
     memory->pageCount = min;
@@ -75,7 +185,28 @@ double reinterpretF64I64(int64_t value)
     return *(double*)&value;
 }
 
-#ifndef HARDWARE_SUPPORT
+#ifdef HARDWARE_SUPPORT
+uint32_t clz32(uint32_t value)
+{
+    return (value == 0) ? 32 : __builtin_clz(value);
+}
+
+uint32_t clz64(uint64_t value)
+{
+    return (value == 0) ? 64 : __builtin_clzl(value);
+}
+
+uint32_t ctz32(uint32_t value)
+{
+    return (value == 0) ? 32 : __builtin_ctz(value);
+}
+
+uint32_t ctz64(uint64_t value)
+{
+    return (value == 0) ? 64 : __builtin_ctzl(value);
+}
+
+#else
 
 uint32_t clz32(uint32_t value)
 {
@@ -557,4 +688,8 @@ v128_t v128Swizzlei8x16(v128_t v1, v128_t v2)
  */
 
 #include "simdFunctions.c"
+
+#ifdef __cplusplus
+}
+#endif
 

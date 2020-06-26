@@ -47,6 +47,7 @@ class Invoke
                 v128_t   v128;
             };
 
+            std::string_view string;
             void generateC(std::ostream& os) const;
             static Value parse(SourceContext& context);
         };

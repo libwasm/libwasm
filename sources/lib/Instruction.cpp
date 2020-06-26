@@ -80,9 +80,7 @@ InstructionNone* InstructionNone::parse(SourceContext& context, Opcode opcode)
 
 InstructionNone* InstructionNone::read(BinaryContext& context)
 {
-    auto result = context.makeTreeNode<InstructionNone>();
-
-    return result;
+    return context.makeTreeNode<InstructionNone>();
 }
 
 void InstructionNone::write(BinaryContext& context)
@@ -102,6 +100,16 @@ void InstructionNone::generate(std::ostream& os, InstructionContext& context)
     }
 
     os << opcode;
+}
+
+InstructionValueType* InstructionValueType::parse(SourceContext& context, Opcode opcode)
+{
+    return context.makeTreeNode<InstructionValueType>();
+}
+
+InstructionValueType* InstructionValueType::read(BinaryContext& context)
+{
+    return context.makeTreeNode<InstructionValueType>();
 }
 
 InstructionI32* InstructionI32::parse(SourceContext& context, Opcode opcode)
@@ -1491,6 +1499,7 @@ Instruction* Instruction::parse(SourceContext& context)
 
     switch(encoding) {
         case ImmediateType::none:               result = InstructionNone::parse(context, *opcode); break;
+        case ImmediateType::valueType:          result = InstructionValueType::parse(context, *opcode); break;
         case ImmediateType::i32:                result = InstructionI32::parse(context, *opcode); break;
         case ImmediateType::i64:                result = InstructionI64::parse(context, *opcode); break;
         case ImmediateType::f32:                result = InstructionF32::parse(context, *opcode); break;
@@ -1632,6 +1641,7 @@ Instruction* Instruction::read(BinaryContext& context)
 
     switch(encoding) {
         case ImmediateType::none:               result = InstructionNone::read(context); break;
+        case ImmediateType::valueType:          result = InstructionValueType::read(context); break;
         case ImmediateType::i32:                result = InstructionI32::read(context); break;
         case ImmediateType::i64:                result = InstructionI64::read(context); break;
         case ImmediateType::f32:                result = InstructionF32::read(context); break;

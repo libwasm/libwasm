@@ -228,7 +228,9 @@ void CFunction::generateC(std::ostream& os, CGenerator& generator)
 {
     generator.indent();
     for (auto& local : generator.getCodeEntry()->getLocals()) {
-        os << "\n  " << local->getType().getCName() << ' ' << local->getCName() << ';';
+        auto type = local->getType();
+
+        os << "\n  " << type.getCName() << ' ' << local->getCName() << " = " << type.getCNullValue() << ';';
     }
 
     generator.generateStatement(os, statements);
@@ -243,10 +245,7 @@ void CFunction::optimize(CGenerator& generator)
 
 void CLabel::generateC(std::ostream& os, CGenerator& generator)
 {
-    os << "\nlabel" << toString(label) << ':';
-    if (next == nullptr) {
-        os << ';';
-    }
+    os << "\nlabel" << toString(label) << ":;";
 }
 
 static unsigned binaryPrecedence(std::string_view op)
@@ -339,7 +338,7 @@ static bool needsParenthesis(CNode* node, std::string_view op)
             return parentPrecedence != 2;
         }
 
-        return parentPrecedence > precedence;
+        return parentPrecedence >= precedence;
     }
 
     if (parentKind == CNode::kUnaryExpression) {
@@ -366,8 +365,8 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
                 auto* rightLeft = rightBinary->left;
 
                 if (rightLeft->getKind() == CNode::kNameUse) {
-                    std::string_view leftName = static_cast<CNameUse*>(left)->getName();
-                    std::string_view rightLeftName = static_cast<CNameUse*>(rightLeft)->getName();
+                    auto leftName = static_cast<CNameUse*>(left)->getName();
+                    auto rightLeftName = static_cast<CNameUse*>(rightLeft)->getName();
 
                     if (leftName == rightLeftName) {
                         if (parenthesis) {
@@ -384,6 +383,13 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
                         return;
                     }
                 }
+            }
+        } else if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kNameUse) {
+            auto leftName = static_cast<CNameUse*>(left)->getName();
+            auto rightName = static_cast<CNameUse*>(right)->getName();
+
+            if (leftName == rightName) {
+                return;
             }
         }
     }
@@ -526,12 +532,12 @@ void CCast::generateC(std::ostream& os, CGenerator& generator)
 
 void CF32::generateC(std::ostream& os, CGenerator& generator)
 {
-    os << toString(value);
+    os << toString(value, true);
 }
 
 void CF64::generateC(std::ostream& os, CGenerator& generator)
 {
-    os << toString(value);
+    os << toString(value, true);
 }
 
 void CV128::generateC(std::ostream& os, CGenerator& generator)
@@ -568,11 +574,31 @@ void CStore::generateC(std::ostream& os, CGenerator& generator)
 
 void CTernaryExpression::generateC(std::ostream& os, CGenerator& generator)
 {
+    bool needsParenthesis = false;
+
+    if (parent != nullptr) {
+        auto parentKind = parent->getKind();
+
+        if (parentKind == CNode::kCast || parentKind == CNode::kUnaryExpression ||
+                parentKind == CNode::kBinauryExpression || parentKind == CNode::kTernaryExpression) {
+            needsParenthesis = true;
+        }
+    }
+
+    if (needsParenthesis) {
+        os << '(';
+    }
+
     condition->generateC(os, generator);
     os << " ? ";
     trueExpression->generateC(os, generator);
     os << " : ";
     falseExpression->generateC(os, generator);
+
+    if (needsParenthesis) {
+        os << ')';
+    }
+
 }
 
 void CUnaryExpression::generateC(std::ostream& os, CGenerator& generator)
@@ -597,6 +623,14 @@ void CCompound::flatten()
 {
     for (auto* statement = child; statement != nullptr; ) {
         if (auto* compound = statement->castTo<CCompound>(); compound != nullptr) {
+            statement = compound->getChild();
+
+            while (compound->getChild() != nullptr) {
+                compound->getChild()->link(this, compound);
+            }
+
+            delete compound;
+        } else if (auto* compound = statement->castTo<CCompoundExpression>(); compound != nullptr) {
             statement = compound->getChild();
 
             while (compound->getChild() != nullptr) {
@@ -742,6 +776,27 @@ void CCompound::optimize(CGenerator& generator)
     optimizeIfs(generator);
 }
 
+void CCompoundExpression::addExpression(CNode* expression)
+{
+    expression->link(this);
+}
+
+void CCompoundExpression::generateC(std::ostream& os, CGenerator& generator)
+{
+    os << '(';
+
+    const char* separator = "";
+
+    for (auto* expression = child; expression != nullptr; expression = expression->getNext()) {
+        os << separator << '(';
+        expression->generateC(os, generator);
+        os << ')';
+        separator = ", ";
+    }
+
+    os << ')';
+}
+
 void CIf::setResultDeclaration(CNode* node)
 {
     resultDeclaration = node;
@@ -783,6 +838,7 @@ void CIf::generateC(std::ostream& os, CGenerator& generator)
 
     generator.generateStatement(os, tempDeclarations);
 
+    generator.nl(os);
     os << "if (";
     condition->generateC(os, generator);
     os << ") {";
@@ -856,18 +912,72 @@ CGenerator::~CGenerator()
     delete function;
 }
 
-void CGenerator::pushExpression(CNode* expression)
+CCompoundExpression* CGenerator::tempify()
 {
-    expressionStack.push_back(expression);
+    CCompoundExpression* result = nullptr;
+
+    for (auto& info : expressionStack) {
+        if (info.hasSideEffects) {
+            if (result == nullptr) {
+                result = new CCompoundExpression;
+            }
+
+            auto temp = getTemp(info.type);
+
+            result->addExpression(new CBinaryExpression("=", new CNameUse(temp), info.expression));
+            info.expression = new CNameUse(temp);
+            info.hasSideEffects = false;
+        }
+    }
+
+    return result;
+}
+
+CNode* CGenerator::tempify(CNode* expression)
+{
+    if (CCompoundExpression* result = tempify(); result != nullptr) {
+        result->addExpression(expression);
+        return result;
+    } else {
+        return expression;
+    }
+}
+
+void CGenerator::pushExpression(CNode* expression, ValueType type, bool hasSideEffects)
+{
+    expressionStack.emplace_back(expression, type, hasSideEffects);
 }
 
 CNode* CGenerator::popExpression()
 {
     assert(!expressionStack.empty());
-    auto* result = expressionStack.back();
+
+    auto* result = expressionStack.back().expression;
     expressionStack.pop_back();
 
     return result;
+}
+
+CNode* CGenerator::getExpression(size_t offset)
+{
+    assert(offset < expressionStack.size());
+
+    return expressionStack[expressionStack.size() - 1 - offset].expression;
+}
+
+void CGenerator::replaceExpression(CNode* expression, size_t offset)
+{
+    assert(offset < expressionStack.size());
+
+    expressionStack[expressionStack.size() - 1 - offset].expression = expression;
+}
+
+std::string CGenerator::getTemp(ValueType type)
+{
+    auto tempName = "temp_" + toString(temp++);
+
+    tempNode->addStatement(new CVariable(type, tempName));
+    return tempName;
 }
 
 std::vector<std::string> CGenerator::getTemps(const std::vector<ValueType>& types)
@@ -876,30 +986,30 @@ std::vector<std::string> CGenerator::getTemps(const std::vector<ValueType>& type
     result.reserve(types.size());
 
     for (auto& type : types) {
-        auto tempName = "temp_" + toString(temp++);
-
-        result.push_back(tempName);
-        tempNode->addStatement(new CVariable(type, tempName));
+        result.emplace_back(getTemp(type));
     }
 
     return result;
 }
 
-std::string CGenerator::localName(Instruction* instruction)
+const Local* CGenerator::getLocal(uint32_t localIndex)
 {
     auto* function = module->getFunction(codeEntry->getNumber());
-    auto localIndex = static_cast<InstructionLocalIdx*>(instruction)->getIndex();
     auto* signature = function->getSignature();
     const auto& parameters = signature->getParams();
-    std::string result;
 
     if (localIndex < parameters.size()) {
-        result = parameters[localIndex]->getCName();
+        return parameters[localIndex].get();
     } else {
-        result = codeEntry->getLocals()[localIndex - parameters.size()]->getCName();
+        return codeEntry->getLocals()[localIndex - parameters.size()].get();
     }
+}
 
-    return result;
+std::string CGenerator::localName(Instruction* instruction)
+{
+    auto localIndex = static_cast<InstructionLocalIdx*>(instruction)->getIndex();
+
+    return getLocal(localIndex)->getCName();
 }
 
 unsigned CGenerator::pushLabel(std::vector<ValueType> types)
@@ -989,6 +1099,7 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
     auto types = getBlockResults(blockInstruction);
     auto count = types.size();
     auto* resultNode = makeBlockResults(types);
+    bool tempifyDone = false;
 
     if (resultNode != nullptr) {
         result->addStatement(resultNode);
@@ -1006,8 +1117,17 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
 
         for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
             auto* resultNameNode = new CNameUse(makeResultName(label, i));
+            auto* value = popExpression();
 
-            result->addStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
+            if (!tempifyDone && value->hasSideEffects()) {
+                if (auto* compoundExpression = tempify(); compoundExpression != nullptr) {
+                    result->addStatement(compoundExpression);
+                }
+
+                tempifyDone = true;
+            }
+
+            result->addStatement(new CBinaryExpression("=", resultNameNode, value));
         }
 
         result->addStatement(new CLabel(blockLabel));
@@ -1034,11 +1154,12 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
     auto* result = new CCompound();
     auto blockLabel = pushLabel(resultTypes);
     auto label = labelStack.back().label;
-    auto stackSize = expressionStack.size();
     auto labelStackSize = labelStack.size();
     auto types = getBlockResults(blockInstruction);
     auto count = types.size();
     auto* resultNode = makeBlockResults(types);
+    bool tempifyDone = false;
+    std::vector<std::string>& temps = labelStack.back().temps;
 
     if (resultNode != nullptr) {
         result->addStatement(resultNode);
@@ -1047,7 +1168,37 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
     labelStack.back().branchTarget = true;
     labelStack.back().backward = true;
 
+    if (auto* signature = blockInstruction->getSignature(); signature != nullptr) {
+        auto& params = signature->getParams();
+
+        if (!params.empty()) {
+            temps.reserve(params.size());
+
+            for (auto& param : params) {
+                auto tempName = "temp_" + toString(temp++);
+                auto* value = popExpression();
+
+                if (!tempifyDone && value->hasSideEffects()) {
+                    if (auto* compoundExpression = tempify(); compoundExpression != nullptr) {
+                        result->addStatement(compoundExpression);
+                    }
+
+                    tempifyDone = true;
+                }
+
+                temps.push_back(tempName);
+                result->addStatement(new CVariable(param->getType(), tempName, value));
+            }
+        }
+    }
+
+    auto stackSize = expressionStack.size();
+
     result->addStatement(new CLabel(blockLabel));
+
+    for (auto i = temps.size(); i-- > 0; ) {
+        pushExpression(new CNameUse(temps[i]));
+    }
 
     while (auto* statement = generateCStatement()) {
         result->addStatement(statement);
@@ -1058,8 +1209,17 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
 
     for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
         auto* resultNameNode = new CNameUse(makeResultName(label, i));
+        auto* value = popExpression();
 
-        result->addStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
+        if (!tempifyDone && value->hasSideEffects()) {
+            if (auto* compoundExpression = tempify(); compoundExpression != nullptr) {
+                result->addStatement(compoundExpression);
+            }
+
+            tempifyDone = true;
+        }
+
+        result->addStatement(new CBinaryExpression("=", resultNameNode, value));
     }
 
     if (labelStackSize <= labelStack.size()) {
@@ -1084,7 +1244,6 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
     auto* result = new CIf(condition, label, types);
     auto blockLabel = pushLabel(resultTypes);
     auto label = labelStack.back().label;
-    auto stackSize = expressionStack.size();
     auto labelStackSize = labelStack.size();
     auto count = types.size();
     auto* resultNode = makeBlockResults(types);
@@ -1111,12 +1270,13 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
         }
     }
 
+    auto stackSize = expressionStack.size();
+
+    for (auto i = temps.size(); i-- > 0; ) {
+        pushExpression(new CNameUse(temps[i]));
+    }
 
     if (instructionPointer != instructionEnd && instructionPointer->get()->getOpcode() != Opcode::else_) {
-        for (auto i = temps.size(); i-- > 0; ) {
-            pushExpression(new CNameUse(temps[i]));
-        }
-
         while (auto* statement = generateCStatement()) {
             result->addThenStatement(statement);
             if (labelStack.size() < labelStackSize) {
@@ -1131,12 +1291,12 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
         result->addThenStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
     }
 
+    for (auto i = temps.size(); i-- > 0; ) {
+        pushExpression(new CNameUse(temps[i]));
+    }
+
     if (instructionPointer != instructionEnd && instructionPointer->get()->getOpcode() == Opcode::else_) {
         ++instructionPointer;
-
-        for (auto i = temps.size(); i-- > 0; ) {
-            pushExpression(new CNameUse(temps[i]));
-        }
 
         while (auto* statement = generateCStatement()) {
             result->addElseStatement(statement);
@@ -1144,12 +1304,12 @@ CNode* CGenerator::generateCIf(Instruction* instruction)
                 break;
             }
         }
+    }
 
-        for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
-            auto* resultNameNode = new CNameUse(makeResultName(label, i));
+    for (auto i = count; expressionStack.size() > stackSize && i-- > 0; ) {
+        auto* resultNameNode = new CNameUse(makeResultName(label, i));
 
-            result->addElseStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
-        }
+        result->addElseStatement(new CBinaryExpression("=", resultNameNode, popExpression()));
     }
 
     if (labelStackSize <= labelStack.size()) {
@@ -1184,6 +1344,7 @@ CCompound* CGenerator::saveBlockResults(uint32_t index)
     auto& labelInfo = getLabel(index);
     auto* compound = new CCompound;
     auto& types = labelInfo.types;
+
     auto count = types.size();
 
     for (auto i = count; i-- > 0; ) {
@@ -1222,21 +1383,37 @@ CNode* CGenerator::generateCBr(Instruction* instruction)
         skipUnreachable(index);
 
         return result;
-    } else {
-        skipUnreachable(index);
+    } else if (labelInfo.backward) {
+        const auto& temps = labelInfo.temps;
 
-        return new CBr(labelInfo.label);
+        if (labelInfo.backward && !temps.empty()) {
+            auto* result = new CCompound;
+
+            for (const auto& temp : labelInfo.temps) {
+                result->addStatement(new CBinaryExpression("=", new CNameUse(temp), popExpression()));
+            }
+
+            result->addStatement(new CBr(labelInfo.label));
+            skipUnreachable(index);
+
+            return result;
+        }
     }
+
+    skipUnreachable(index);
+
+    return new CBr(labelInfo.label);
 }
 
 CNode* CGenerator::generateCBrIf(CNode* condition, uint32_t index)
 {
     auto& labelInfo = getLabel(index);
     auto* ifNode = new CIf(condition);
+    auto* branchStatement = new CBr(labelInfo.label);
 
     labelInfo.branchTarget = true;
 
-    ifNode->addThenStatement(new CBr(labelInfo.label));
+    ifNode->addThenStatement(branchStatement);
 
     if (!labelInfo.backward && !labelInfo.types.empty()) {
         auto* result = saveBlockResults(index);
@@ -1245,6 +1422,24 @@ CNode* CGenerator::generateCBrIf(CNode* condition, uint32_t index)
 
         pushBlockResults(index);
         return result;
+    } else if (labelInfo.backward) {
+        const auto& temps = labelInfo.temps;
+
+        if (!temps.empty()) {
+            auto* result = new CCompound;
+
+            for (const auto& temp : temps) {
+                result->addStatement(new CBinaryExpression("=", new CNameUse(temp), popExpression()));
+            }
+
+            result->addStatement(ifNode);
+
+            for (auto i = temps.size(); i-- > 0; ) {
+                pushExpression(new CNameUse(temps[i]));
+            }
+
+            return result;
+        }
     }
 
     return ifNode;
@@ -1255,8 +1450,13 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
     auto* condition = popExpression();
+    auto* branch = generateCBrIf(condition, index);
 
-    return generateCBrIf(condition, index);
+    if (condition->hasSideEffects()) {
+        return tempify(branch);
+    } else {
+        return branch;
+    }
 }
 
 CNode* CGenerator::generateCBrUnless(Instruction* instruction)
@@ -1265,25 +1465,38 @@ CNode* CGenerator::generateCBrUnless(Instruction* instruction)
     auto index = branchInstruction->getIndex();
     auto* condition = notExpression(popExpression());
     auto& labelInfo = getLabel(index);
+    auto* branch = generateCBrIf(condition, index);
 
-    return generateCBrIf(condition, index);
+    if (condition->hasSideEffects()) {
+        return tempify(branch);
+    } else {
+        return branch;
+    }
 }
 
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionBrTable*>(instruction);
-    auto temps = getTemps({ValueType::i32});
+    auto temp = getTemp(ValueType::i32);
     auto defaultLabel = branchInstruction->getDefaultLabel();
     auto& labelInfo = getLabel(defaultLabel);
+    auto& types = labelInfo.types;
     auto* result = new CCompound;
+    auto* index = popExpression();
+
+    if (index->hasSideEffects()) {
+        if (auto* t = tempify(); t != nullptr) {
+            result->addStatement(t);
+        }
+    }
 
     labelInfo.branchTarget = true;
 
-    result->addStatement(new CBinaryExpression("=", new CNameUse(temps[0]), popExpression()));
+    result->addStatement(new CBinaryExpression("=", new CNameUse(temp), index));
 
     unsigned count = 0;
     for (auto label : branchInstruction->getLabels()) {
-        auto* condition = new CBinaryExpression("==", new CNameUse(temps[0]), new CI32(count++));
+        auto* condition = new CBinaryExpression("==", new CNameUse(temp), new CI32(count++));
         result->addStatement(generateCBrIf(condition, label));
     }
 
@@ -1347,19 +1560,49 @@ CNode* CGenerator::makeCombinedOffset(Instruction* instruction)
     return combinedOffset;
 }
 
-CNode* CGenerator::generateCLoad(std::string_view name, Instruction* instruction)
+CNode* CGenerator::generateCShift(std::string_view op, std::string_view type)
+{
+    auto* right = popExpression();
+    auto* left = popExpression();
+    std::string_view cast;
+    int32_t mod = 0;
+
+    if (type == "i32") {
+        mod = 32;
+    } else if (type == "u32") {
+        cast = "uint32_t";
+        mod = 32;
+    } else if (type == "i64") {
+        mod = 64;
+    } else if (type == "u64") {
+        cast = "uint64_t";
+        mod = 64;
+    }
+
+    right = new CBinaryExpression("%", right, new CI32(mod));
+
+    if (!cast.empty()) {
+        left = new CCast(cast, left);
+    }
+
+    return new CBinaryExpression(op, left, right);
+}
+
+void CGenerator::generateCLoad(std::string_view name, Instruction* instruction, ValueType type)
 {
     auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
     auto* memory = module->getMemory(0);
 
-    return new CLoad(name, memory->getCName(module), makeCombinedOffset(instruction));
+    pushExpression(new CLoad(name, memory->getCName(module), makeCombinedOffset(instruction)), type);
 }
 
-CNode* CGenerator::generateCLoadSplat(std::string_view splatName, std::string_view loadName, Instruction* instruction)
+CNode* CGenerator::generateCLoadSplat(std::string_view splatName, std::string_view loadName,
+    Instruction* instruction, ValueType type)
 {
     auto* result = new CCall(splatName);
+    generateCLoad(loadName, instruction, type);
 
-    result->addArgument(generateCLoad(loadName, instruction));
+    result->addArgument(popExpression());
 
     return result;
 }
@@ -1375,11 +1618,25 @@ CNode* CGenerator::generateCLoadExtend(std::string_view loadName, Instruction* i
 
 CNode* CGenerator::generateCStore(std::string_view name, Instruction* instruction)
 {
+    bool tempifyDone = false;
+    CCompoundExpression* compoundExpression = nullptr;
     auto* valueToStore = popExpression();
+
+    if (valueToStore->hasSideEffects()) {
+        compoundExpression = tempify();
+        tempifyDone = true;
+    }
+
+    auto* dynamicOffset = popExpression();
+
+    if (!tempifyDone && dynamicOffset->hasSideEffects()) {
+        compoundExpression = tempify();
+        tempifyDone = true;
+    }
+
     auto* memoryInstruction = static_cast<InstructionMemory*>(instruction);
     auto* memory = module->getMemory(0);
     auto offset = memoryInstruction->getOffset();
-    auto* dynamicOffset = popExpression();
     CNode* combinedOffset = nullptr;
 
     if (offset == 0) {
@@ -1398,35 +1655,91 @@ CNode* CGenerator::generateCStore(std::string_view name, Instruction* instructio
         combinedOffset = new CBinaryExpression("+", new CI64(offset), dynamicOffset);
     }
 
-    return new CStore(name, memory->getCName(module), combinedOffset, valueToStore);
+    auto* store = new CStore(name, memory->getCName(module), combinedOffset, valueToStore);
+
+    if (compoundExpression != nullptr) {
+        compoundExpression->addExpression(store);
+        return compoundExpression;
+    } else {
+        return store;
+    }
+}
+
+void CGenerator::generateCLocalGet(Instruction* instruction)
+{
+    auto localIndex = static_cast<InstructionLocalIdx*>(instruction)->getIndex();
+    auto* local = getLocal(localIndex);
+
+    pushExpression(new CNameUse(local->getCName()), local->getType());
 }
 
 CNode* CGenerator::generateCLocalSet(Instruction* instruction)
 {
     auto* left = new CNameUse(localName(instruction));
     auto* right = popExpression();
+    auto* result = new CBinaryExpression("=", left, right);
 
-    return new CBinaryExpression("=", left, right);
+
+    if (right->hasSideEffects()) {
+        return tempify(result);
+    } else {
+        return result;
+    }
+}
+
+CNode* CGenerator::generateCLocalTee(Instruction* instruction)
+{
+    auto* right = popExpression();
+    auto* result = new CBinaryExpression("=", new CNameUse(localName(instruction)), right);
+
+    pushExpression(new CNameUse(localName(instruction)));
+
+    if (right->hasSideEffects()) {
+        return tempify(result);
+    } else {
+        return result;
+    }
+}
+
+void CGenerator::generateCGlobalGet(Instruction* instruction)
+{
+    auto globalIndex = static_cast<InstructionGlobalIdx*>(instruction)->getIndex();
+    auto* global = module->getGlobal(globalIndex);
+
+    pushExpression(new CNameUse(global->getCName(module)), global->getType(), true);
 }
 
 CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
 {
     auto* left = new CNameUse(globalName(instruction));
     auto* right = popExpression();
+    auto* result = new CBinaryExpression("=", left, right);
 
-    return new CBinaryExpression("=", left, right);
+    if (right->hasSideEffects()) {
+        return tempify(result);
+    } else {
+        return result;
+    }
 }
 
 CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentCount)
 {
-    auto* result = new CCall(name);
-
+    auto* call = new CCall(name);
+    CNode* result = call;
+    bool tempifyDone = false;
+ 
     for (unsigned i = 0; i < argumentCount; ++i) {
         auto* argument = popExpression();
-        result->addArgument(argument);
-    }
 
-    result->reverseArguments();
+        if (!tempifyDone && argument->hasSideEffects()) {
+            result = tempify(call);
+            tempifyDone = true;
+        }
+
+        call->addArgument(argument);
+    }
+ 
+    call->reverseArguments();
 
     return result;
 }
@@ -1434,10 +1747,8 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
 CNode* CGenerator::generateCMemorySize()
 {
     auto* memory = module->getMemory(0);
-    auto* pageCount = new CBinaryExpression(".", new CNameUse(memory->getCName(module)),
-            new CNameUse("pageCount"));
 
-    return new CBinaryExpression("*",  pageCount, new CNameUse("memoryPageSize"));
+    return new CBinaryExpression(".", new CNameUse(memory->getCName(module)), new CNameUse("pageCount"));
 }
 
 CNode* CGenerator::generateCMemoryGrow()
@@ -1468,6 +1779,7 @@ CNode* CGenerator::generateCDoubleCast(std::string_view name1, std::string_view 
 
 CNode* CGenerator::generateCDrop(Instruction* instruction)
 {
+    auto hasSideEffects = expressionStack.back().hasSideEffects;
     auto statement = popExpression();
 
     switch(statement->getKind()) {
@@ -1475,22 +1787,56 @@ CNode* CGenerator::generateCDrop(Instruction* instruction)
         case CNode::kI64:
         case CNode::kF32:
         case CNode::kF64:
+        case CNode::kV128:
         case CNode::kNameUse:
-            delete statement;
-            return 0;
+            {
+                delete statement;
+
+                if (hasSideEffects) {
+                    return tempify();
+                } else {
+                    return nullptr;
+                }
+            }
 
         default:
             return statement;
     }
 }
 
-CNode* CGenerator::generateCSelect(Instruction* instruction)
+void CGenerator::generateCSelect(Instruction* instruction)
 {
+    auto* selectInstruction = static_cast<InstructionValueType*>(instruction);
+    auto type = selectInstruction->getType();
+    bool tempifyDone = false;
     auto* condition = popExpression();
+    CCompoundExpression* compoundExpression = nullptr;
+
+    if (condition->hasSideEffects()) {
+        compoundExpression = tempify();
+        tempifyDone = true;
+    }
+
     auto* falseValue = popExpression();
+
+    if (!tempifyDone && falseValue->hasSideEffects()) {
+        compoundExpression = tempify();
+        tempifyDone = true;
+    }
+
     auto* trueValue = popExpression();
 
-    return new CTernaryExpression(condition, trueValue, falseValue);
+    if (!tempifyDone && trueValue->hasSideEffects()) {
+        compoundExpression = tempify();
+        tempifyDone = true;
+    }
+
+    if (compoundExpression != nullptr) {
+        compoundExpression->addExpression(new CTernaryExpression(condition, trueValue, falseValue));
+        pushExpression(compoundExpression, type);
+    } else {
+        pushExpression(new CTernaryExpression(condition, trueValue, falseValue), type);
+    }
 }
 
 CNode* CGenerator::generateCReturn(Instruction* instruction)
@@ -1520,79 +1866,113 @@ CNode* CGenerator::generateCReturn(Instruction* instruction)
     }
 }
 
-void CGenerator::generateCCall(Instruction* instruction, CNode*& expression, CNode*& statement)
+CNode* CGenerator::generateCCall(Instruction* instruction)
 {
     auto callInstruction = static_cast<InstructionFunctionIdx*>(instruction);
     auto functionIndex = callInstruction->getIndex();
     auto* calledFunction = module->getFunction(functionIndex);
     auto* signature = calledFunction->getSignature();
-    auto* result = new CCall(calledFunction->getCName(module));
+    auto* call = new CCall(calledFunction->getCName(module));
     auto& results = signature->getResults();
     std::vector<std::string> temps;
+    bool tempifyDone = false;
+    CNode* result = call;
 
     for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
+        auto hasSideEffects = expressionStack.back().hasSideEffects;
         auto* argument = popExpression();
 
-        result->addArgument(argument);
+        call->addArgument(argument);
+
+        if (hasSideEffects && !tempifyDone) {
+            result = tempify(call);
+            tempifyDone = true;
+        }
+    }
+
+    if (!tempifyDone && results.empty()) {
+        result = tempify(call);
     }
 
     if (results.size() > 1) {
         temps = getTemps(results);
 
         for (auto i = results.size(); i-- > 0; ) {
-            result->addArgument(new CUnaryExpression("&", new CNameUse(temps[i])));
+            call->addArgument(new CUnaryExpression("&", new CNameUse(temps[i])));
         }
     }
 
-    result->reverseArguments();
+    call->reverseArguments();
 
     if (results.empty()) {
-        statement = result;
+        return result;
     } else if (results.size() == 1) {
-        expression = result;
+        pushExpression(result, results[0]);
+        return nullptr;
     } else {
-        statement = result;
         for (const auto& temp : temps) {
             pushExpression(new CNameUse(temp));
         }
+
+        return result;
     }
 }
 
-void CGenerator::generateCCallIndirect(Instruction* instruction, CNode*& expression, CNode*& statement)
+CNode* CGenerator::generateCCallIndirect(Instruction* instruction)
 {
     auto callInstruction = static_cast<InstructionIndirect*>(instruction);
     auto typeIndex = callInstruction->getTypeIndex();
+    auto hasSideEffects = expressionStack.back().hasSideEffects;
     auto* tableIndex = popExpression();
-    auto* result = new CCallIndirect(typeIndex, tableIndex);
+    auto* call = new CCallIndirect(typeIndex, tableIndex);
     auto* signature = module->getType(typeIndex)->getSignature();
     auto& results = signature->getResults();
     std::vector<std::string> temps;
+    bool tempifyDone = false;
+    CNode* result = call;
+
+    if (hasSideEffects) {
+        result = tempify(call);
+        tempifyDone = true;
+    }
 
     for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
+        auto hasSideEffects = expressionStack.back().hasSideEffects;
         auto* argument = popExpression();
 
-        result->addArgument(argument);
+        call->addArgument(argument);
+
+        if (hasSideEffects && !tempifyDone) {
+            result = tempify(call);
+            tempifyDone = true;
+        }
+    }
+
+    if (!tempifyDone && results.empty()) {
+        result = tempify(call);
     }
 
     if (results.size() > 1) {
         temps = getTemps(results);
 
         for (auto i = results.size(); i-- > 0; ) {
-            result->addArgument(new CUnaryExpression("&", new CNameUse(temps[i])));
+            call->addArgument(new CUnaryExpression("&", new CNameUse(temps[i])));
         }
     }
 
-    result->reverseArguments();
+    call->reverseArguments();
 
     if (results.empty()) {
-        statement = result;
+        return result;
     } else if (results.size() == 1) {
-        expression = result;
+        pushExpression(result, results[0]);
+        return nullptr;
     } else {
-        statement = result;
         for (const auto& temp : temps) {
             pushExpression(new CNameUse(temp));
         }
+
+        return result;
     }
 }
 
@@ -1669,7 +2049,7 @@ void CGenerator::generateCFunction()
     bool needsReturn = count != 0 && !expressionStack.empty();
 
     if (!labelStack.empty() && labelStack.back().branchTarget) {
-        if (needsReturn) {
+        if (!expressionStack.empty()) {
             for (auto i = count; i-- > 0; ) {
                 auto* resultNameNode = new CNameUse(makeResultName(0, i));
 
@@ -1679,17 +2059,15 @@ void CGenerator::generateCFunction()
 
         function->addStatement(new CLabel(0));
 
-        if (needsReturn) {
-            if (count == 1) {
-                function->addStatement(new CReturn(new CNameUse("result0")));
-            } else {
-                for (size_t i = 0; i < count; ++i) {
-                    auto resultName = makeResultName(0, i);
-                    auto* resultNameNode  = new CNameUse(resultName);
-                    auto* resultPointerNode = new CNameUse('*' + resultName + "_ptr");
+        if (count == 1) {
+            function->addStatement(new CReturn(new CNameUse("result0")));
+        } else {
+            for (size_t i = 0; i < count; ++i) {
+                auto resultName = makeResultName(0, i);
+                auto* resultNameNode  = new CNameUse(resultName);
+                auto* resultPointerNode = new CNameUse('*' + resultName + "_ptr");
 
-                    function->addStatement(new CBinaryExpression("=", resultPointerNode, resultNameNode));
-                }
+                function->addStatement(new CBinaryExpression("=", resultPointerNode, resultNameNode));
             }
         }
     } else if (needsReturn) {
@@ -1716,7 +2094,6 @@ void CGenerator::generateCFunction()
 CNode* CGenerator::generateCStatement()
 {
     while (instructionPointer != instructionEnd) {
-        CNode* expression = nullptr;
         CNode* statement = nullptr;
         auto* instruction = instructionPointer->get();
         auto opcode = instruction->getOpcode();
@@ -1769,17 +2146,16 @@ CNode* CGenerator::generateCStatement()
                 statement = generateCBrTable(instruction);
                 break;
 
-
             case Opcode::return_:
                 statement = generateCReturn(instruction);
                 break;
 
             case Opcode::call:
-                generateCCall(instruction, expression, statement);
+                statement = generateCCall(instruction);
                 break;
 
             case Opcode::call_indirect:
-                generateCCallIndirect(instruction, expression, statement);
+                statement = generateCCallIndirect(instruction);
                 break;
 
     //      case Opcode::return_call:
@@ -1790,11 +2166,11 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::select:
-                expression = generateCSelect(instruction);
+                generateCSelect(instruction);
                 break;
 
             case Opcode::local__get:
-                expression = new CNameUse(localName(instruction));
+                generateCLocalGet(instruction);
                 break;
 
             case Opcode::local__set:
@@ -1802,11 +2178,11 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::local__tee:
-                expression = generateCLocalSet(instruction);
+                statement = generateCLocalTee(instruction);
                 break;
 
             case Opcode::global__get:
-                expression = new CNameUse(globalName(instruction));
+                generateCGlobalGet(instruction);
                 break;
 
             case Opcode::global__set:
@@ -1817,59 +2193,59 @@ CNode* CGenerator::generateCStatement()
     //      case Opcode::table__set:
 
             case Opcode::i32__load:
-                expression = generateCLoad("loadI32", instruction);
+                generateCLoad("loadI32", instruction, ValueType::i32);
                 break;
 
             case Opcode::i64__load:
-                expression = generateCLoad("loadI64", instruction);
+                generateCLoad("loadI64", instruction, ValueType::i64);
                 break;
 
             case Opcode::f32__load:
-                expression = generateCLoad("loadF32", instruction);
+                generateCLoad("loadF32", instruction, ValueType::f32);
                 break;
 
             case Opcode::f64__load:
-                expression = generateCLoad("loadF64", instruction);
+                generateCLoad("loadF64", instruction, ValueType::f64);
                 break;
 
             case Opcode::i32__load8_s:
-                expression = generateCLoad("loadI32I8", instruction);
+                generateCLoad("loadI32I8", instruction, ValueType::i32);
                 break;
 
             case Opcode::i32__load8_u:
-                expression = generateCLoad("loadI32U8", instruction);
+                generateCLoad("loadI32U8", instruction, ValueType::i32);
                 break;
 
             case Opcode::i32__load16_s:
-                expression = generateCLoad("loadI32I16", instruction);
+                generateCLoad("loadI32I16", instruction, ValueType::i32);
                 break;
 
             case Opcode::i32__load16_u:
-                expression = generateCLoad("loadI32U16", instruction);
+                generateCLoad("loadI32U16", instruction, ValueType::i32);
                 break;
 
             case Opcode::i64__load8_s:
-                expression = generateCLoad("loadI64I8", instruction);
+                generateCLoad("loadI64I8", instruction, ValueType::i64);
                 break;
 
             case Opcode::i64__load8_u:
-                expression = generateCLoad("loadI64U8", instruction);
+                generateCLoad("loadI64U8", instruction, ValueType::i64);
                 break;
 
             case Opcode::i64__load16_s:
-                expression = generateCLoad("loadI64I16", instruction);
+                generateCLoad("loadI64I16", instruction, ValueType::i64);
                 break;
 
             case Opcode::i64__load16_u:
-                expression = generateCLoad("loadI64U16", instruction);
+                generateCLoad("loadI64U16", instruction, ValueType::i64);
                 break;
 
             case Opcode::i64__load32_s:
-                expression = generateCLoad("loadI64I32", instruction);
+                generateCLoad("loadI64I32", instruction, ValueType::i64);
                 break;
 
             case Opcode::i64__load32_u:
-                expression = generateCLoad("loadI64U32", instruction);
+                generateCLoad("loadI64U32", instruction, ValueType::i64);
                 break;
 
             case Opcode::i32__store:
@@ -1909,393 +2285,483 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i32__const:
-                expression = new CI32(static_cast<InstructionI32*>(instruction)->getValue());
+                pushExpression(new CI32(static_cast<InstructionI32*>(instruction)->getValue()), ValueType::i32);
                 break;
 
             case Opcode::i64__const:
-                expression = new CI64(static_cast<InstructionI64*>(instruction)->getValue());
+                pushExpression(new CI64(static_cast<InstructionI64*>(instruction)->getValue()), ValueType::i64);
                 break;
 
             case Opcode::f32__const:
-                expression = new CF32(static_cast<InstructionF32*>(instruction)->getValue());
+                pushExpression(new CF32(static_cast<InstructionF32*>(instruction)->getValue()), ValueType::f32);
                 break;
 
             case Opcode::f64__const:
-                expression = new CF64(static_cast<InstructionF64*>(instruction)->getValue());
+                pushExpression(new CF64(static_cast<InstructionF64*>(instruction)->getValue()), ValueType::f64);
                 break;
 
             case Opcode::i32__eqz:
             case Opcode::i64__eqz:
-                expression = generateCUnaryExpression("!");
+                pushExpression(generateCUnaryExpression("!"), ValueType::i32);
                 break;
 
             case Opcode::i32__eq:
             case Opcode::i64__eq:
             case Opcode::f32__eq:
             case Opcode::f64__eq:
-                expression = generateCBinaryExpression("==");
+                pushExpression(generateCBinaryExpression("=="), ValueType::i32);
                 break;
 
             case Opcode::i32__ne:
             case Opcode::i64__ne:
             case Opcode::f32__ne:
             case Opcode::f64__ne:
-                expression = generateCBinaryExpression("!=");
+                pushExpression(generateCBinaryExpression("!="), ValueType::i32);
                 break;
 
             case Opcode::i32__lt_s:
             case Opcode::i64__lt_s:
             case Opcode::f32__lt:
             case Opcode::f64__lt:
-                expression = generateCBinaryExpression("<");
+                pushExpression(generateCBinaryExpression("<"), ValueType::i32);
                 break;
 
             case Opcode::i32__lt_u:
-                expression = generateCUBinaryExpression("<", "uint32_t");
+                pushExpression(generateCUBinaryExpression("<", "uint32_t"), ValueType::i32);
                 break;
 
             case Opcode::i64__lt_u:
-                expression = generateCUBinaryExpression("<", "uint64_t");
+                pushExpression(generateCUBinaryExpression("<", "uint64_t"), ValueType::i32);
                 break;
 
             case Opcode::i32__gt_s:
             case Opcode::i64__gt_s:
             case Opcode::f32__gt:
             case Opcode::f64__gt:
-                expression = generateCBinaryExpression(">");
+                pushExpression(generateCBinaryExpression(">"), ValueType::i32);
                 break;
 
             case Opcode::i32__gt_u:
-                expression = generateCUBinaryExpression(">", "uint32_t");
+                pushExpression(generateCUBinaryExpression(">", "uint32_t"), ValueType::i32);
                 break;
 
             case Opcode::i64__gt_u:
-                expression = generateCUBinaryExpression(">", "uint64_t");
+                pushExpression(generateCUBinaryExpression(">", "uint64_t"), ValueType::i32);
                 break;
 
             case Opcode::i32__le_s:
             case Opcode::i64__le_s:
             case Opcode::f32__le:
             case Opcode::f64__le:
-                expression = generateCBinaryExpression("<=");
+                pushExpression(generateCBinaryExpression("<="), ValueType::i32);
                 break;
 
             case Opcode::i32__le_u:
-                expression = generateCUBinaryExpression("<=", "uint32_t");
+                pushExpression(generateCUBinaryExpression("<=", "uint32_t"), ValueType::i32);
                 break;
 
             case Opcode::i64__le_u:
-                expression = generateCUBinaryExpression("<=", "uint64_t");
+                pushExpression(generateCUBinaryExpression("<=", "uint64_t"), ValueType::i32);
                 break;
 
             case Opcode::i32__ge_s:
             case Opcode::i64__ge_s:
             case Opcode::f32__ge:
             case Opcode::f64__ge:
-                expression = generateCBinaryExpression(">=");
+                pushExpression(generateCBinaryExpression(">="), ValueType::i32);
                 break;
 
             case Opcode::i32__ge_u:
-                expression = generateCUBinaryExpression(">=", "uint32_t");
+                pushExpression(generateCUBinaryExpression(">=", "uint32_t"), ValueType::i32);
                 break;
 
             case Opcode::i64__ge_u:
-                expression = generateCUBinaryExpression(">=", "uint64_t");
+                pushExpression(generateCUBinaryExpression(">=", "uint64_t"), ValueType::i32);
                 break;
 
             case Opcode::i32__clz:
-                expression = generateCCallPredef("clz32");
+                pushExpression(generateCCallPredef("clz32", 1), ValueType::i32);
                 break;
 
             case Opcode::i32__ctz:
-                expression = generateCCallPredef("ctz32");
+                pushExpression(generateCCallPredef("ctz32", 1), ValueType::i32);
                 break;
 
             case Opcode::i32__popcnt:
-                expression = generateCCallPredef("popcnt32");
+                pushExpression(generateCCallPredef("popcnt32", 1), ValueType::i32);
                 break;
 
             case Opcode::i32__add:
+                pushExpression(generateCBinaryExpression("+"), ValueType::i32);
+                break;
+
             case Opcode::i64__add:
+                pushExpression(generateCBinaryExpression("+"), ValueType::i64);
+                break;
+
             case Opcode::f32__add:
+                pushExpression(generateCBinaryExpression("+"), ValueType::f32);
+                break;
+
             case Opcode::f64__add:
-                expression = generateCBinaryExpression("+");
+                pushExpression(generateCBinaryExpression("+"), ValueType::f64);
                 break;
 
             case Opcode::i32__sub:
+                pushExpression(generateCBinaryExpression("-"), ValueType::i32);
+                break;
+
             case Opcode::i64__sub:
+                pushExpression(generateCBinaryExpression("-"), ValueType::i64);
+                break;
+
             case Opcode::f32__sub:
+                pushExpression(generateCBinaryExpression("-"), ValueType::f32);
+                break;
+
             case Opcode::f64__sub:
-                expression = generateCBinaryExpression("-");
+                pushExpression(generateCBinaryExpression("-"), ValueType::f64);
                 break;
 
             case Opcode::i32__mul:
+                pushExpression(generateCBinaryExpression("*"), ValueType::i32);
+                break;
+
             case Opcode::i64__mul:
+                pushExpression(generateCBinaryExpression("*"), ValueType::i64);
+                break;
+
             case Opcode::f32__mul:
+                pushExpression(generateCBinaryExpression("*"), ValueType::f32);
+                break;
+
             case Opcode::f64__mul:
-                expression = generateCBinaryExpression("*");
+                pushExpression(generateCBinaryExpression("*"), ValueType::f64);
                 break;
 
             case Opcode::i32__div_s:
+                pushExpression(generateCBinaryExpression("/"), ValueType::i32);
+                break;
+
             case Opcode::i64__div_s:
+                pushExpression(generateCBinaryExpression("/"), ValueType::i64);
+                break;
+
             case Opcode::f32__div:
+                pushExpression(generateCBinaryExpression("/"), ValueType::f32);
+                break;
+
             case Opcode::f64__div:
-                expression = generateCBinaryExpression("/");
+                pushExpression(generateCBinaryExpression("/"), ValueType::f64);
                 break;
 
             case Opcode::i32__div_u:
-                expression = generateCUBinaryExpression("/", "uint32_t");
+                pushExpression(generateCUBinaryExpression("/", "uint32_t"), ValueType::i32);
                 break;
 
             case Opcode::i64__div_u:
-                expression = generateCUBinaryExpression("/", "uint64_t");
+                pushExpression(generateCUBinaryExpression("/", "uint64_t"), ValueType::i64);
                 break;
 
             case Opcode::i32__rem_s:
+                pushExpression(generateCBinaryExpression("%"), ValueType::i32);
+                break;
+
             case Opcode::i64__rem_s:
-                expression = generateCBinaryExpression("%");
+                pushExpression(generateCBinaryExpression("%"), ValueType::i64);
                 break;
 
             case Opcode::i32__rem_u:
-                expression = generateCUBinaryExpression("%", "uint32_t");
+                pushExpression(generateCUBinaryExpression("%", "uint32_t"), ValueType::i32);
                 break;
 
             case Opcode::i64__rem_u:
-                expression = generateCUBinaryExpression("%", "uint64_t");
+                pushExpression(generateCUBinaryExpression("%", "uint64_t"), ValueType::i64);
                 break;
 
             case Opcode::i32__and:
+                pushExpression(generateCBinaryExpression("&"), ValueType::i32);
+                break;
+
             case Opcode::i64__and:
-                expression = generateCBinaryExpression("&");
+                pushExpression(generateCBinaryExpression("&"), ValueType::i64);
                 break;
 
             case Opcode::i32__or:
+                pushExpression(generateCBinaryExpression("|"), ValueType::i32);
+                break;
+
             case Opcode::i64__or:
-                expression = generateCBinaryExpression("|");
+                pushExpression(generateCBinaryExpression("|"), ValueType::i64);
                 break;
 
             case Opcode::i32__xor:
+                pushExpression(generateCBinaryExpression("^"), ValueType::i32);
+                break;
+
             case Opcode::i64__xor:
-                expression = generateCBinaryExpression("^");
+                pushExpression(generateCBinaryExpression("^"), ValueType::i64);
                 break;
 
             case Opcode::i32__shl:
+                pushExpression(generateCShift("<<", "i32"), ValueType::i32);
+                break;
+
             case Opcode::i64__shl:
-                expression = generateCBinaryExpression("<<");
+                pushExpression(generateCShift("<<", "i64"), ValueType::i64);
                 break;
 
             case Opcode::i32__shr_s:
+                pushExpression(generateCShift(">>", "i32"), ValueType::i32);
+                break;
+
             case Opcode::i64__shr_s:
-                expression = generateCBinaryExpression(">>");
+                pushExpression(generateCShift(">>", "i64"), ValueType::i64);
                 break;
 
             case Opcode::i32__shr_u:
-                expression = generateCUBinaryExpression(">>", "uint32_t");
+                pushExpression(generateCShift(">>", "u32"), ValueType::i32);
                 break;
 
             case Opcode::i64__shr_u:
-                expression = generateCUBinaryExpression(">>", "uint64_t");
+                pushExpression(generateCShift(">>", "u64"), ValueType::i64);
                 break;
 
             case Opcode::i32__rotl:
-                expression = generateCCallPredef("rotl32", 2);
+                pushExpression(generateCCallPredef("rotl32", 2), ValueType::i32);
                 break;
 
             case Opcode::i32__rotr:
-                expression = generateCCallPredef("rotr32", 2);
+                pushExpression(generateCCallPredef("rotr32", 2), ValueType::i32);
                 break;
 
             case Opcode::i64__clz:
-                expression = generateCCallPredef("clz64");
+                pushExpression(generateCCallPredef("clz64", 1), ValueType::i64);
                 break;
 
             case Opcode::i64__ctz:
-                expression = generateCCallPredef("ctz64");
+                pushExpression(generateCCallPredef("ctz64", 1), ValueType::i64);
                 break;
 
             case Opcode::i64__popcnt:
-                expression = generateCCallPredef("popcnt64");
+                pushExpression(generateCCallPredef("popcnt64", 1), ValueType::i64);
                 break;
 
             case Opcode::i64__rotl:
-                expression = generateCCallPredef("rotl64", 2);
+                pushExpression(generateCCallPredef("rotl64", 2), ValueType::i64);
                 break;
 
             case Opcode::i64__rotr:
-                expression = generateCCallPredef("rotr64", 2);
+                pushExpression(generateCCallPredef("rotr64", 2), ValueType::i64);
                 break;
 
             case Opcode::f32__neg:
+                pushExpression(generateCUnaryExpression("-"), ValueType::f32);
+                break;
+
             case Opcode::f64__neg:
-                expression = generateCUnaryExpression("-");
+                pushExpression(generateCUnaryExpression("-"), ValueType::f64);
                 break;
 
             case Opcode::f32__abs:
-                expression = generateCCallPredef("fabsf");
+                pushExpression(generateCCallPredef("fabsf", 1), ValueType::f32);
                 break;
 
             case Opcode::f64__abs:
-                expression = generateCCallPredef("fabs");
+                pushExpression(generateCCallPredef("fabs", 1), ValueType::f64);
                 break;
 
             case Opcode::f32__ceil:
-                expression = generateCCallPredef("ceilf");
+                pushExpression(generateCCallPredef("ceilf", 1), ValueType::f32);
                 break;
 
             case Opcode::f64__ceil:
-                expression = generateCCallPredef("ceil");
+                pushExpression(generateCCallPredef("ceil", 1), ValueType::f64);
                 break;
 
             case Opcode::f32__floor:
-                expression = generateCCallPredef("floorf");
+                pushExpression(generateCCallPredef("floorf", 1), ValueType::f32);
                 break;
 
             case Opcode::f64__floor:
-                expression = generateCCallPredef("floor");
+                pushExpression(generateCCallPredef("floor", 1), ValueType::f64);
                 break;
 
             case Opcode::f32__trunc:
-                expression = generateCCallPredef("truncf");
+                pushExpression(generateCCallPredef("truncf", 1), ValueType::f32);
                 break;
 
             case Opcode::f64__trunc:
-                expression = generateCCallPredef("trunc");
+                pushExpression(generateCCallPredef("trunc", 1), ValueType::f64);
                 break;
 
             case Opcode::f32__nearest:
-                expression = generateCCallPredef("nearbyintf");
+                pushExpression(generateCCallPredef("nearbyintf", 1), ValueType::f32);
                 break;
 
             case Opcode::f64__nearest:
-                expression = generateCCallPredef("nearbyint");
+                pushExpression(generateCCallPredef("nearbyint", 1), ValueType::f64);
                 break;
 
             case Opcode::f32__sqrt:
-                expression = generateCCallPredef("sqrtf");
+                pushExpression(generateCCallPredef("sqrtf", 1), ValueType::f32);
                 break;
 
             case Opcode::f64__sqrt:
-                expression = generateCCallPredef("sqrt");
+                pushExpression(generateCCallPredef("sqrt", 1), ValueType::f64);
                 break;
 
             case Opcode::f32__min:
-                expression = generateCCallPredef("fminf");
+                pushExpression(generateCCallPredef("minF32", 2), ValueType::f32);
                 break;
 
             case Opcode::f64__min:
-                expression = generateCCallPredef("fmin");
+                pushExpression(generateCCallPredef("minF64", 2), ValueType::f64);
                 break;
 
             case Opcode::f32__max:
-                expression = generateCCallPredef("fmaxf");
+                pushExpression(generateCCallPredef("maxF32", 2), ValueType::f32);
                 break;
 
             case Opcode::f64__max:
-                expression = generateCCallPredef("fmax");
+                pushExpression(generateCCallPredef("maxF64", 2), ValueType::f64);
                 break;
 
             case Opcode::f32__copysign:
-                expression = generateCCallPredef("copysignf", 2);
+                pushExpression(generateCCallPredef("copysignf", 2), ValueType::f32);
                 break;
 
             case Opcode::f64__copysign:
-                expression = generateCCallPredef("copysign", 2);
+                pushExpression(generateCCallPredef("copysign", 2), ValueType::f64);
                 break;
 
 
-            case Opcode::i32__wrap_i64:
             case Opcode::i32__trunc_f32_s:
+                pushExpression(generateCCast("int32_t"), ValueType::i32);
+                break;
+
             case Opcode::i32__trunc_f64_s:
-                expression = generateCCast("int32_t");
+                pushExpression(generateCCast("int32_t"), ValueType::i32);
+                break;
+
+            case Opcode::i32__wrap_i64:
+                pushExpression(generateCCast("int32_t"), ValueType::i32);
                 break;
 
             case Opcode::i32__trunc_f32_u:
+                pushExpression(generateCDoubleCast("int32_t", "uint32_t"), ValueType::i32);
+                break;
+
             case Opcode::i32__trunc_f64_u:
-                expression = generateCDoubleCast("int32_t", "uint32_t");
+                pushExpression(generateCDoubleCast("int32_t", "uint32_t"), ValueType::i32);
+                break;
+
+            case Opcode::i64__trunc_f32_s:
+                pushExpression(generateCCast("int64_t"), ValueType::i64);
+                break;
+
+            case Opcode::i64__trunc_f64_s:
+                pushExpression(generateCCast("int64_t"), ValueType::i64);
                 break;
 
             case Opcode::i64__extend_i32_s:
-            case Opcode::i64__trunc_f32_s:
-            case Opcode::i64__trunc_f64_s:
-                expression = generateCCast("int64_t");
+                pushExpression(generateCCast("int64_t"), ValueType::i64);
                 break;
 
             case Opcode::i64__trunc_f32_u:
+                pushExpression(generateCDoubleCast("int64_t", "uint64_t"), ValueType::i64);
+                break;
+
             case Opcode::i64__trunc_f64_u:
+                pushExpression(generateCDoubleCast("int64_t", "uint64_t"), ValueType::i64);
+                break;
+
             case Opcode::i64__extend_i32_u:
-                expression = generateCDoubleCast("int64_t", "uint32_t");
+                pushExpression(generateCDoubleCast("int64_t", "uint32_t"), ValueType::i64);
                 break;
 
             case Opcode::f32__convert_i32_s:
+                pushExpression(generateCCast("float"), ValueType::f32);
+                break;
+
             case Opcode::f32__convert_i64_s:
+                pushExpression(generateCCast("float"), ValueType::f32);
+                break;
+
             case Opcode::f32__demote_f64:
-                expression = generateCCast("float");
+                pushExpression(generateCCast("float"), ValueType::f32);
                 break;
 
             case Opcode::f32__convert_i32_u:
-                expression = generateCDoubleCast("float", "uint32_t");
+                pushExpression(generateCDoubleCast("float", "uint32_t"), ValueType::f32);
                 break;
 
             case Opcode::f32__convert_i64_u:
-                expression = generateCDoubleCast("float", "uint64_t");
+                pushExpression(generateCDoubleCast("float", "uint64_t"), ValueType::f32);
                 break;
 
             case Opcode::f64__convert_i32_s:
+                pushExpression(generateCCast("double"), ValueType::f64);
+                break;
+
             case Opcode::f64__convert_i64_s:
+                pushExpression(generateCCast("double"), ValueType::f64);
+                break;
+
             case Opcode::f64__promote_f32:
-                expression = generateCCast("double");
+                pushExpression(generateCCast("double"), ValueType::f64);
                 break;
 
             case Opcode::f64__convert_i32_u:
-                expression = generateCDoubleCast("float", "uint64_t");
+                pushExpression(generateCDoubleCast("double", "uint32_t"), ValueType::f64);
                 break;
 
             case Opcode::f64__convert_i64_u:
-                expression = generateCDoubleCast("double", "uint64_t");
+                pushExpression(generateCDoubleCast("double", "uint64_t"), ValueType::f64);
                 break;
 
             case Opcode::i32__reinterpret_f32:
-                expression = generateCCallPredef("reinterpretI32F32");
+                pushExpression(generateCCallPredef("reinterpretI32F32", 1), ValueType::i32);
                 break;
 
             case Opcode::i64__reinterpret_f64:
-                expression = generateCCallPredef("reinterpretI64F64");
+                pushExpression(generateCCallPredef("reinterpretI64F64", 1), ValueType::i64);
                 break;
 
             case Opcode::f32__reinterpret_i32:
-                expression = generateCCallPredef("reinterpretF32I32");
+                pushExpression(generateCCallPredef("reinterpretF32I32", 1), ValueType::f32);
                 break;
 
             case Opcode::f64__reinterpret_i64:
-                expression = generateCCallPredef("reinterpretF64I64");
+                pushExpression(generateCCallPredef("reinterpretF64I64", 1), ValueType::f64);
                 break;
 
             case Opcode::memory__size:
-                expression = generateCMemorySize();
+                pushExpression(generateCMemorySize(), ValueType::i32);
                 break;
 
             case Opcode::memory__grow:
-                expression = generateCMemoryGrow();
+                pushExpression(generateCMemoryGrow(), ValueType::i32);
                 break;
 
             case Opcode::i32__extend8_s:
-                expression = generateCDoubleCast("int32_t", "int8_t");
+                pushExpression(generateCDoubleCast("int32_t", "int8_t"), ValueType::i32);
                 break;
 
             case Opcode::i32__extend16_s:
-                expression = generateCDoubleCast("int32_t", "int16_t");
+                pushExpression(generateCDoubleCast("int32_t", "int16_t"), ValueType::i32);
                 break;
 
             case Opcode::i64__extend8_s:
-                expression = generateCDoubleCast("int64_t", "int8_t");
+                pushExpression(generateCDoubleCast("int64_t", "int8_t"), ValueType::i64);
                 break;
 
             case Opcode::i64__extend16_s:
-                expression = generateCDoubleCast("int64_t", "int16_t");
+                pushExpression(generateCDoubleCast("int64_t", "int16_t"), ValueType::i64);
                 break;
 
             case Opcode::i64__extend32_s:
-                expression = generateCDoubleCast("int64_t", "int32_t");
+                pushExpression(generateCDoubleCast("int64_t", "int32_t"), ValueType::i64);
                 break;
 
     //      case Opcode::ref__null:
@@ -2313,35 +2779,35 @@ CNode* CGenerator::generateCStatement()
 
             //EXTNS
             case Opcode::i32__trunc_sat_f32_s:
-                expression = generateCCallPredef("satI32F32");
+                pushExpression(generateCCallPredef("satI32F32", 1), ValueType::i32);
                 break;
 
             case Opcode::i32__trunc_sat_f32_u:
-                expression = generateCCallPredef("satU32F32");
+                pushExpression(generateCCallPredef("satU32F32", 1), ValueType::i32);
                 break;
 
             case Opcode::i32__trunc_sat_f64_s:
-                expression = generateCCallPredef("satI32F64");
+                pushExpression(generateCCallPredef("satI32F64", 1), ValueType::i32);
                 break;
 
             case Opcode::i32__trunc_sat_f64_u:
-                expression = generateCCallPredef("satU32F64");
+                pushExpression(generateCCallPredef("satU32F64", 1), ValueType::i32);
                 break;
 
             case Opcode::i64__trunc_sat_f32_s:
-                expression = generateCCallPredef("satI64F32");
+                pushExpression(generateCCallPredef("satI64F32", 1), ValueType::i64);
                 break;
 
             case Opcode::i64__trunc_sat_f32_u:
-                expression = generateCCallPredef("satU64F32");
+                pushExpression(generateCCallPredef("satU64F32", 1), ValueType::i64);
                 break;
 
             case Opcode::i64__trunc_sat_f64_s:
-                expression = generateCCallPredef("satI64F64");
+                pushExpression(generateCCallPredef("satI64F64", 1), ValueType::i64);
                 break;
 
             case Opcode::i64__trunc_sat_f64_u:
-                expression = generateCCallPredef("satU64F64");
+                pushExpression(generateCCallPredef("satU64F64", 1), ValueType::i64);
                 break;
 
     //      case Opcode::memory__init:
@@ -2357,712 +2823,710 @@ CNode* CGenerator::generateCStatement()
 
             // SIMD
             case Opcode::v128__load:
-                expression = generateCLoad("loadV128", instruction);
+                generateCLoad("loadV128", instruction, ValueType::v128);
                 break;
 
             case Opcode::i16x8__load8x8_s:
-                expression = generateCLoadExtend("v128SLoadExti16x8", instruction);
+                pushExpression(generateCLoadExtend("v128SLoadExti16x8", instruction), ValueType::v128);
                 break;
 
             case Opcode::i16x8__load8x8_u:
-                expression = generateCLoadExtend("v128SLoadExtu16x8", instruction);
+                pushExpression(generateCLoadExtend("v128SLoadExtu16x8", instruction), ValueType::v128);
                 break;
 
             case Opcode::i32x4__load16x4_s:
-                expression = generateCLoadExtend("v128SLoadExti32x4", instruction);
+                pushExpression(generateCLoadExtend("v128SLoadExti32x4", instruction), ValueType::v128);
                 break;
 
             case Opcode::i32x4__load16x4_u:
-                expression = generateCLoadExtend("v128SLoadExtu32x4", instruction);
+                pushExpression(generateCLoadExtend("v128SLoadExtu32x4", instruction), ValueType::v128);
                 break;
 
             case Opcode::i64x2__load32x2_s:
-                expression = generateCLoadExtend("v128SLoadExti64x2", instruction);
+                pushExpression(generateCLoadExtend("v128SLoadExti64x2", instruction), ValueType::v128);
                 break;
 
             case Opcode::i64x2__load32x2_u:
-                expression = generateCLoadExtend("v128SLoadExtu64x2", instruction);
+                pushExpression(generateCLoadExtend("v128SLoadExtu64x2", instruction), ValueType::v128);
                 break;
 
             case Opcode::v8x16__load_splat:
-                expression = generateCLoadSplat("v128Splati8x16", "loadI32", instruction);
+                pushExpression(generateCLoadSplat("v128Splati8x16", "loadI32", instruction, ValueType::i32), ValueType::v128);
                 break;
 
             case Opcode::v16x8__load_splat:
-                expression = generateCLoadSplat("v128Splati16x8", "loadI32", instruction);
+                pushExpression(generateCLoadSplat("v128Splati16x8", "loadI32", instruction, ValueType::i32), ValueType::v128);
                 break;
 
             case Opcode::v32x4__load_splat:
-                expression = generateCLoadSplat("v128Splati32x4", "loadI32", instruction);
+                pushExpression(generateCLoadSplat("v128Splati32x4", "loadI32", instruction, ValueType::i32), ValueType::v128);
                 break;
 
             case Opcode::v64x2__load_splat:
-                expression = generateCLoadSplat("v128Splati64x2", "loadI64", instruction);
+                pushExpression(generateCLoadSplat("v128Splati64x2", "loadI64", instruction, ValueType::i64), ValueType::v128);
                 break;
 
             case Opcode::v128__store:
-                expression = generateCStore("storeV128", instruction);
+                statement = generateCStore("storeV128", instruction);
                 break;
 
             case Opcode::v128__const:
-                expression = new CV128(static_cast<InstructionV128*>(instruction)->getValue());
+                pushExpression(new CV128(static_cast<InstructionV128*>(instruction)->getValue()), ValueType::v128);
                 break;
 
             case Opcode::v8x16__shuffle:
-                expression = generateCShuffle(instruction);
+                pushExpression(generateCShuffle(instruction), ValueType::v128);
                 break;
 
             case Opcode::v8x16__swizzle:
-                expression = generateCCallPredef("v128Swizzlei8x16", 2);
+                pushExpression(generateCCallPredef("v128Swizzlei8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__splat:
-                expression = generateCCallPredef("v128Splati8x16");
+                pushExpression(generateCCallPredef("v128Splati8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__splat:
-                expression = generateCCallPredef("v128Splati16x8");
+                pushExpression(generateCCallPredef("v128Splati16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__splat:
-                expression = generateCCallPredef("v128Splati32x4");
+                pushExpression(generateCCallPredef("v128Splati32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::i64x2__splat:
-                expression = generateCCallPredef("v128Splati64x2");
+                pushExpression(generateCCallPredef("v128Splati64x2", 1), ValueType::v128);
                 break;
 
             case Opcode::f32x4__splat:
-                expression = generateCCallPredef("v128Splatf32x4");
+                pushExpression(generateCCallPredef("v128Splatf32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::f64x2__splat:
-                expression = generateCCallPredef("v128Splatf64x2");
+                pushExpression(generateCCallPredef("v128Splatf64x2", 1), ValueType::v128);
                 break;
 
             case Opcode::i8x16__extract_lane_s:
-                expression = generateCExtractLane(instruction, "i8x16");
+                pushExpression(generateCExtractLane(instruction, "i8x16"), ValueType::v128);
                 break;
 
             case Opcode::i8x16__extract_lane_u:
-                expression = generateCExtractLane(instruction, "i8x16");
+                pushExpression(generateCExtractLane(instruction, "i8x16"), ValueType::v128);
                 break;
 
             case Opcode::i8x16__replace_lane:
-                expression = generateCReplaceLane(instruction, "i8x16");
+                pushExpression(generateCReplaceLane(instruction, "i8x16"), ValueType::v128);
                 break;
 
             case Opcode::i16x8__extract_lane_s:
-                expression = generateCExtractLane(instruction, "i16x8");
+                pushExpression(generateCExtractLane(instruction, "i16x8"), ValueType::v128);
                 break;
 
             case Opcode::i16x8__extract_lane_u:
-                expression = generateCExtractLane(instruction, "u16x8");
+                pushExpression(generateCExtractLane(instruction, "u16x8"), ValueType::v128);
                 break;
 
             case Opcode::i16x8__replace_lane:
-                expression = generateCReplaceLane(instruction, "i16x8");
+                pushExpression(generateCReplaceLane(instruction, "i16x8"), ValueType::v128);
                 break;
 
             case Opcode::i32x4__extract_lane:
-                expression = generateCExtractLane(instruction, "i32x4");
+                pushExpression(generateCExtractLane(instruction, "i32x4"), ValueType::v128);
                 break;
 
             case Opcode::i32x4__replace_lane:
-                expression = generateCReplaceLane(instruction, "i32x4");
+                pushExpression(generateCReplaceLane(instruction, "i32x4"), ValueType::v128);
                 break;
 
             case Opcode::i64x2__extract_lane:
-                expression = generateCExtractLane(instruction, "i64x2");
+                pushExpression(generateCExtractLane(instruction, "i64x2"), ValueType::v128);
                 break;
 
             case Opcode::i64x2__replace_lane:
-                expression = generateCReplaceLane(instruction, "i64x2");
+                pushExpression(generateCReplaceLane(instruction, "i64x2"), ValueType::v128);
                 break;
 
             case Opcode::f32x4__extract_lane:
-                expression = generateCExtractLane(instruction, "f32x4");
+                pushExpression(generateCExtractLane(instruction, "f32x4"), ValueType::v128);
                 break;
 
             case Opcode::f32x4__replace_lane:
-                expression = generateCReplaceLane(instruction, "f32x4");
+                pushExpression(generateCReplaceLane(instruction, "f32x4"), ValueType::v128);
                 break;
 
             case Opcode::f64x2__extract_lane:
-                expression = generateCExtractLane(instruction, "f64x2");
+                pushExpression(generateCExtractLane(instruction, "f64x2"), ValueType::v128);
                 break;
 
             case Opcode::f64x2__replace_lane:
-                expression = generateCReplaceLane(instruction, "f64x2");
+                pushExpression(generateCReplaceLane(instruction, "f64x2"), ValueType::v128);
                 break;
 
             case Opcode::i8x16__eq:
-                expression = generateCCallPredef("v128Eqi8x16", 2);
+                pushExpression(generateCCallPredef("v128Eqi8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__ne:
-                expression = generateCCallPredef("v128Nei8x16", 2);
+                pushExpression(generateCCallPredef("v128Nei8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__lt_s:
-                expression = generateCCallPredef("v128Lti8x16", 2);
+                pushExpression(generateCCallPredef("v128Lti8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__lt_u:
-                expression = generateCCallPredef("v128Ltu8x16", 2);
+                pushExpression(generateCCallPredef("v128Ltu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__gt_s:
-                expression = generateCCallPredef("v128Gti8x16", 2);
+                pushExpression(generateCCallPredef("v128Gti8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__gt_u:
-                expression = generateCCallPredef("v128Gtu8x16", 2);
+                pushExpression(generateCCallPredef("v128Gtu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__le_s:
-                expression = generateCCallPredef("v128Lei8x16", 2);
+                pushExpression(generateCCallPredef("v128Lei8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__le_u:
-                expression = generateCCallPredef("v128Leu8x16", 2);
+                pushExpression(generateCCallPredef("v128Leu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__ge_s:
-                expression = generateCCallPredef("v128Gei8x16", 2);
+                pushExpression(generateCCallPredef("v128Gei8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__ge_u:
-                expression = generateCCallPredef("v128Geu8x16", 2);
+                pushExpression(generateCCallPredef("v128Geu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__eq:
-                expression = generateCCallPredef("v128Eqi16x8", 2);
+                pushExpression(generateCCallPredef("v128Eqi16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__ne:
-                expression = generateCCallPredef("v128Nei16x8", 2);
+                pushExpression(generateCCallPredef("v128Nei16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__lt_s:
-                expression = generateCCallPredef("v128Lti16x8", 2);
+                pushExpression(generateCCallPredef("v128Lti16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__lt_u:
-                expression = generateCCallPredef("v128Ltu16x8", 2);
+                pushExpression(generateCCallPredef("v128Ltu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__gt_s:
-                expression = generateCCallPredef("v128Gti16x8", 2);
+                pushExpression(generateCCallPredef("v128Gti16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__gt_u:
-                expression = generateCCallPredef("v128Gtu16x8", 2);
+                pushExpression(generateCCallPredef("v128Gtu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__le_s:
-                expression = generateCCallPredef("v128Lei16x8", 2);
+                pushExpression(generateCCallPredef("v128Lei16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__le_u:
-                expression = generateCCallPredef("v128Leu16x8", 2);
+                pushExpression(generateCCallPredef("v128Leu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__ge_s:
-                expression = generateCCallPredef("v128Gei16x8", 2);
+                pushExpression(generateCCallPredef("v128Gei16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__ge_u:
-                expression = generateCCallPredef("v128Geu16x8", 2);
+                pushExpression(generateCCallPredef("v128Geu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__eq:
-                expression = generateCCallPredef("v128Eqi32x4", 2);
+                pushExpression(generateCCallPredef("v128Eqi32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__ne:
-                expression = generateCCallPredef("v128Nei32x4", 2);
+                pushExpression(generateCCallPredef("v128Nei32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__lt_s:
-                expression = generateCCallPredef("v128Lti32x4", 2);
+                pushExpression(generateCCallPredef("v128Lti32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__lt_u:
-                expression = generateCCallPredef("v128Ltu32x4", 2);
+                pushExpression(generateCCallPredef("v128Ltu32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__gt_s:
-                expression = generateCCallPredef("v128Gti32x4", 2);
+                pushExpression(generateCCallPredef("v128Gti32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__gt_u:
-                expression = generateCCallPredef("v128Gtu32x4", 2);
+                pushExpression(generateCCallPredef("v128Gtu32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__le_s:
-                expression = generateCCallPredef("v128Lei32x4", 2);
+                pushExpression(generateCCallPredef("v128Lei32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__le_u:
-                expression = generateCCallPredef("v128Leu32x4", 2);
+                pushExpression(generateCCallPredef("v128Leu32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__ge_s:
-                expression = generateCCallPredef("v128Gei32x4", 2);
+                pushExpression(generateCCallPredef("v128Gei32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__ge_u:
-                expression = generateCCallPredef("v128Geu32x4", 2);
+                pushExpression(generateCCallPredef("v128Geu32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__eq:
-                expression = generateCCallPredef("v128Eqf32x4", 2);
+                pushExpression(generateCCallPredef("v128Eqf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__ne:
-                expression = generateCCallPredef("v128Nef42x4", 2);
+                pushExpression(generateCCallPredef("v128Nef42x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__lt:
-                expression = generateCCallPredef("v128Ltf42x4", 2);
+                pushExpression(generateCCallPredef("v128Ltf42x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__gt:
-                expression = generateCCallPredef("v128Gtf42x4", 2);
+                pushExpression(generateCCallPredef("v128Gtf42x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__le:
-                expression = generateCCallPredef("v128Lef42x4", 2);
+                pushExpression(generateCCallPredef("v128Lef42x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__ge:
-                expression = generateCCallPredef("v128Gef42x4", 2);
+                pushExpression(generateCCallPredef("v128Gef42x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__eq:
-                expression = generateCCallPredef("v128Eqf64x2", 2);
+                pushExpression(generateCCallPredef("v128Eqf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__ne:
-                expression = generateCCallPredef("v128Nef64x2", 2);
+                pushExpression(generateCCallPredef("v128Nef64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__lt:
-                expression = generateCCallPredef("v128Ltf64x2", 2);
+                pushExpression(generateCCallPredef("v128Ltf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__gt:
-                expression = generateCCallPredef("v128Gtf64x2", 2);
+                pushExpression(generateCCallPredef("v128Gtf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__le:
-                expression = generateCCallPredef("v128Lef64x2", 2);
+                pushExpression(generateCCallPredef("v128Lef64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__ge:
-                expression = generateCCallPredef("v128Gef64x2", 2);
+                pushExpression(generateCCallPredef("v128Gef64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::v128__not:
-                expression = generateCCallPredef("v128Noti64x2");
+                pushExpression(generateCCallPredef("v128Noti64x2", 1), ValueType::v128);
                 break;
 
             case Opcode::v128__and:
-                expression = generateCCallPredef("v128Andi64x2", 2);
+                pushExpression(generateCCallPredef("v128Andi64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::v128__andnot:
-                expression = generateCCallPredef("v128AndNoti64x2", 2);
+                pushExpression(generateCCallPredef("v128AndNoti64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::v128__or:
-                expression = generateCCallPredef("v128Ori64x2", 2);
+                pushExpression(generateCCallPredef("v128Ori64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::v128__xor:
-                expression = generateCCallPredef("v128Xori64x2", 2);
+                pushExpression(generateCCallPredef("v128Xori64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::v128__bitselect:
-                expression = generateCCallPredef("v128Bitselect", 3);
+                pushExpression(generateCCallPredef("v128Bitselect", 3), ValueType::v128);
                 break;
 
             case Opcode::i8x16__abs:
-                expression = generateCCallPredef("v128Absi8x16");
+                pushExpression(generateCCallPredef("v128Absi8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i8x16__neg:
-                expression = generateCCallPredef("v128Negi8x16");
+                pushExpression(generateCCallPredef("v128Negi8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i8x16__any_true:
-                expression = generateCCallPredef("v128SAnyTruei8x16", 2);
+                pushExpression(generateCCallPredef("v128SAnyTruei8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__all_true:
-                expression = generateCCallPredef("v128SAllTruei8x16", 2);
+                pushExpression(generateCCallPredef("v128SAllTruei8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__narrow_i16x8_s:
-                expression = generateCCallPredef("narrowI8x16I16x8", 2);
+                pushExpression(generateCCallPredef("narrowI8x16I16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__narrow_i16x8_u:
-                expression = generateCCallPredef("narrowU8x16I16x8", 2);
+                pushExpression(generateCCallPredef("narrowU8x16I16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__shl:
-                expression = generateCCallPredef("v128Shli8x16", 2);
+                pushExpression(generateCCallPredef("v128Shli8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__shr_s:
-                expression = generateCCallPredef("v128Shri8x16", 2);
+                pushExpression(generateCCallPredef("v128Shri8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__shr_u:
-                expression = generateCCallPredef("v128Shru8x16", 2);
+                pushExpression(generateCCallPredef("v128Shru8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__add:
-                expression = generateCCallPredef("v128Addi8x16", 2);
+                pushExpression(generateCCallPredef("v128Addi8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__add_saturate_s:
-                expression = generateCCallPredef("v128SatAddi8x16", 2);
+                pushExpression(generateCCallPredef("v128SatAddi8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__add_saturate_u:
-                expression = generateCCallPredef("v128SatAddu8x16", 2);
+                pushExpression(generateCCallPredef("v128SatAddu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__sub:
-                expression = generateCCallPredef("v128Subi8x16", 2);
+                pushExpression(generateCCallPredef("v128Subi8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__sub_saturate_s:
-                expression = generateCCallPredef("v128SatSubi8x16", 2);
+                pushExpression(generateCCallPredef("v128SatSubi8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__sub_saturate_u:
-                expression = generateCCallPredef("v128SatSubu8x16", 2);
+                pushExpression(generateCCallPredef("v128SatSubu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__min_s:
-                expression = generateCCallPredef("v128Mini8x16", 2);
+                pushExpression(generateCCallPredef("v128Mini8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__min_u:
-                expression = generateCCallPredef("v128Minu8x16", 2);
+                pushExpression(generateCCallPredef("v128Minu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__max_s:
-                expression = generateCCallPredef("v128Maxi8x16", 2);
+                pushExpression(generateCCallPredef("v128Maxi8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__max_u:
-                expression = generateCCallPredef("v128Maxu8x16", 2);
+                pushExpression(generateCCallPredef("v128Maxu8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i8x16__avgr_u:
-                expression = generateCCallPredef("v128Avgru8x16", 2);
+                pushExpression(generateCCallPredef("v128Avgru8x16", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__abs:
-                expression = generateCCallPredef("v128Absi8x16");
+                pushExpression(generateCCallPredef("v128Absi8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__neg:
-                expression = generateCCallPredef("v128Negi16x8");
+                pushExpression(generateCCallPredef("v128Negi16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__any_true:
-                expression = generateCCallPredef("v128SAnyTruei16x8", 2);
+                pushExpression(generateCCallPredef("v128SAnyTruei16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__all_true:
-                expression = generateCCallPredef("v128SAllTruei16x8", 2);
+                pushExpression(generateCCallPredef("v128SAllTruei16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__narrow_i32x4_s:
-                expression = generateCCallPredef("narrowI16x8I32x4", 2);
+                pushExpression(generateCCallPredef("narrowI16x8I32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__narrow_i32x4_u:
-                expression = generateCCallPredef("narrowU16x8I32x4", 2);
+                pushExpression(generateCCallPredef("narrowU16x8I32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__widen_low_i8x16_s:
-                expression = generateCCallPredef("v128WidenLowi16x8i8x16");
+                pushExpression(generateCCallPredef("v128WidenLowi16x8i8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__widen_high_i8x16_s:
-                expression = generateCCallPredef("v128WidenHighi16x8i8x16");
+                pushExpression(generateCCallPredef("v128WidenHighi16x8i8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__widen_low_i8x16_u:
-                expression = generateCCallPredef("v128WidenLowi16x8u8x16");
+                pushExpression(generateCCallPredef("v128WidenLowi16x8u8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__widen_high_i8x16_u:
-                expression = generateCCallPredef("v128WidenHighi16x8u8x16");
+                pushExpression(generateCCallPredef("v128WidenHighi16x8u8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__shl:
-                expression = generateCCallPredef("v128Shli16x8", 2);
+                pushExpression(generateCCallPredef("v128Shli16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__shr_s:
-                expression = generateCCallPredef("v128Shri16x8", 2);
+                pushExpression(generateCCallPredef("v128Shri16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__shr_u:
-                expression = generateCCallPredef("v128Shru16x8", 2);
+                pushExpression(generateCCallPredef("v128Shru16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__add:
-                expression = generateCCallPredef("v128Addi16x8", 2);
+                pushExpression(generateCCallPredef("v128Addi16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__add_saturate_s:
-                expression = generateCCallPredef("v128SatAddi16x8", 2);
+                pushExpression(generateCCallPredef("v128SatAddi16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__add_saturate_u:
-                expression = generateCCallPredef("v128SatAddu16x8", 2);
+                pushExpression(generateCCallPredef("v128SatAddu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__sub:
-                expression = generateCCallPredef("v128Subi16x8", 2);
+                pushExpression(generateCCallPredef("v128Subi16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__sub_saturate_s:
-                expression = generateCCallPredef("v128SatSubi16x8", 2);
+                pushExpression(generateCCallPredef("v128SatSubi16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__sub_saturate_u:
-                expression = generateCCallPredef("v128SatSubu16x8", 2);
+                pushExpression(generateCCallPredef("v128SatSubu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__mul:
-                expression = generateCCallPredef("v128Muli16x8", 2);
+                pushExpression(generateCCallPredef("v128Muli16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__min_s:
-                expression = generateCCallPredef("v128Mini16x8", 2);
+                pushExpression(generateCCallPredef("v128Mini16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__min_u:
-                expression = generateCCallPredef("v128Mini16x8", 2);
+                pushExpression(generateCCallPredef("v128Mini16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__max_s:
-                expression = generateCCallPredef("v128Maxi16x8", 2);
+                pushExpression(generateCCallPredef("v128Maxi16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__max_u:
-                expression = generateCCallPredef("v128Maxu16x8", 2);
+                pushExpression(generateCCallPredef("v128Maxu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__avgr_u:
-                expression = generateCCallPredef("v128Avgru16x8", 2);
+                pushExpression(generateCCallPredef("v128Avgru16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__abs:
-                expression = generateCCallPredef("v128Absi16x8");
+                pushExpression(generateCCallPredef("v128Absi16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__neg:
-                expression = generateCCallPredef("v128Negi32x4");
+                pushExpression(generateCCallPredef("v128Negi32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__any_true:
-                expression = generateCCallPredef("v128SAnyTruei32x4", 2);
+                pushExpression(generateCCallPredef("v128SAnyTruei32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__all_true:
-                expression = generateCCallPredef("v128SAllTruei32x4", 2);
+                pushExpression(generateCCallPredef("v128SAllTruei32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__widen_low_i16x8_s:
-                expression = generateCCallPredef("v128WidenLowi32x4i16x8");
+                pushExpression(generateCCallPredef("v128WidenLowi32x4i16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__widen_high_i16x8_s:
-                expression = generateCCallPredef("v128WidenHighi32x4i16x8");
+                pushExpression(generateCCallPredef("v128WidenHighi32x4i16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__widen_low_i16x8_u:
-                expression = generateCCallPredef("v128WidenLowi32x4u16x8");
+                pushExpression(generateCCallPredef("v128WidenLowi32x4u16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__widen_high_i16x8_u:
-                expression = generateCCallPredef("v128WidenHighi32x4u16x8");
+                pushExpression(generateCCallPredef("v128WidenHighi32x4u16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__shl:
-                expression = generateCCallPredef("v128Shli32x4", 2);
+                pushExpression(generateCCallPredef("v128Shli32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__shr_s:
-                expression = generateCCallPredef("v128Shri32x4", 2);
+                pushExpression(generateCCallPredef("v128Shri32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__shr_u:
-                expression = generateCCallPredef("v128Shru32x4", 2);
+                pushExpression(generateCCallPredef("v128Shru32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__add:
-                expression = generateCCallPredef("v128Addi32x4", 2);
+                pushExpression(generateCCallPredef("v128Addi32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__sub:
-                expression = generateCCallPredef("v128Subi32x4", 2);
+                pushExpression(generateCCallPredef("v128Subi32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__mul:
-                expression = generateCCallPredef("v128Muli32x4", 2);
+                pushExpression(generateCCallPredef("v128Muli32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__min_s:
-                expression = generateCCallPredef("v128Mini32x4", 2);
+                pushExpression(generateCCallPredef("v128Mini32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__min_u:
-                expression = generateCCallPredef("v128Mini32x4", 2);
+                pushExpression(generateCCallPredef("v128Mini32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__max_s:
-                expression = generateCCallPredef("v128Maxi32x4", 2);
+                pushExpression(generateCCallPredef("v128Maxi32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__max_u:
-                expression = generateCCallPredef("v128Maxu32x4", 2);
+                pushExpression(generateCCallPredef("v128Maxu32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i64x2__neg:
-                expression = generateCCallPredef("v128Negi64x2");
+                pushExpression(generateCCallPredef("v128Negi64x2", 1), ValueType::v128);
                 break;
 
             case Opcode::i64x2__shl:
-                expression = generateCCallPredef("v128Shli64x2", 2);
+                pushExpression(generateCCallPredef("v128Shli64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::i64x2__shr_s:
-                expression = generateCCallPredef("v128Shri64x2", 2);
+                pushExpression(generateCCallPredef("v128Shri64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::i64x2__shr_u:
-                expression = generateCCallPredef("v128Shru64x2", 2);
+                pushExpression(generateCCallPredef("v128Shru64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::i64x2__add:
-                expression = generateCCallPredef("v128Addi64x2", 2);
+                pushExpression(generateCCallPredef("v128Addi64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::i64x2__sub:
-                expression = generateCCallPredef("v128Subi64x2", 2);
+                pushExpression(generateCCallPredef("v128Subi64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::i64x2__mul:
-                expression = generateCCallPredef("v128Muli64x2", 2);
+                pushExpression(generateCCallPredef("v128Muli64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__abs:
-                expression = generateCCallPredef("v128Absf32x4");
+                pushExpression(generateCCallPredef("v128Absf32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::f32x4__neg:
-                expression = generateCCallPredef("v128Negf32x4");
+                pushExpression(generateCCallPredef("v128Negf32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::f32x4__sqrt:
-                expression = generateCCallPredef("v128Sqrtf32x4");
+                pushExpression(generateCCallPredef("v128Sqrtf32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::f32x4__add:
-                expression = generateCCallPredef("v128Addf32x4", 2);
+                pushExpression(generateCCallPredef("v128Addf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__sub:
-                expression = generateCCallPredef("v128Subf32x4", 2);
+                pushExpression(generateCCallPredef("v128Subf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__mul:
-                expression = generateCCallPredef("v128Mulf32x4", 2);
+                pushExpression(generateCCallPredef("v128Mulf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__div:
-                expression = generateCCallPredef("v128Divf32x4", 2);
+                pushExpression(generateCCallPredef("v128Divf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__min:
-                expression = generateCCallPredef("v128Minf32x4", 2);
+                pushExpression(generateCCallPredef("v128Minf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__max:
-                expression = generateCCallPredef("v128Maxf32x4", 2);
+                pushExpression(generateCCallPredef("v128Maxf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__abs:
-                expression = generateCCallPredef("v128Absf64x2");
+                pushExpression(generateCCallPredef("v128Absf64x2", 1), ValueType::v128);
                 break;
 
             case Opcode::f64x2__neg:
-                expression = generateCCallPredef("v128Negf64x2");
+                pushExpression(generateCCallPredef("v128Negf64x2", 1), ValueType::v128);
                 break;
 
             case Opcode::f64x2__sqrt:
-                expression = generateCCallPredef("v128Sqrtf64x2");
+                pushExpression(generateCCallPredef("v128Sqrtf64x2", 1), ValueType::v128);
                 break;
 
             case Opcode::f64x2__add:
-                expression = generateCCallPredef("v128Addf64x2", 2);
+                pushExpression(generateCCallPredef("v128Addf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__sub:
-                expression = generateCCallPredef("v128Subf64x2", 2);
+                pushExpression(generateCCallPredef("v128Subf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__mul:
-                expression = generateCCallPredef("v128Mulf64x2", 2);
+                pushExpression(generateCCallPredef("v128Mulf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__div:
-                expression = generateCCallPredef("v128Divf64x2", 2);
+                pushExpression(generateCCallPredef("v128Divf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__min:
-                expression = generateCCallPredef("v128Minf64x2", 2);
+                pushExpression(generateCCallPredef("v128Minf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__max:
-                expression = generateCCallPredef("v128Maxf64x2", 2);
+                pushExpression(generateCCallPredef("v128Maxf64x2", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__trunc_sat_f32x4_s:
-                expression = generateCCallPredef("satI32x4F32x4", 1);
+                pushExpression(generateCCallPredef("satI32x4F32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__trunc_sat_f32x4_u:
-                expression = generateCCallPredef("satU32x4F32x4", 1);
+                pushExpression(generateCCallPredef("satU32x4F32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::f32x4__convert_i32x4_s:
-                expression = generateCCallPredef("convertF32x4I32x4", 1);
+                pushExpression(generateCCallPredef("convertF32x4I32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::f32x4__convert_i32x4_u:
-                expression = generateCCallPredef("convertF32x4U32x4", 1);
+                pushExpression(generateCCallPredef("convertF32x4U32x4", 1), ValueType::v128);
                 break;
 
             default:
                 std::cerr << "Unimplemented opcode '" << opcode << "' in generateCNode\n";
         }
 
-        if (expression != nullptr) {
-            pushExpression(expression);
-        } else if (statement != nullptr) {
+        if (statement != nullptr) {
             return statement;
         }
     }

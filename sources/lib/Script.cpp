@@ -39,16 +39,19 @@ Invoke::Value Invoke::Value::parse(SourceContext& context)
 
     switch (*opcode) {
         case Opcode::i32__const:
+            result.string = tokens.peekToken().getValue();
             result.type = ValueType::i32;
             result.i32 = requiredI32(context);
             break;
 
         case Opcode::i64__const:
+            result.string = tokens.peekToken().getValue();
             result.type = ValueType::i64;
             result.i64 = requiredI64(context);
             break;
 
         case Opcode::f32__const:
+            result.string = tokens.peekToken().getValue();
             result.type = ValueType::f32;
 
             if (tokens.peekToken().getValue() == "nan:canonical") {
@@ -64,6 +67,7 @@ Invoke::Value Invoke::Value::parse(SourceContext& context)
             break;
 
         case Opcode::f64__const:
+            result.string = tokens.peekToken().getValue();
             result.type = ValueType::f64;
 
             if (tokens.peekToken().getValue() == "nan:canonical") {
@@ -90,14 +94,43 @@ Invoke::Value Invoke::Value::parse(SourceContext& context)
     return result;
 }
 
+static bool isSpecialF(std::string_view string)
+{
+    if (string[0] == 'i' || string[0] == 'n') {
+        return true;
+    }
+
+    if (string[0] == '+' || string[0] == '-') {
+        if (string[1] == 'i' || string[1] == 'n') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void Invoke::Value::generateC(std::ostream& os) const
 {
     switch(type) {
-        case ValueType::i32:  os << i32; return;
-        case ValueType::i64:  os << i64; return;
-        case ValueType::f32:  os << toString(f32); return;
-        case ValueType::f64:  os << toString(f64); return;
-        case ValueType::v128: os << "v128Makei64x2(" << i64x2[0] << ", " << i64x2[1] << ')'; break;
+        case ValueType::i32:
+            os << normalize(string);
+            break;
+
+        case ValueType::i64:
+            os << normalize(string) << "LL";
+            break;
+
+        case ValueType::f32:
+            os << toString(toF32(string), true);
+            break;
+
+        case ValueType::f64:
+            os << toString(toF64(string), true);
+            break;
+
+        case ValueType::v128:
+            os << "v128Makei64x2(" << i64x2[0] << ", " << i64x2[1] << ')';
+            break;
     }
 }
 
@@ -181,24 +214,44 @@ void AssertReturn::generateSimpleC(std::ostream& os, std::string_view type, cons
 {
     auto resultNumber = getNextResult();
     std::string cast;
+    std::string quietNan;
+    std::string quietNegNan;
 
     if (type == "float") {
-        cast = "*(int32_t*)&";
+        cast = "*(uint32_t*)&";
+        quietNan = "0x7fc00000U";
+        quietNegNan = "0xffc00000U";
     } else if (type == "double") {
-        cast = "*(int64_t*)&";
+        cast = "*(uint64_t*)&";
+        quietNan = "0x7ff8000000000000ULL";
+        quietNegNan = "0xfff8000000000000ULL";
     }
 
     os << "\n\n    " << type << " result_" << resultNumber << " = ";
     invoke->generateC(os, script);
     os << ';';
 
-    os << "\n    " << type << " expect_" << resultNumber << " = ";
-    results[0].generateC(os);
-    os << ';';
+    if (results[0].canonicalNan) {
+        os << "\n    if (" << cast << "result_" << resultNumber << " != " << quietNan << " && " <<
+            cast << "result_" << resultNumber << " != " << quietNegNan << ") {";
+        os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
+        os << "\n        ++errorCount;";
+        os << "\n    }";
+    } else if (results[0].arithmeticNan) {
+        os << "\n    if (!isnan(result_" << resultNumber << ")) {";
+        os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
+        os << "\n        ++errorCount;";
+        os << "\n    }";
+    } else {
+        os << "\n    " << type << " expect_" << resultNumber << " = ";
+        results[0].generateC(os);
+        os << ';';
 
-    os << "\n\n    if (" << cast << "result_" << resultNumber << " != " << cast << "expect_" << resultNumber << ") {";
-    os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
-    os << "\n    }";
+        os << "\n\n    if (" << cast << "result_" << resultNumber << " != " << cast << "expect_" << resultNumber << ") {";
+        os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
+        os << "\n        ++errorCount;";
+        os << "\n    }";
+    }
 }
 
 void AssertReturn::generateMultiValueC(std::ostream& os, const Script& script)
@@ -277,16 +330,8 @@ void Script::generateC(std::ostream& os, bool optimized)
           "\n#include <stdint.h>"
           "\n#include <math.h>"
           "\n#include <string.h>"
-          "\n";
-
-    if (commands.size() == 1) {
-        auto& command = commands[0];
-
-        if (command.module) {
-            command.module->generateC(os, optimized);
-            return;
-        }
-    }
+          "\n"
+          "\nunsigned errorCount = 0;";
 
     std::stringstream mainCode;
 
@@ -317,12 +362,15 @@ void Script::generateC(std::ostream& os, bool optimized)
                             break;
 
                         case ExternalType::table:
+                            os << module->getTable(index)->getCName(module.get());
                             break;
 
                         case ExternalType::memory:
+                            os << module->getMemory(index)->getCName(module.get());
                             break;
 
                         case ExternalType::global:
+                            os << module->getGlobal(index)->getCName(module.get());
                             break;
 
                         case ExternalType::event:
@@ -348,6 +396,7 @@ void Script::generateC(std::ostream& os, bool optimized)
         "\n{";
 
     os << mainCode.str();
+    os << "\n    return errorCount != 0;";
     os << "\n}\n";
 }
 

@@ -92,10 +92,6 @@ float reinterpretF32I32(int32_t value);
 double reinterpretF64I64(int64_t value);
 
 #ifdef HARDWARE_SUPPORT
-#define clz32(value) ( ((value) == 0) ? 32 : __builtin_clz(value))
-#define clz64(value) ( ((value) == 0) ? 64 : __builtin_clzl(value))
-#define ctz32(value) ( ((value) == 0) ? 32 : __builtin_ctz(value))
-#define ctz64(value) ( ((value) == 0) ? 64 : __builtin_ctzl(value))
 #define popcnt32(value) __builtin_popcount(value)
 #define popcnt64(value) __builtin_popcountll(value)
 #else
@@ -107,10 +103,18 @@ uint32_t popcnt32(uint32_t value);
 uint32_t popcnt64(uint64_t value);
 #endif
 
-#define rotl32(value, count) (((uint32_t)(value) << (count)) | ((uint32_t)(value) >> (32 - (count))))
-#define rotr32(value, count) (((uint32_t)(value) >> (count)) | ((uint32_t)(value) << (32 - (count))))
-#define rotl64(value, count) (((uint64_t)(value) << (count)) | ((uint64_t)(value) >> (64 - (count))))
-#define rotr64(value, count) (((uint64_t)(value) >> (count)) | ((uint64_t)(value) << (64 - (count))))
+uint32_t rotl32(uint32_t value, uint32_t count);
+uint32_t rotr32(uint32_t value, uint32_t count);
+uint64_t rotl64(uint64_t value, uint32_t count);
+uint64_t rotr64(uint64_t value, uint32_t count);
+
+float nanF32(uint32_t x);
+double nanF64(uint64_t x);
+
+float minF32(float v1, float v2);
+double minF64(double v1, double v2);
+float maxF32(float v1, float v2);
+double maxF64(double v1, double v2);
 
 int32_t satI32F32(float f);
 uint32_t satU32F32(float f);
@@ -134,11 +138,6 @@ v128_t narrowU8x16I16x8(v128_t v1, v128_t v2);
 v128_t narrowI16x8I32x4(v128_t v1, v128_t v2);
 v128_t narrowU16x8I32x4(v128_t v1, v128_t v2);
 
-#define MAX_VALUE(v1,v2) ((v1 < v2) ? v2 : v1)
-#define MIN_VALUE(v1,v2) ((v1 < v2) ? v1 : v2)
-#define AVGR(v1, v2) (v1 + v2 + 1) / 2
-#define ABS_VALUE(v) ((v < 0) ? -v : v)
-#define U(v) ((v128_u)(v))
 #define V(v) U(v).v128
 
 #define v128Bitselect(v1,v2,v3) \

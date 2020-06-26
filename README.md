@@ -2,7 +2,7 @@
 
 Linwasm is a library to manipulate webassembly files from C++.
 It also contains an assembler (converting .wat to .wasm), a dissassembler (converting .wasm to .wat), 
-a coonverter between sequential code and folded code and a coonverter from a text file to a C file.
+a converter between sequential code and folded code and a converter from a text file to a C file.
 
 ## New feature: generating c code for scripts (.wast files).
 

@@ -207,7 +207,7 @@ bool validUtf8(std::string_view string)
     return false;
 }
 
-static std::string normalize(std::string_view chars)
+std::string normalize(std::string_view chars)
 {
     if (chars[0] == '+') {
         chars.remove_prefix(1);
@@ -307,7 +307,7 @@ double toF64(std::string_view chars)
     if (string[0] == 'n') {
         if (string.size() > 3) {
             i = strtoll(string.c_str() + 4, nullptr, 0);
-            i |= 0x7ff0000000000000;
+            i |= 0x7ff0000000000000ull;
         } else {
             i = 0x7ff8000000000000ull;
         }
@@ -529,7 +529,21 @@ std::string toHexString(uint64_t value)
     return result;
 }
 
-std::string toString(float value)
+std::string addFinalPoint(const std::string_view string)
+{
+    std::string result(string.begin(), string.end());
+
+    for (auto c : string) {
+        if (isAlpha(c) || c == '.') {
+            return result;
+        }
+    }
+
+    result += ".0";
+    return result;
+}
+
+std::string toString(float value, bool hexfloat)
 {
     std::string result;
 
@@ -550,22 +564,27 @@ std::string toString(float value)
         if (i == 0x7f800000) {
             result += "INFINITY";
         } else if (i != 0x7fc00000) {
-            result += "nanf(";
-            result += "\"0x" + toHexString(i & 0x7fffff) + "\")";
+            result += "nanF32(";
+            result += "0x" + toHexString(i & 0x7fffff) + ")";
         } else {
             result += "NAN";
         }
     } else {
         std::stringstream stream;
 
-        stream << value;
-        result += stream.str();
+        if (hexfloat) {
+            stream << std::hexfloat << value;
+            result += stream.str() + 'f';
+        } else {
+            stream << value;
+            result += addFinalPoint(stream.str()) + 'f';
+        }
     }
 
     return result;
 }
 
-std::string toString(double value)
+std::string toString(double value, bool hexfloat)
 {
     std::string result;
 
@@ -586,16 +605,21 @@ std::string toString(double value)
         if (i == 0x7ff0000000000000ull) {
             result +=  "INFINITY";
         } else if (i != 0x7ff8000000000000ull) {
-            result += "nan(";
-            result += "\"0x" + toHexString(i & 0xfffffffffffffull) + "\")";
+            result += "nanF64(";
+            result += "0x" + toHexString(i & 0xfffffffffffffull) + ")";
         } else {
             result += "NAN";
         }
     } else  {
         std::stringstream stream;
 
-        stream << value;
-        result += stream.str();
+        if (hexfloat) {
+            stream << std::hexfloat << value;
+            result += stream.str();
+        } else {
+            stream << value;
+            result += addFinalPoint(stream.str());
+        }
     }
 
     return result;

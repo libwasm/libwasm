@@ -6,7 +6,9 @@
 #include "Encodings.h"
 
 #include <algorithm>
+#include <cctype>
 #include <iostream>
+#include <iomanip>
 
 namespace libwasm
 {
@@ -650,10 +652,31 @@ void Module::generateCPreamble(std::ostream& os)
 
     if (auto* dataSection = getDataSection(); dataSection != nullptr && memoryCount > 0) {
         auto& segments = dataSection->getSegments();
+        unsigned segmentNumber = 0;
 
         for (auto& segment : segments) {
             auto* memory = memoryTable[segment->getMemoryIndex()];
             auto memoryName = memory->getCName(this);
+            auto segmentName = memoryName + "_data_" + toString(segmentNumber++);
+
+            os << "\n    static const char " << segmentName << "[] = {"
+                "\n       ";
+
+            const char* separator = "";
+            unsigned columnCount = 0;
+
+            for (auto c : segment->getInit()) {
+                os << separator << " 0x" << std::hex << std::setw(2) << std::setfill('0') <<
+                    unsigned(uint8_t(c)) << std::dec;
+                separator = ",";
+
+                if (++columnCount == 16) {
+                    columnCount = 0;
+                    os << "\n      ";
+                }
+            }
+
+            os << "\n};";
 
             os << "\n    memcpy(" << memoryName << ".data";
 
@@ -662,9 +685,7 @@ void Module::generateCPreamble(std::ostream& os)
                 generateInitExpression(os, expression->getInstructions()[0].get());
             }
 
-            os << ", \"";
-            generateCChars(os, segment->getInit());
-            os << "\", " << segment->getInit().size() << ");";
+            os << ", " << segmentName << ", " << segment->getInit().size() << ");";
         }
 
         os << '\n';

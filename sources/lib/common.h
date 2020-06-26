@@ -95,13 +95,15 @@ inline int32_t toI32(std::string_view chars)
     return int32_t(toI64(chars));
 }
 
+std::string normalize(std::string_view chars);
 float toF32(std::string_view chars);
 double toF64(std::string_view chars);
 
+std::string addFinalPoint(std::string_view string);
 std::string toString(uint32_t value);
 std::string toHexString(uint64_t value);
-std::string toString(float value);
-std::string toString(double value);
+std::string toString(float value, bool hexfloat = false);
+std::string toString(double value, bool hexfloat = false);
 
 std::string cName(std::string_view name);
 std::string makeResultName(unsigned label, unsigned index);

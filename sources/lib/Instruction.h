@@ -147,6 +147,33 @@ class InstructionNone : public Instruction
         static InstructionNone* read(BinaryContext& context);
 };
 
+class InstructionValueType : public InstructionNone
+{
+    public:
+        InstructionValueType() = default;
+
+        InstructionValueType(Opcode op)
+          : InstructionNone(op)
+        {
+        }
+
+        auto getType() const
+        {
+            return type;
+        }
+
+        void setType(ValueType t)
+        {
+            type = t;
+        }
+
+        static InstructionValueType* parse(SourceContext& context, Opcode opcode);
+        static InstructionValueType* read(BinaryContext& context);
+
+    private:
+        ValueType type;
+};
+
 class InstructionI32 : public Instruction
 {
     public:

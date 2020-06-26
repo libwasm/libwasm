@@ -287,12 +287,13 @@ static void makeLoadFunction(std::string_view name, std::string_view cast, std::
           "\n}\n";
 }
 
-static void makeStoreFunction(std::string_view name, std::string_view cast, std::string_view valueType)
+static void makeStoreFunction(std::string_view name, std::string_view cast, std::string_view valueType,
+        std::string_view valueCast = "")
 {
     functionDeclarations << "\nvoid " << name << "(Memory* memory, uint64_t offset, " << valueType << " value);";
     functionDefinitions << "\nvoid " << name << "(Memory* memory, uint64_t offset, " << valueType << " value)"
           "\n{"
-          "\n  " << cast << "(memory->data + offset) = value;"
+          "\n  " << cast << "(memory->data + offset) = " << valueCast << "value;"
           "\n}\n";
 }
 
@@ -416,10 +417,10 @@ static void generateWiden(std::string_view type, uint32_t count,
 
 static void generate()
 {
-    makeLoadFunction("loadI8", "*(int8_t*)", "int32_t");
-    makeLoadFunction("loadU8", "*(uint8_t*)", "uint32_t");
-    makeLoadFunction("loadI16", "*(int16_t*)", "int32_t");
-    makeLoadFunction("loadU16", "*(uint16_t*)", "uint32_t");
+    makeLoadFunction("loadI8", "*(int8_t*)", "int8_t");
+    makeLoadFunction("loadU8", "*(uint8_t*)", "uint8_t");
+    makeLoadFunction("loadI16", "*(int16_t*)", "int16_t");
+    makeLoadFunction("loadU16", "*(uint16_t*)", "uint16_t");
     makeLoadFunction("loadI32", "*(int32_t*)", "int32_t");
     makeLoadFunction("loadU32", "*(uint32_t*)", "uint32_t");
     makeLoadFunction("loadI64", "*(int64_t*)", "int64_t");
@@ -445,12 +446,12 @@ static void generate()
     makeStoreFunction("storeF64", "*(double*)", "double");
     makeStoreFunction("storeV128", "*(v128_t*)", "v128_t");
 
-    makeStoreFunction("storeI32I8", "*(int8_t*)", "int32_t");
-    makeStoreFunction("storeI32I16", "*(int16_t*)", "int32_t");
+    makeStoreFunction("storeI32I8", "*(int8_t*)", "int32_t", "(int8_t)");
+    makeStoreFunction("storeI32I16", "*(int16_t*)", "int32_t", "(int16_t)");
 
-    makeStoreFunction("storeI64I8", "*(int8_t*)", "int64_t");
-    makeStoreFunction("storeI64I16", "*(int16_t*)", "int64_t");
-    makeStoreFunction("storeI64I32", "*(int32_t*)", "int64_t");
+    makeStoreFunction("storeI64I8", "*(int8_t*)", "int64_t", "(int8_t)");
+    makeStoreFunction("storeI64I16", "*(int16_t*)", "int64_t", "(int16_t)");
+    makeStoreFunction("storeI64I32", "*(int32_t*)", "int64_t", "(int32_t)");
 
     generateMakeV128("i8", 16, "int8_t");
     generateMakeV128("u8", 16, "uint8_t");

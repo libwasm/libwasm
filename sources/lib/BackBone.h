@@ -31,7 +31,7 @@ class Expression : public TreeNode
 
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
-        void generateValue(std::ostream& os, const Module* module);
+        void generateCValue(std::ostream& os, const Module* module);
         void check(CheckContext& context);
         void write(BinaryContext& context) const;
 
@@ -742,6 +742,16 @@ class TypeUse
             return number;
         }
 
+        void setExported(bool value = true)
+        {
+            isExported = value;
+        }
+
+        auto getExported() const
+        {
+            return isExported;
+        }
+
         std::string getCName(const Module* module) const;
 
         void checkSignature(SourceContext& context);
@@ -760,6 +770,7 @@ class TypeUse
         std::string id;
         std::string externId;
         uint32_t number = 0;
+        bool isExported;
 };
 
 class TypeDeclaration : public TreeNode
@@ -984,6 +995,16 @@ class Table
             return number;
         }
 
+        void setExported(bool value = true)
+        {
+            isExported = value;
+        }
+
+        auto getExported() const
+        {
+            return isExported;
+        }
+
         std::string getCName(const Module* module) const;
 
     protected:
@@ -992,6 +1013,7 @@ class Table
         std::string id;
         std::string externId;
         uint32_t number;
+        bool isExported;
 };
 
 class TableImport : public Table, public ImportDeclaration
@@ -1055,6 +1077,16 @@ class Memory
             return number;
         }
 
+        void setExported(bool value = true)
+        {
+            isExported = value;
+        }
+
+        auto getExported() const
+        {
+            return isExported;
+        }
+
         std::string getCName(const Module* module) const;
 
     protected:
@@ -1062,6 +1094,7 @@ class Memory
         std::string id;
         std::string externId;
         uint32_t number;
+        bool isExported;
 };
 
 class MemoryImport : public Memory, public ImportDeclaration
@@ -1135,12 +1168,23 @@ class Event
             return number;
         }
 
+        void setExported(bool value = true)
+        {
+            isExported = value;
+        }
+
+        auto getExported() const
+        {
+            return isExported;
+        }
+
     protected:
         EventType attribute;
         uint32_t typeIndex;
         std::string id;
         std::string externId;
         uint32_t number;
+        bool isExported;
 };
 
 class EventImport : public Event, public ImportDeclaration
@@ -1215,12 +1259,23 @@ class Global
 
         std::string getCName(const Module* module) const;
 
+        void setExported(bool value = true)
+        {
+            isExported = value;
+        }
+
+        auto getExported() const
+        {
+            return isExported;
+        }
+
     protected:
         ValueType type = 0;
         Mut mut = Mut::const_;
         std::string id;
         std::string externId;
         uint32_t number;
+        bool isExported;
 };
 
 class GlobalImport : public Global, public ImportDeclaration

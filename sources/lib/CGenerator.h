@@ -38,6 +38,7 @@ class CNode
             kCall,
             kCast,
             kCompound,
+            kCompoundExpression,
             kFunction,
             kI32,
             kI64,
@@ -117,6 +118,11 @@ class CNode
 
         CNode* findNext(CNodeKind kind);
 
+        virtual bool hasSideEffects() const
+        {
+            return true;
+        }
+
     protected:
         CNodeKind nodeKind = kNone;
         CNode* parent = nullptr;
@@ -150,6 +156,32 @@ class CCompound : public CNode
         void optimize(CGenerator& generator);
         void optimizeIfs(CGenerator& generator);
         void flatten();
+};
+
+class CCompoundExpression : public CNode
+{
+    public:
+        static const CNodeKind kind = kCompoundExpression;
+
+        CCompoundExpression()
+            : CNode(kind)
+        {
+        }
+
+        virtual bool hasSideEffects() const
+        {
+            for (auto* expression = child; expression != nullptr; expression = expression->getNext()) {
+                if (expression->hasSideEffects()) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator& generator);
+
+        void addExpression(CNode* expression);
 };
 
 class CBr : public CNode
@@ -245,6 +277,11 @@ class CBinaryExpression : public CNode
             return left;
         }
 
+        virtual bool hasSideEffects() const
+        {
+            return left->hasSideEffects() || right->hasSideEffects();
+        }
+
     private:
         CNode* left = nullptr;
         CNode* right = nullptr;
@@ -283,12 +320,28 @@ class CCall : public CNode
         {
         }
 
+        auto getPure() const
+        {
+            return pure;
+        }
+
+        void setPure(bool p)
+        {
+            pure = p;
+        }
+
+        virtual bool hasSideEffects() const
+        {
+            return !pure;
+        }
+
         virtual void generateC(std::ostream& os, CGenerator& generator);
 
         void addArgument(CNode* argument);
         void reverseArguments();
 
     private:
+        bool pure = false;
         std::string functionName;
         std::vector<CNode*> arguments;
 };
@@ -302,6 +355,11 @@ class CCast : public CNode
             : CNode(kind), type(type), operand(operand)
         {
             operand->link(this);
+        }
+
+        virtual bool hasSideEffects() const
+        {
+            return operand->hasSideEffects();
         }
 
         virtual void generateC(std::ostream& os, CGenerator& generator);
@@ -409,6 +467,11 @@ class CI32 : public CNode
             return value;
         }
 
+        virtual bool hasSideEffects() const override
+        {
+            return false;
+        }
+
     private:
         int32_t value = 0;
 };
@@ -428,6 +491,11 @@ class CI64 : public CNode
         auto getValue() const
         {
             return value;
+        }
+
+        virtual bool hasSideEffects() const override
+        {
+            return false;
         }
 
     private:
@@ -451,6 +519,11 @@ class CF32 : public CNode
             return value;
         }
 
+        virtual bool hasSideEffects() const override
+        {
+            return false;
+        }
+
     private:
         float value = 0;
 };
@@ -472,6 +545,11 @@ class CF64 : public CNode
             return value;
         }
 
+        virtual bool hasSideEffects() const override
+        {
+            return false;
+        }
+
     private:
         double value = 0;
 };
@@ -491,6 +569,11 @@ class CV128 : public CNode
         auto getValue() const
         {
             return value;
+        }
+
+        virtual bool hasSideEffects() const override
+        {
+            return false;
         }
 
     private:
@@ -572,6 +655,11 @@ class CLoad : public CNode
             offset->link(this);
         }
 
+        virtual bool hasSideEffects() const
+        {
+            return offset->hasSideEffects();
+        }
+
         virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
@@ -595,6 +683,11 @@ class CNameUse : public CNode
         std::string_view getName() const
         {
             return name;
+        }
+
+        virtual bool hasSideEffects() const override
+        {
+            return false;
         }
 
     private:
@@ -655,6 +748,27 @@ class CTernaryExpression : public CNode
             falseExpression->link(this);
         }
 
+        auto* getCondition() const
+        {
+            return condition;
+        }
+
+        auto* getTrueExpression() const
+        {
+            return trueExpression;
+        }
+
+        auto* getFalseExpression() const
+        {
+            return falseExpression;
+        }
+
+        virtual bool hasSideEffects() const
+        {
+            return condition->hasSideEffects() || trueExpression->hasSideEffects() ||
+                falseExpression->hasSideEffects();;
+        }
+
         virtual void generateC(std::ostream& os, CGenerator& generator);
 
     private:
@@ -685,6 +799,11 @@ class CUnaryExpression : public CNode
         }
 
         virtual void generateC(std::ostream& os, CGenerator& generator);
+
+        virtual bool hasSideEffects() const
+        {
+            return operand->hasSideEffects();
+        }
 
     private:
         std::string_view op;
@@ -753,6 +872,7 @@ class CGenerator
         CNode* makeCombinedOffset(Instruction* instruction);
         std::vector<ValueType> getBlockResults(InstructionBlock* blockInstruction);
         CNode* makeBlockResults(const std::vector<ValueType>& types);
+        const Local* getLocal(uint32_t index);
 
         CNode* generateCBinaryExpression(std::string_view op);
         CNode* generateCBlock(Instruction* instruction);
@@ -761,29 +881,34 @@ class CGenerator
         CNode* generateCBrIf(Instruction* instruction);
         CNode* generateCBrUnless(Instruction* instruction);
         CNode* generateCBrTable(Instruction* instruction);
-        CNode* generateCCallPredef(std::string_view name, unsigned argumentCount = 1);
+        CNode* generateCCallPredef(std::string_view name, unsigned argumentCount);
         CNode* generateCCast(std::string_view name);
         CNode* generateCDoubleCast(std::string_view name1, std::string_view name2);
         CNode* generateCDrop(Instruction* instruction);
         CNode* generateCExtractLane(Instruction* instruction, const char* type);
         CNode* generateCReplaceLane(Instruction* instruction, const char* type);
+        void generateCGlobalGet(Instruction* instruction);
         CNode* generateCGlobalSet(Instruction* instruction);
         CNode* generateCIf(Instruction* instruction);
-        CNode* generateCLoad(std::string_view name, Instruction* instruction);
-        CNode* generateCLoadSplat(std::string_view splatName, std::string_view loadName, Instruction* instruction);
+        void generateCLoad(std::string_view name, Instruction* instruction, ValueType type);
+        CNode* generateCLoadSplat(std::string_view splatName, std::string_view loadName,
+                Instruction* instruction, ValueType type);
         CNode* generateCLoadExtend(std::string_view splatName, Instruction* instruction);
+        void generateCLocalGet(Instruction* instruction);
         CNode* generateCLocalSet(Instruction* instruction);
+        CNode* generateCLocalTee(Instruction* instruction);
         CNode* generateCLoop(Instruction* instruction);
         CNode* generateCMemorySize();
         CNode* generateCMemoryGrow();
         CNode* generateCReturn(Instruction* instruction);
-        CNode* generateCSelect(Instruction* instruction);
+        void generateCSelect(Instruction* instruction);
+        CNode* generateCShift(std::string_view op, std::string_view type);
         CNode* generateCShuffle(Instruction* instruction);
         CNode* generateCStore(std::string_view name, Instruction* instruction);
         CNode* generateCUBinaryExpression(std::string_view op, std::string_view type);
         CNode* generateCUnaryExpression(std::string_view op);
-        void generateCCall(Instruction* instruction, CNode*& expression, CNode*& statement);
-        void generateCCallIndirect(Instruction* instruction, CNode*& expression, CNode*& statement);
+        CNode* generateCCall(Instruction* instruction);
+        CNode* generateCCallIndirect(Instruction* instruction);
 
         void buildCTree();
         void skipUnreachable(unsigned count = 0);
@@ -791,9 +916,14 @@ class CGenerator
         unsigned pushLabel(std::vector<ValueType> types);
         void popLabel();
 
-        void pushExpression(CNode* expression);
+        CCompoundExpression* tempify();
+        CNode* tempify(CNode* expression);
+        void pushExpression(CNode* expression, ValueType type = ValueType::void_, bool hasSideEffects = false);
         CNode* popExpression();
+        CNode* getExpression(size_t offset);
+        void replaceExpression(CNode* expression, size_t offset);
 
+        std::string getTemp(ValueType type);
         std::vector<std::string> getTemps(const std::vector<ValueType>& types);
         void optimize();
 
@@ -815,6 +945,19 @@ class CGenerator
             bool branchTarget = false;
             bool impliedTarget = false;
             std::vector<ValueType> types;
+            std::vector<std::string> temps;
+        };
+
+        struct ExpressionInfo
+        {
+            ExpressionInfo(CNode* expression, ValueType type, bool sideEffects)
+                : expression(expression), type(type), hasSideEffects(sideEffects || expression->hasSideEffects())
+            {
+            }
+
+            CNode* expression = nullptr;
+            ValueType type = ValueType::void_;
+            bool hasSideEffects = false;
         };
 
         std::vector<std::unique_ptr<Instruction>>::iterator instructionPointer;
@@ -825,7 +968,7 @@ class CGenerator
         unsigned label = 0;
         std::string indentString = "";
         const Module* module;
-        std::vector<CNode*> expressionStack;
+        std::vector<ExpressionInfo> expressionStack;
         CodeEntry* codeEntry;
         bool optimized = false;
         CFunction* function;
