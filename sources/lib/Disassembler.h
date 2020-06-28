@@ -82,6 +82,11 @@ class Disassembler
             return context;
         }
 
+        auto& getModule()
+        {
+            return module;
+        }
+
     private:
         bool readWasm(std::istream& stream);
         bool readFile(std::istream& stream);

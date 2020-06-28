@@ -17,7 +17,140 @@ namespace libwasm
 
 class Module;
 class SourceContext;
+class Invoke;
 class Script;
+class AssertReturn;
+
+class ScriptValue
+{
+    public:
+        void generateC(std::ostream& os) const;
+        static ScriptValue parse(SourceContext& context);
+
+        enum Nan : uint8_t
+        {
+            none,
+            canonical,
+            arithmetic
+        };
+
+        struct I8
+        {
+            bool operator==(uint8_t other)
+            {
+                return value == other;
+            }
+
+            void generateC(std::ostream& os) const;
+            static I8 parse(SourceContext& context);
+
+            uint8_t value;
+            std::string_view string;
+        };
+
+        struct I16
+        {
+            bool operator==(uint16_t other)
+            {
+                return value == other;
+            }
+
+            void generateC(std::ostream& os) const;
+            static I16 parse(SourceContext& context);
+
+            uint16_t value;
+            std::string_view string;
+        };
+
+        struct I32
+        {
+            bool operator==(uint32_t other)
+            {
+                return value == other;
+            }
+
+            void generateC(std::ostream& os) const;
+            static I32 parse(SourceContext& context, bool forV128 = false);
+
+            uint32_t value;
+            std::string_view string;
+        };
+
+        struct I64
+        {
+            bool operator==(uint64_t other)
+            {
+                return value == other;
+            }
+
+            void generateC(std::ostream& os) const;
+            static I64 parse(SourceContext& context, bool forV128 = false);
+
+            uint64_t value;
+            std::string_view string;
+        };
+
+        struct F32
+        {
+            bool operator==(float other);
+            void generateC(std::ostream& os) const;
+            static F32 parse(SourceContext& context, bool forV128 = false);
+
+            Nan nan = Nan::none;
+            float value;
+            std::string_view string;
+        };
+
+        struct F64
+        {
+            bool operator==(double other);
+            void generateC(std::ostream& os) const;
+            static F64 parse(SourceContext& context, bool forV128 = false);
+
+            Nan nan = Nan::none;
+            double value;
+            std::string_view string;
+        };
+
+        struct V128
+        {
+            bool operator==(V128 other);
+            void generateC(std::ostream& os) const;
+            static F64 parse(SourceContext& context);
+
+            union {
+                I8  i8x16[16];
+                I16 i16x8[8];
+                I32 i32x4[4];
+                I64 i64x2[2];
+                F32 f32x4[4];
+                F64 f64x2[2];
+            };
+
+            std::string_view string;
+        };
+
+        union
+        {
+            int32_t  i32;
+            int64_t  i64;
+            float    f32;
+            double   f64;
+            int8_t   i8x16[16];
+            int16_t  i16x8[8];
+            int32_t  i32x4[4];
+            int64_t  i64x2[2];
+            float    f32x4[4];
+            double   f64x2[2];
+            v128_t   v128;
+        };
+
+        ValueType type = ValueType::void_;
+        Nan nan = Nan::none;
+        Nan nans[4];
+
+        std::string_view string;
+};
 
 class Invoke
 {
@@ -27,35 +160,11 @@ class Invoke
         void generateC(std::ostream& os, const Script& script);
         static Invoke* parse(SourceContext& context);
 
-        struct Value
-        {
-            ValueType type = ValueType::void_;
-            bool canonicalNan = false;
-            bool arithmeticNan = false;
-            union
-            {
-                int32_t  i32;
-                int64_t  i64;
-                float    f32;
-                double   f64;
-                int8_t   i8x16[16];
-                int16_t  i16x8[8];
-                int32_t  i32x4[4];
-                int64_t  i64x2[2];
-                float    f32x4[4];
-                double   f64x2[2];
-                v128_t   v128;
-            };
-
-            std::string_view string;
-            void generateC(std::ostream& os) const;
-            static Value parse(SourceContext& context);
-        };
 
     private:
         std::string moduleName;
         std::string functionName;
-        std::vector<Value> arguments;
+        std::vector<ScriptValue> arguments;
 };
 
 class AssertReturn
@@ -71,7 +180,7 @@ class AssertReturn
 
     private:
         Invoke* invoke;
-        std::vector<Invoke::Value> results;
+        std::vector<ScriptValue> results;
         size_t lineNumber = 0;
 };
 

@@ -20,11 +20,29 @@ auto getNextResult()
     return resultCount++;
 }
 
-Invoke::Value Invoke::Value::parse(SourceContext& context)
+ScriptValue::I8 ScriptValue::I8::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
     auto& msgs = context.msgs();
-    Value result;
+    I8 result;
+
+    result.string = tokens.peekToken().getValue();
+
+    if (auto v  = tokens.getI8()) {
+        result.value = *v;
+    } else {
+        msgs.error(tokens.peekToken(), "Invalid I8");
+        result.value = 0;
+    }
+
+    return result;
+}
+
+ScriptValue ScriptValue::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
+    ScriptValue result;
     auto token = tokens.getKeyword();
 
     if (!token) {
@@ -55,10 +73,10 @@ Invoke::Value Invoke::Value::parse(SourceContext& context)
             result.type = ValueType::f32;
 
             if (tokens.peekToken().getValue() == "nan:canonical") {
-                result.canonicalNan = true;
+                result.nan = Nan::canonical;
                 tokens.bump();
             } else if (tokens.peekToken().getValue() == "nan:arithmetic") {
-                result.arithmeticNan = true;
+                result.nan = Nan::arithmetic;
                 tokens.bump();
             } else {
                 result.f32 = requiredF32(context);
@@ -71,10 +89,10 @@ Invoke::Value Invoke::Value::parse(SourceContext& context)
             result.type = ValueType::f64;
 
             if (tokens.peekToken().getValue() == "nan:canonical") {
-                result.canonicalNan = true;
+                result.nan  = Nan::canonical;
                 tokens.bump();
             } else if (tokens.peekToken().getValue() == "nan:arithmetic") {
-                result.arithmeticNan = true;
+                result.nan = Nan::arithmetic;
                 tokens.bump();
             } else {
                 result.f64 = requiredF64(context);
@@ -109,7 +127,7 @@ static bool isSpecialF(std::string_view string)
     return false;
 }
 
-void Invoke::Value::generateC(std::ostream& os) const
+void ScriptValue::generateC(std::ostream& os) const
 {
     switch(type) {
         case ValueType::i32:
@@ -154,7 +172,7 @@ Invoke* Invoke::parse(SourceContext& context)
     result->functionName = requiredString(context);
 
     while (tokens.getParenthesis('(')) {
-        result->arguments.push_back(Value::parse(context));
+        result->arguments.push_back(ScriptValue::parse(context));
         requiredCloseParenthesis(context);
     }
 
@@ -203,7 +221,7 @@ AssertReturn* AssertReturn::parse(SourceContext& context)
     result->invoke = invoke;
 
     while (tokens.getParenthesis('(')) {
-        result->results.push_back(Invoke::Value::parse(context));
+        result->results.push_back(ScriptValue::parse(context));
         requiredCloseParenthesis(context);
     }
 
@@ -233,13 +251,13 @@ void AssertReturn::generateSimpleC(std::ostream& os, std::string_view type, cons
     invoke->generateC(os, script);
     os << ';';
 
-    if (results[0].canonicalNan) {
+    if (results[0].nan == ScriptValue::Nan::canonical) {
         os << "\n    if (" << cast << "result_" << resultNumber << " != " << quietNan << " && " <<
             cast << "result_" << resultNumber << " != " << quietNegNan << ") {";
         os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
         os << "\n        ++errorCount;";
         os << "\n    }";
-    } else if (results[0].arithmeticNan) {
+    } else if (results[0].nan == ScriptValue::Nan::arithmetic) {
         os << "\n    if (!isnan(result_" << resultNumber << ")) {";
         os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
         os << "\n        ++errorCount;";
@@ -273,7 +291,7 @@ void AssertReturn::generateV128C(std::ostream& os, const Script& script)
     results[0].generateC(os);
     os << ';';
 
-    os << "\n\n    if (result_" << resultNumber << ".u64[0] != expect_" << resultNumber << ".u64[0] && "
+    os << "\n\n    if (result_" << resultNumber << ".u64[0] != expect_" << resultNumber << ".u64[0] || "
         "result_" << resultNumber << ".u64[0] != expect_" << resultNumber << ".u64[0]) {" ;
     os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
     os << "\n    }";

@@ -95,13 +95,14 @@ double reinterpretF64I64(int64_t value);
 #define popcnt32(value) __builtin_popcount(value)
 #define popcnt64(value) __builtin_popcountll(value)
 #else
+uint32_t popcnt32(uint32_t value);
+uint32_t popcnt64(uint64_t value);
+#endif
+
 uint32_t clz32(uint32_t value);
 uint32_t clz64(uint64_t value);
 uint32_t ctz32(uint32_t value);
 uint32_t ctz64(uint64_t value);
-uint32_t popcnt32(uint32_t value);
-uint32_t popcnt64(uint64_t value);
-#endif
 
 uint32_t rotl32(uint32_t value, uint32_t count);
 uint32_t rotr32(uint32_t value, uint32_t count);
@@ -138,6 +139,7 @@ v128_t narrowU8x16I16x8(v128_t v1, v128_t v2);
 v128_t narrowI16x8I32x4(v128_t v1, v128_t v2);
 v128_t narrowU16x8I32x4(v128_t v1, v128_t v2);
 
+#define U(v) ((v128_u)(v))
 #define V(v) U(v).v128
 
 #define v128Bitselect(v1,v2,v3) \

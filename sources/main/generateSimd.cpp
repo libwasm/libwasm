@@ -181,9 +181,10 @@ static void generateUnaryCall(std::string_view name, std::string_view type, uint
     functionDefinitions << "\nv128_t v128" << name << fullType << "(v128_t v1)"
         "\n{"
         "\n    v128_u result;"
+        "\n    v128_u v1u = U(v1);"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = " << call << "(U(v1)." << type << "[i]);"
+        "\n        result." << type << "[i] = " << call << "(v1u." << type << "[i]);"
         "\n    }"
         "\n"
         "\n    return result.v128;"
@@ -239,18 +240,20 @@ static void generateShiftOp(std::string_view name, std::string_view type, uint32
         std::string_view op)
 {
     std::string fullType = makeFullType(type, count);
+    auto size = 128 / count;
     
     hardwareMacros << "\n#define v128" << name << fullType << "(v1,v2) "
-        "V(U(v1)." << fullType << " " << op << " v2)";
+        "V(U(v1)." << fullType << " " << op << " ((v2 % " << size << ")))";
 
     softwareDeclarations << "\nv128_t v128" << name << fullType << "(v128_t v1, int32_t v2);";
 
     softwareDefinitions << "\nv128_t v128" << name << fullType << "(v128_t v1, int32_t v2)"
         "\n{"
         "\n    v128_u result;"
+        "\n    uint32_t shiftCount = v2 % " << size << ";"
         "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        result." << type << "[i] = ((U(v1))." << type << "[i]) " << op << " v2;"
+        "\n        result." << type << "[i] = ((U(v1))." << type << "[i]) " << op << " shiftCount;"
         "\n    }"
         "\n"
         "\n    return result.v128;"
@@ -356,8 +359,10 @@ static void generateAnyTrue(std::string_view type, uint32_t count)
 
     functionDefinitions << "\nint32_t v128SAnyTrue" << fullType << "(v128_t v1)"
         "\n{"
+        "\n    v128_u v1u = U(v1);"
+        "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        if (U(v1)." << type << "[i] != 0) return 1;"
+        "\n        if (v1u." << type << "[i] != 0) return 1;"
         "\n    }"
         "\n"
         "\n    return 0;"
@@ -373,11 +378,13 @@ static void generateAllTrue(std::string_view type, uint32_t count)
 
     functionDefinitions << "\nint32_t v128SAllTrue" << fullType << "(v128_t v1)"
         "\n{"
+        "\n    v128_u v1u = U(v1);"
+        "\n"
         "\n    for (uint32_t i = 0; i < " << count << "; ++i) {"
-        "\n        if (U(v1)." << type << "[i] == 0) return 0;"
+        "\n        if (v1u." << type << "[i] == 0) return 0;"
         "\n    }"
         "\n"
-        "\n    return 0;"
+        "\n    return 1;"
         "\n}"
         "\n";
 }
@@ -483,8 +490,8 @@ static void generate()
     generateBinaryOp("Div", "f32", 4, "/");
     generateBinaryOp("Div", "f64", 2, "/");
 
-    generateBinaryOp("Or",  "i64", 2, "&");
-    generateBinaryOp("And", "i64", 2, "|");
+    generateBinaryOp("Or",  "i64", 2, "|");
+    generateBinaryOp("And", "i64", 2, "&");
     generateBinaryOp("Xor", "i64", 2, "^");
 
     generateOperations(generateUnaryOp, "Neg", "-", Type("i8", 16), Type("i16", 8), Type("i32", 4),

@@ -12,7 +12,6 @@ extern "C" {
 #define MIN_VALUE(v1,v2) ((v1 < v2) ? v1 : v2)
 #define AVGR(v1, v2) (v1 + v2 + 1) / 2
 #define ABS_VALUE(v) ((v < 0) ? -v : v)
-#define U(v) ((v128_u)(v))
 
 uint32_t rotl32(uint32_t value, uint32_t count)
 {
@@ -526,7 +525,7 @@ v128_t narrowI16x8I32x4(v128_t v1, v128_t v2)
     return result.v128;
 }
 
-v128_t narrowUU6x8I32x4(v128_t v1, v128_t v2)
+v128_t narrowU16x8I32x4(v128_t v1, v128_t v2)
 {
     v128_u result;
 
@@ -640,9 +639,9 @@ v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3)
     v128_u result;
 
     for (unsigned i = 0; i < 16; ++i) {
-        uint32_t index = U(v3).i8[i];
+        uint32_t index = U(v3).u8[i];
 
-        if (index < 16) {
+        if (index >= 0 && index < 16) {
             result.i8[i] =  U(v1).i8[i];
         } else {
             result.i8[i] =  U(v2).i8[index - 16];
@@ -657,12 +656,14 @@ v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3)
 v128_t v128Swizzlei8x16(v128_t v1, v128_t v2)
 {
     v128_u result;
+    v128_u v1u = U(v1);
+    v128_u v2u = U(v2);
 
     for (unsigned i = 0; i < 16; ++i) {
-        uint32_t index = U(v2).i8[i];
+        uint32_t index = v2u.u8[i];
 
-        if (index < 16) {
-            result.i8[i] =  U(v1).i8[i];
+        if (index >= 0 && index < 16) {
+            result.i8[i] =  v1u.i8[i];
         } else {
             result.i8[i] =  0;
         }

@@ -770,7 +770,7 @@ Signature* Signature::parse(SourceContext& context)
         found = true;
         if (auto id = tokens.getId()) {
             if (auto value = parseValueType(context)) {
-                auto local = context.makeTreeNode<Local>(*id, *value);
+                auto* local = context.makeTreeNode<Local>(*id, *value);
 
                 local->setNumber(module->nextLocalCount());
 
@@ -783,7 +783,7 @@ Signature* Signature::parse(SourceContext& context)
         } else {
             for (;;) {
                 if (auto valueType = parseValueType(context)) {
-                    auto local = context.makeTreeNode<Local>(*valueType);
+                    auto* local = context.makeTreeNode<Local>(*valueType);
 
                     local->setNumber(module->nextLocalCount());
 
@@ -821,10 +821,14 @@ Signature* Signature::parse(SourceContext& context)
 Signature* Signature::read(BinaryContext& context)
 {
     auto& data = context.data();
+    auto* module = context.getModule();
     auto result = context.makeTreeNode<Signature>();
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
-        result->params.emplace_back(context.makeTreeNode<Local>(readValueType(context)));
+        auto* local = context.makeTreeNode<Local>(readValueType(context));
+
+        local->setNumber(module->nextLocalCount());
+        result->params.emplace_back(local);
     }
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
@@ -1248,7 +1252,7 @@ static std::string buildCName(std::string_view id, std::string_view externId, co
 
 std::string TypeUse::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "f", number, module);
+    return buildCName(id, externId, "_f_", number, module);
 }
 
 void TypeUse::generateC(std::ostream& os, const Module* module, size_t number)
@@ -1377,7 +1381,7 @@ void FunctionImport::show(std::ostream& os, Module* module)
 
 std::string Memory::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "memory", number, module);
+    return buildCName(id, externId, "_memory_", number, module);
 }
 
 void MemoryImport::write(BinaryContext& context) const
@@ -1557,7 +1561,7 @@ void EventImport::show(std::ostream& os, Module* module)
 
 std::string Table::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "table", number, module);
+    return buildCName(id, externId, "_table_", number, module);
 }
 
 void TableImport::write(BinaryContext& context) const
@@ -2929,7 +2933,7 @@ void GlobalDeclaration::generate(std::ostream& os, Module* module)
 
 std::string Global::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "global", number, module);
+    return buildCName(id, externId, "_global_", number, module);
 }
 
 void GlobalDeclaration::generateC(std::ostream& os, const Module* module)
@@ -3892,7 +3896,7 @@ std::string Local::getCName() const
     if (!id.empty()) {
         result = cName(id);
     } else {
-        result = "local" + toString(number);
+        result = "_local_" + toString(number);
     }
 
     return result;
@@ -4032,7 +4036,10 @@ CodeEntry* CodeEntry::read(BinaryContext& context)
         auto type = readValueType(context);
 
         for (uint32_t j = 0; j < localCount; ++j) {
-            result->locals.emplace_back(context.makeTreeNode<Local>(type));
+            auto* local = context.makeTreeNode<Local>(type);
+
+            local->setNumber(module->nextLocalCount());
+            result->locals.emplace_back(local);
         }
     }
 

@@ -2,10 +2,12 @@
 
 #include "Assembler.h"
 
+#include "Disassembler.h"
 #include "parser.h"
 
 #include <algorithm>
 #include <cctype>
+#include <sstream>
 #include <tuple>
 #include <map>
 
@@ -706,16 +708,27 @@ bool Assembler::doParseScript()
                 module->setId(*id);
             }
 
-            if (tokens.peekKeyword("binary")) {
-                ++ignoreds["binary module"];
-                tokens.recover();
-                continue;
-            }
+            if (tokens.getKeyword("binary")) {
+                std::string code;
 
-            auto startPos = tokens.getPos();
+                while (auto str = tokens.getString()) {
+                    code.append(context.unEscape(*str));
+                }
 
-            if (parseModule(startPos, endPos)) {
-                script->addModule(module);
+                std::stringstream stream(code);
+                Disassembler disassembler(stream);
+
+                if (disassembler.isGood()) {
+                    script->addModule(disassembler.getModule());
+                } else {
+                    std::cerr << "Unable to read binary module" << std::endl;
+                }
+            } else {
+                auto startPos = tokens.getPos();
+
+                if (parseModule(startPos, endPos)) {
+                    script->addModule(module);
+                }
             }
 
             requiredCloseParenthesis(context);

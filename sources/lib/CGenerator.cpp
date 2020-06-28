@@ -1607,7 +1607,9 @@ CNode* CGenerator::generateCLoadSplat(std::string_view splatName, std::string_vi
 CNode* CGenerator::generateCLoadExtend(std::string_view loadName, Instruction* instruction)
 {
     auto* result = new CCall(loadName);
+    auto* memory = module->getMemory(0);
 
+    result->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
     result->addArgument(makeCombinedOffset(instruction));
 
     return result;
@@ -3084,23 +3086,23 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::f32x4__ne:
-                pushExpression(generateCCallPredef("v128Nef42x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Nef32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__lt:
-                pushExpression(generateCCallPredef("v128Ltf42x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Ltf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__gt:
-                pushExpression(generateCCallPredef("v128Gtf42x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Gtf32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__le:
-                pushExpression(generateCCallPredef("v128Lef42x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Lef32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f32x4__ge:
-                pushExpression(generateCCallPredef("v128Gef42x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Gef32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::f64x2__eq:
@@ -3160,11 +3162,11 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i8x16__any_true:
-                pushExpression(generateCCallPredef("v128SAnyTruei8x16", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128SAnyTruei8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i8x16__all_true:
-                pushExpression(generateCCallPredef("v128SAllTruei8x16", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128SAllTruei8x16", 1), ValueType::v128);
                 break;
 
             case Opcode::i8x16__narrow_i16x8_s:
@@ -3232,7 +3234,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i16x8__abs:
-                pushExpression(generateCCallPredef("v128Absi8x16", 1), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Absi16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__neg:
@@ -3240,11 +3242,11 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i16x8__any_true:
-                pushExpression(generateCCallPredef("v128SAnyTruei16x8", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128SAnyTruei16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__all_true:
-                pushExpression(generateCCallPredef("v128SAllTruei16x8", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128SAllTruei16x8", 1), ValueType::v128);
                 break;
 
             case Opcode::i16x8__narrow_i32x4_s:
@@ -3316,7 +3318,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i16x8__min_u:
-                pushExpression(generateCCallPredef("v128Mini16x8", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Minu16x8", 2), ValueType::v128);
                 break;
 
             case Opcode::i16x8__max_s:
@@ -3332,7 +3334,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i32x4__abs:
-                pushExpression(generateCCallPredef("v128Absi16x8", 1), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Absi32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__neg:
@@ -3340,11 +3342,11 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i32x4__any_true:
-                pushExpression(generateCCallPredef("v128SAnyTruei32x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128SAnyTruei32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__all_true:
-                pushExpression(generateCCallPredef("v128SAllTruei32x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128SAllTruei32x4", 1), ValueType::v128);
                 break;
 
             case Opcode::i32x4__widen_low_i16x8_s:
@@ -3392,7 +3394,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i32x4__min_u:
-                pushExpression(generateCCallPredef("v128Mini32x4", 2), ValueType::v128);
+                pushExpression(generateCCallPredef("v128Minu32x4", 2), ValueType::v128);
                 break;
 
             case Opcode::i32x4__max_s:
