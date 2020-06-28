@@ -630,14 +630,6 @@ void CCompound::flatten()
             }
 
             delete compound;
-        } else if (auto* compound = statement->castTo<CCompoundExpression>(); compound != nullptr) {
-            statement = compound->getChild();
-
-            while (compound->getChild() != nullptr) {
-                compound->getChild()->link(this, compound);
-            }
-
-            delete compound;
         } else if (auto* ifStatement = statement->castTo<CIf>(); ifStatement != nullptr) {
             statement = statement->getNext();
 
@@ -776,27 +768,6 @@ void CCompound::optimize(CGenerator& generator)
     optimizeIfs(generator);
 }
 
-void CCompoundExpression::addExpression(CNode* expression)
-{
-    expression->link(this);
-}
-
-void CCompoundExpression::generateC(std::ostream& os, CGenerator& generator)
-{
-    os << '(';
-
-    const char* separator = "";
-
-    for (auto* expression = child; expression != nullptr; expression = expression->getNext()) {
-        os << separator << '(';
-        expression->generateC(os, generator);
-        os << ')';
-        separator = ", ";
-    }
-
-    os << ')';
-}
-
 void CIf::setResultDeclaration(CNode* node)
 {
     resultDeclaration = node;
@@ -912,34 +883,16 @@ CGenerator::~CGenerator()
     delete function;
 }
 
-CCompoundExpression* CGenerator::tempify()
+void CGenerator::tempify()
 {
-    CCompoundExpression* result = nullptr;
-
     for (auto& info : expressionStack) {
         if (info.hasSideEffects) {
-            if (result == nullptr) {
-                result = new CCompoundExpression;
-            }
-
             auto temp = getTemp(info.type);
 
-            result->addExpression(new CBinaryExpression("=", new CNameUse(temp), info.expression));
+            currentCompound->addStatement(new CBinaryExpression("=", new CNameUse(temp), info.expression));
             info.expression = new CNameUse(temp);
             info.hasSideEffects = false;
         }
-    }
-
-    return result;
-}
-
-CNode* CGenerator::tempify(CNode* expression)
-{
-    if (CCompoundExpression* result = tempify(); result != nullptr) {
-        result->addExpression(expression);
-        return result;
-    } else {
-        return expression;
     }
 }
 
@@ -1091,7 +1044,8 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
     auto resultTypes = getBlockResults(blockInstruction);
-    auto* result = new CCompound();
+    auto* previousCompound = currentCompound;
+    auto* result = currentCompound =new CCompound();
     auto blockLabel = pushLabel(resultTypes);
     auto label = labelStack.back().label;
     auto stackSize = expressionStack.size();
@@ -1120,10 +1074,7 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
             auto* value = popExpression();
 
             if (!tempifyDone && value->hasSideEffects()) {
-                if (auto* compoundExpression = tempify(); compoundExpression != nullptr) {
-                    result->addStatement(compoundExpression);
-                }
-
+                tempify();
                 tempifyDone = true;
             }
 
@@ -1144,6 +1095,7 @@ CNode* CGenerator::generateCBlock(Instruction* instruction)
         delete resultNode;
     }
 
+    currentCompound = previousCompound;
     return result;
 }
 
@@ -1151,7 +1103,8 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
 {
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
     auto resultTypes = getBlockResults(blockInstruction);
-    auto* result = new CCompound();
+    auto* previousCompound = currentCompound;
+    auto* result = currentCompound = new CCompound();
     auto blockLabel = pushLabel(resultTypes);
     auto label = labelStack.back().label;
     auto labelStackSize = labelStack.size();
@@ -1179,10 +1132,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
                 auto* value = popExpression();
 
                 if (!tempifyDone && value->hasSideEffects()) {
-                    if (auto* compoundExpression = tempify(); compoundExpression != nullptr) {
-                        result->addStatement(compoundExpression);
-                    }
-
+                    tempify();
                     tempifyDone = true;
                 }
 
@@ -1212,10 +1162,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
         auto* value = popExpression();
 
         if (!tempifyDone && value->hasSideEffects()) {
-            if (auto* compoundExpression = tempify(); compoundExpression != nullptr) {
-                result->addStatement(compoundExpression);
-            }
-
+            tempify();
             tempifyDone = true;
         }
 
@@ -1232,6 +1179,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
         pushExpression(new CNameUse(makeResultName(label, i)));
     }
 
+    currentCompound = previousCompound;
     return result;
 }
 
@@ -1453,10 +1401,10 @@ CNode* CGenerator::generateCBrIf(Instruction* instruction)
     auto* branch = generateCBrIf(condition, index);
 
     if (condition->hasSideEffects()) {
-        return tempify(branch);
-    } else {
-        return branch;
+        tempify();
     }
+
+    return branch;
 }
 
 CNode* CGenerator::generateCBrUnless(Instruction* instruction)
@@ -1467,10 +1415,10 @@ CNode* CGenerator::generateCBrUnless(Instruction* instruction)
     auto* branch = generateCBrIf(condition, index);
 
     if (condition->hasSideEffects()) {
-        return tempify(branch);
-    } else {
-        return branch;
+        tempify();
     }
+
+    return branch;
 }
 
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
@@ -1483,9 +1431,7 @@ CNode* CGenerator::generateCBrTable(Instruction* instruction)
     auto* index = popExpression();
 
     if (index->hasSideEffects()) {
-        if (auto* t = tempify(); t != nullptr) {
-            result->addStatement(t);
-        }
+        tempify();
     }
 
     labelInfo.branchTarget = true;
@@ -1618,18 +1564,17 @@ CNode* CGenerator::generateCLoadExtend(std::string_view loadName, Instruction* i
 CNode* CGenerator::generateCStore(std::string_view name, Instruction* instruction)
 {
     bool tempifyDone = false;
-    CCompoundExpression* compoundExpression = nullptr;
     auto* valueToStore = popExpression();
 
     if (valueToStore->hasSideEffects()) {
-        compoundExpression = tempify();
+        tempify();
         tempifyDone = true;
     }
 
     auto* dynamicOffset = popExpression();
 
     if (!tempifyDone && dynamicOffset->hasSideEffects()) {
-        compoundExpression = tempify();
+        tempify();
         tempifyDone = true;
     }
 
@@ -1656,12 +1601,7 @@ CNode* CGenerator::generateCStore(std::string_view name, Instruction* instructio
 
     auto* store = new CStore(name, memory->getCName(module), combinedOffset, valueToStore);
 
-    if (compoundExpression != nullptr) {
-        compoundExpression->addExpression(store);
-        return compoundExpression;
-    } else {
-        return store;
-    }
+    return store;
 }
 
 void CGenerator::generateCLocalGet(Instruction* instruction)
@@ -1680,10 +1620,10 @@ CNode* CGenerator::generateCLocalSet(Instruction* instruction)
 
 
     if (right->hasSideEffects()) {
-        return tempify(result);
-    } else {
-        return result;
+        tempify();
     }
+
+    return result;
 }
 
 CNode* CGenerator::generateCLocalTee(Instruction* instruction)
@@ -1694,10 +1634,10 @@ CNode* CGenerator::generateCLocalTee(Instruction* instruction)
     pushExpression(new CNameUse(localName(instruction)));
 
     if (right->hasSideEffects()) {
-        return tempify(result);
-    } else {
-        return result;
+        tempify();
     }
+
+    return result;
 }
 
 void CGenerator::generateCGlobalGet(Instruction* instruction)
@@ -1715,10 +1655,10 @@ CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
     auto* result = new CBinaryExpression("=", left, right);
 
     if (right->hasSideEffects()) {
-        return tempify(result);
-    } else {
-        return result;
+        tempify();
     }
+
+    return result;
 }
 
 CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentCount)
@@ -1731,7 +1671,7 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
         auto* argument = popExpression();
 
         if (!tempifyDone && argument->hasSideEffects()) {
-            result = tempify(call);
+            tempify();
             tempifyDone = true;
         }
 
@@ -1792,10 +1732,10 @@ CNode* CGenerator::generateCDrop(Instruction* instruction)
                 delete statement;
 
                 if (hasSideEffects) {
-                    return tempify();
-                } else {
-                    return nullptr;
+                    tempify();
                 }
+
+                return nullptr;
             }
 
         default:
@@ -1809,33 +1749,27 @@ void CGenerator::generateCSelect(Instruction* instruction)
     auto type = selectInstruction->getType();
     bool tempifyDone = false;
     auto* condition = popExpression();
-    CCompoundExpression* compoundExpression = nullptr;
 
     if (condition->hasSideEffects()) {
-        compoundExpression = tempify();
+        tempify();
         tempifyDone = true;
     }
 
     auto* falseValue = popExpression();
 
     if (!tempifyDone && falseValue->hasSideEffects()) {
-        compoundExpression = tempify();
+        tempify();
         tempifyDone = true;
     }
 
     auto* trueValue = popExpression();
 
     if (!tempifyDone && trueValue->hasSideEffects()) {
-        compoundExpression = tempify();
+        tempify();
         tempifyDone = true;
     }
 
-    if (compoundExpression != nullptr) {
-        compoundExpression->addExpression(new CTernaryExpression(condition, trueValue, falseValue));
-        pushExpression(compoundExpression, type);
-    } else {
-        pushExpression(new CTernaryExpression(condition, trueValue, falseValue), type);
-    }
+    pushExpression(new CTernaryExpression(condition, trueValue, falseValue), type);
 }
 
 CNode* CGenerator::generateCReturn(Instruction* instruction)
@@ -1884,13 +1818,13 @@ CNode* CGenerator::generateCCall(Instruction* instruction)
         call->addArgument(argument);
 
         if (hasSideEffects && !tempifyDone) {
-            result = tempify(call);
+            tempify();
             tempifyDone = true;
         }
     }
 
     if (!tempifyDone && results.empty()) {
-        result = tempify(call);
+        tempify();
     }
 
     if (results.size() > 1) {
@@ -1931,7 +1865,7 @@ CNode* CGenerator::generateCCallIndirect(Instruction* instruction)
     CNode* result = call;
 
     if (hasSideEffects) {
-        result = tempify(call);
+        tempify();
         tempifyDone = true;
     }
 
@@ -1942,13 +1876,13 @@ CNode* CGenerator::generateCCallIndirect(Instruction* instruction)
         call->addArgument(argument);
 
         if (hasSideEffects && !tempifyDone) {
-            result = tempify(call);
+            tempify();
             tempifyDone = true;
         }
     }
 
     if (!tempifyDone && results.empty()) {
-        result = tempify(call);
+        tempify();
     }
 
     if (results.size() > 1) {
@@ -2032,6 +1966,7 @@ void CGenerator::generateCFunction()
     auto count = resultTypes.size();
 
     function->addStatement(tempNode = new CCompound);
+    currentCompound = function->getStatements();
 
     pushLabel(resultTypes);
 

@@ -38,7 +38,6 @@ class CNode
             kCall,
             kCast,
             kCompound,
-            kCompoundExpression,
             kFunction,
             kI32,
             kI64,
@@ -156,32 +155,6 @@ class CCompound : public CNode
         void optimize(CGenerator& generator);
         void optimizeIfs(CGenerator& generator);
         void flatten();
-};
-
-class CCompoundExpression : public CNode
-{
-    public:
-        static const CNodeKind kind = kCompoundExpression;
-
-        CCompoundExpression()
-            : CNode(kind)
-        {
-        }
-
-        virtual bool hasSideEffects() const override
-        {
-            for (auto* expression = child; expression != nullptr; expression = expression->getNext()) {
-                if (expression->hasSideEffects()) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        virtual void generateC(std::ostream& os, CGenerator& generator) override;
-
-        void addExpression(CNode* expression);
 };
 
 class CBr : public CNode
@@ -916,8 +889,7 @@ class CGenerator
         unsigned pushLabel(std::vector<ValueType> types);
         void popLabel();
 
-        CCompoundExpression* tempify();
-        CNode* tempify(CNode* expression);
+        void tempify();
         void pushExpression(CNode* expression, ValueType type = ValueType::void_, bool hasSideEffects = false);
         CNode* popExpression();
         CNode* getExpression(size_t offset);
@@ -965,6 +937,7 @@ class CGenerator
 
         unsigned temp = 0;
         CCompound* tempNode = nullptr;
+        CCompound* currentCompound = nullptr;
         unsigned label = 0;
         std::string indentString = "";
         const Module* module;
