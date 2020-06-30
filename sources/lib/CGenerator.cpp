@@ -551,7 +551,7 @@ void CV128::generateC(std::ostream& os, CGenerator& generator)
     v128 = value;
 
     os << "v128Makei64x2(0x" << std::hex << std::setw(16) << std::setfill('0') << a64[0] <<
-                    "LL, 0x" << std::setw(16) << std::setfill('0') << a64[0] << std::dec << "LL)";
+                    "LL, 0x" << std::setw(16) << std::setfill('0') << a64[1] << std::dec << "LL)";
 }
 
 void CReturn::generateC(std::ostream& os, CGenerator& generator)
@@ -967,16 +967,6 @@ std::string CGenerator::localName(Instruction* instruction)
 
 unsigned CGenerator::pushLabel(std::vector<ValueType> types)
 {
-    size_t line = 0;
-
-    if (instructionPointer != instructionEnd) {
-        Instruction* ins = instructionPointer->get();
-
-        if (ins != nullptr) {
-            line = ins->getLineNumber() - 1;
-        }
-    }
-
     labelStack.emplace_back(label);
     labelStack.back().types = std::move(types);
     return label++;
@@ -984,17 +974,6 @@ unsigned CGenerator::pushLabel(std::vector<ValueType> types)
 
 void CGenerator::popLabel()
 {
-    size_t line = 0;
-
-    if (instructionPointer != instructionEnd) {
-        Instruction* ins = instructionPointer->get();
-
-        if (ins != nullptr) {
-            line = ins->getLineNumber() - 1;
-        }
-    }
-
-//  std::cout << "Pop " << labelStack.back().label << ", size=" << labelStack.size() << ", line=" << line << std::endl;
     assert(!labelStack.empty());
 
     labelStack.pop_back();
@@ -1543,6 +1522,8 @@ CNode* CGenerator::generateCLoadSplat(std::string_view splatName, std::string_vi
     Instruction* instruction, ValueType type)
 {
     auto* result = new CCall(splatName);
+
+    result->setPure(true);
     generateCLoad(loadName, instruction, type);
 
     result->addArgument(popExpression());
@@ -1555,6 +1536,7 @@ CNode* CGenerator::generateCLoadExtend(std::string_view loadName, Instruction* i
     auto* result = new CCall(loadName);
     auto* memory = module->getMemory(0);
 
+    result->setPure(true);
     result->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
     result->addArgument(makeCombinedOffset(instruction));
 
@@ -1664,9 +1646,9 @@ CNode* CGenerator::generateCGlobalSet(Instruction* instruction)
 CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentCount)
 {
     auto* call = new CCall(name);
-    CNode* result = call;
     bool tempifyDone = false;
  
+    call->setPure(true);
     for (unsigned i = 0; i < argumentCount; ++i) {
         auto* argument = popExpression();
 
@@ -1680,7 +1662,7 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
  
     call->reverseArguments();
 
-    return result;
+    return call;
 }
 
 CNode* CGenerator::generateCMemorySize()
@@ -1809,7 +1791,6 @@ CNode* CGenerator::generateCCall(Instruction* instruction)
     auto& results = signature->getResults();
     std::vector<std::string> temps;
     bool tempifyDone = false;
-    CNode* result = call;
 
     for (size_t i = 0, c = signature->getParams().size(); i < c; ++i) {
         auto hasSideEffects = expressionStack.back().hasSideEffects;
@@ -1838,16 +1819,16 @@ CNode* CGenerator::generateCCall(Instruction* instruction)
     call->reverseArguments();
 
     if (results.empty()) {
-        return result;
+        return call;
     } else if (results.size() == 1) {
-        pushExpression(result, results[0]);
+        pushExpression(call, results[0]);
         return nullptr;
     } else {
         for (const auto& temp : temps) {
             pushExpression(new CNameUse(temp));
         }
 
-        return result;
+        return call;
     }
 }
 
@@ -1862,7 +1843,6 @@ CNode* CGenerator::generateCCallIndirect(Instruction* instruction)
     auto& results = signature->getResults();
     std::vector<std::string> temps;
     bool tempifyDone = false;
-    CNode* result = call;
 
     if (hasSideEffects) {
         tempify();
@@ -1896,16 +1876,16 @@ CNode* CGenerator::generateCCallIndirect(Instruction* instruction)
     call->reverseArguments();
 
     if (results.empty()) {
-        return result;
+        return call;
     } else if (results.size() == 1) {
-        pushExpression(result, results[0]);
+        pushExpression(call, results[0]);
         return nullptr;
     } else {
         for (const auto& temp : temps) {
             pushExpression(new CNameUse(temp));
         }
 
-        return result;
+        return call;
     }
 }
 
@@ -1915,6 +1895,7 @@ CNode* CGenerator::generateCExtractLane(Instruction* instruction, const char* ty
     auto index = laneInstruction->getIndex();
     auto* result = new CCall("v128ExtractLane"s + type);
 
+    result->setPure(true);
     result->addArgument(popExpression());
     result->addArgument(new CI32(index));
 
@@ -1928,6 +1909,7 @@ CNode* CGenerator::generateCReplaceLane(Instruction* instruction, const char* ty
     auto* result = new CCall("v128ReplaceLane"s + type);
     auto* newValue = popExpression();
 
+    result->setPure(true);
     result->addArgument(popExpression());
     result->addArgument(newValue);
     result->addArgument(new CI32(index));
@@ -1941,6 +1923,7 @@ CNode* CGenerator::generateCShuffle(Instruction* instruction)
     const auto mask = shuffleInstruction->getValue();
     auto* result = new CCall("v128Shufflei8x16");
 
+    result->setPure(true);
     auto* newValue = popExpression();
 
     result->addArgument(popExpression());
@@ -1948,6 +1931,7 @@ CNode* CGenerator::generateCShuffle(Instruction* instruction)
 
     auto* makeCall = new CCall("v128Makei8x16");
 
+    makeCall->setPure(true);
     for (int i = 0; i < 16; ++i) {
         makeCall->addArgument(new CI32(mask[i]));
     }
@@ -2845,7 +2829,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::i8x16__extract_lane_u:
-                pushExpression(generateCExtractLane(instruction, "i8x16"), ValueType::v128);
+                pushExpression(generateCExtractLane(instruction, "u8x16"), ValueType::v128);
                 break;
 
             case Opcode::i8x16__replace_lane:

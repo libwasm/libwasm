@@ -10,14 +10,26 @@
 
 #include <sstream>
 
+using namespace std::string_literals;
+
 namespace libwasm
 {
 
-auto getNextResult()
+static auto getNextResult()
 {
     static unsigned resultCount = 0;
 
     return resultCount++;
+}
+
+static std::string makeResultName(unsigned resultNumber)
+{
+    return "result_" + toString(resultNumber);
+}
+
+static std::string makeExpectName(unsigned resultNumber)
+{
+    return "expect_" + toString(resultNumber);
 }
 
 ScriptValue::I8 ScriptValue::I8::parse(SourceContext& context)
@@ -36,6 +48,407 @@ ScriptValue::I8 ScriptValue::I8::parse(SourceContext& context)
     }
 
     return result;
+}
+
+void ScriptValue::I8::generateC(std::ostream& os) const
+{
+    os << normalize(string);
+}
+
+static std::pair<std::string, std::string> makeNames(unsigned resultNumber, int lane = -1, const char* array = "")
+{
+    auto resultName = makeResultName(resultNumber);
+    auto expectName = makeExpectName(resultNumber);
+
+    if (lane >= 0) {
+        resultName += "."s  + array + "[" + toString(uint32_t(lane)) + "]";
+        expectName += "."s  + array + "[" + toString(uint32_t(lane)) + "]";
+    }
+
+    return std::make_pair(resultName, expectName);
+}
+
+void ScriptValue::I8::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
+{
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i8x16");
+
+    os << "\n\n    if (" << resultName << " != " << expectName << ") {"
+          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        ++errorCount;"
+          "\n    }";
+}
+
+ScriptValue::I16 ScriptValue::I16::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    auto& msgs = context.msgs();
+    I16 result;
+
+    result.string = tokens.peekToken().getValue();
+
+    if (auto v  = tokens.getI16()) {
+        result.value = *v;
+    } else {
+        msgs.error(tokens.peekToken(), "Invalid I16");
+        result.value = 0;
+    }
+
+    return result;
+}
+
+void ScriptValue::I16::generateC(std::ostream& os) const
+{
+    os << normalize(string);
+}
+
+void ScriptValue::I16::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
+{
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i16x8");
+
+    os << "\n\n    if (" << resultName << " != " << expectName << ") {"
+          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        ++errorCount;"
+          "\n    }";
+}
+
+ScriptValue::I32 ScriptValue::I32::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    I32 result;
+
+    result.string = tokens.peekToken().getValue();
+    result.value = requiredI32(context);
+
+    return result;
+}
+
+void ScriptValue::I32::generateC(std::ostream& os) const
+{
+    os << normalize(string);
+}
+
+void ScriptValue::I32::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
+{
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i32x4");
+
+    os << "\n\n    if (" << resultName << " != " << expectName << ") {"
+          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        ++errorCount;"
+          "\n    }";
+}
+
+ScriptValue::I64 ScriptValue::I64::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    I64 result;
+
+    result.string = tokens.peekToken().getValue();
+    result.value = requiredI64(context);
+
+    return result;
+}
+
+void ScriptValue::I64::generateC(std::ostream& os) const
+{
+    os << normalize(string) << "LL";
+}
+
+void ScriptValue::I64::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
+{
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i64x2");
+
+    os << "\n\n    if (" << resultName << " != " << expectName << ") {"
+          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        ++errorCount;"
+          "\n    }";
+}
+
+ScriptValue::F32 ScriptValue::F32::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    F32 result;
+
+    result.string = tokens.peekToken().getValue();
+
+    if (tokens.peekToken().getValue() == "nan:canonical") {
+        result.nan = Nan::canonical;
+        tokens.bump();
+    } else if (tokens.peekToken().getValue() == "nan:arithmetic") {
+        result.nan = Nan::arithmetic;
+        tokens.bump();
+    } else {
+        result.value = requiredF32(context);
+    }
+
+    return result;
+}
+
+void ScriptValue::F32::generateC(std::ostream& os) const
+{
+    os << toString(toF32(string), true);
+}
+
+void ScriptValue::F32::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
+{
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "f32x4");
+    auto* cast = "*(uint32_t*)&";
+    auto* quietNan = "0x7fc00000U";
+    auto* quietNegNan = "0xffc00000U";
+
+    if (nan == Nan::canonical) {
+        os << "\n    if (" << cast << resultName << " != " << quietNan << " && " <<
+            cast << resultName << " != " << quietNegNan << ") {"
+            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        ++errorCount;"
+            "\n    }";
+    } else if (nan == Nan::arithmetic) {
+        os << "\n    if (!isnan(" << resultName << ")) {"
+            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        ++errorCount;"
+            "\n    }";
+    } else {
+        os << "\n\n    if (" << cast << resultName << " != " << cast << expectName << ") {"
+            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        ++errorCount;"
+            "\n    }";
+    }
+}
+
+ScriptValue::F64 ScriptValue::F64::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    F64 result;
+
+    result.string = tokens.peekToken().getValue();
+
+    if (tokens.peekToken().getValue() == "nan:canonical") {
+        result.nan = Nan::canonical;
+        tokens.bump();
+    } else if (tokens.peekToken().getValue() == "nan:arithmetic") {
+        result.nan = Nan::arithmetic;
+        tokens.bump();
+    } else {
+        result.value = requiredF64(context);
+    }
+
+    return result;
+}
+
+void ScriptValue::F64::generateC(std::ostream& os) const
+{
+    os << toString(toF64(string), true);
+}
+
+void ScriptValue::F64::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
+{
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "f64x2");
+    auto* cast = "*(uint64_t*)&";
+    auto* quietNan = "0x7ff8000000000000ULL";
+    auto* quietNegNan = "0xfff8000000000000ULL";
+
+    if (nan == Nan::canonical) {
+        os << "\n    if (" << cast << resultName << " != " << quietNan << " && " <<
+            cast << resultName << " != " << quietNegNan << ") {"
+            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        ++errorCount;"
+            "\n    }";
+    } else if (nan == Nan::arithmetic) {
+        os << "\n    if (!isnan(" << resultName << ")) {"
+            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        ++errorCount;"
+            "\n    }";
+    } else {
+        os << "\n\n    if (" << cast << resultName << " != " << cast << expectName << ") {"
+            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        ++errorCount;"
+            "\n    }";
+    }
+}
+
+ScriptValue::V128 ScriptValue::V128::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    V128 result;
+    auto type = tokens.peekToken().getValue();
+
+    tokens.bump();
+    if (type == "i8x16") {
+        result.type = ValueType::i8;
+        result.count = 16;
+
+        for (int i = 0; i < 16; ++i) {
+            result.i8x16[i] = I8::parse(context);
+        }
+    } else if (type == "i16x8") {
+        result.type = ValueType::i16;
+        result.count = 8;
+
+        for (int i = 0; i < 8; ++i) {
+            result.i16x8[i] = I16::parse(context);
+        }
+    } else if (type == "i32x4") {
+        result.type = ValueType::i32;
+        result.count = 4;
+
+        for (int i = 0; i < 4; ++i) {
+            result.i32x4[i] = I32::parse(context);
+        }
+    } else if (type == "i64x2") {
+        result.type = ValueType::i64;
+        result.count = 2;
+
+        for (int i = 0; i < 2; ++i) {
+            result.i64x2[i] = I64::parse(context);
+        }
+    } else if (type == "f32x4") {
+        result.type = ValueType::f32;
+        result.count = 4;
+
+        for (int i = 0; i < 4; ++i) {
+            result.f32x4[i] = F32::parse(context);
+        }
+    } else if (type == "f64x2") {
+        result.type = ValueType::f64;
+        result.count = 2;
+
+        for (int i = 0; i < 2; ++i) {
+            result.f64x2[i] = F64::parse(context);
+        }
+    }
+
+    return result;
+}
+
+void ScriptValue::V128::generateC(std::ostream& os) const
+{
+    const char* separator = "";
+
+    switch(type) {
+        case ValueType::i8:
+            os << "v128Makei8x16(";
+
+            for (unsigned i = 0; i < 16; ++i) {
+                os << separator;
+                separator = ", ";
+                i8x16[i].generateC(os);
+            }
+
+            os << ')';
+            break;
+
+        case ValueType::i16:
+            os << "v128Makei16x8(";
+
+            for (unsigned i = 0; i < 8; ++i) {
+                os << separator;
+                separator = ", ";
+                i16x8[i].generateC(os);
+            }
+
+            os << ')';
+            break;
+
+        case ValueType::i32:
+            os << "v128Makei32x4(";
+
+            for (unsigned i = 0; i < 4; ++i) {
+                os << separator;
+                separator = ", ";
+                i32x4[i].generateC(os);
+            }
+
+            os << ')';
+            break;
+
+        case ValueType::i64:
+            os << "v128Makei64x2(";
+
+            for (unsigned i = 0; i < 2; ++i) {
+                os << separator;
+                separator = ", ";
+                i64x2[i].generateC(os);
+            }
+
+            os << ')';
+            break;
+
+        case ValueType::f32:
+            os << "v128Makef32x4(";
+
+            for (unsigned i = 0; i < 4; ++i) {
+                os << separator;
+                separator = ", ";
+                f32x4[i].generateC(os);
+            }
+
+            os << ')';
+            break;
+
+        case ValueType::f64:
+            os << "v128Makef64x2(";
+
+            for (unsigned i = 0; i < 2; ++i) {
+                os << separator;
+                separator = ", ";
+                f64x2[i].generateC(os);
+            }
+
+            os << ')';
+            break;
+
+        default:
+            break;
+    }
+}
+
+void ScriptValue::V128::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber) const
+{
+    switch(type) {
+        case ValueType::i8:
+            for (unsigned i = 0; i < 16; ++i) {
+                i8x16[i].generateAssert(os, lineNumber, resultNumber, i);
+            }
+
+            break;
+
+        case ValueType::i16:
+            for (unsigned i = 0; i < 8; ++i) {
+                i16x8[i].generateAssert(os, lineNumber, resultNumber, i);
+            }
+
+            break;
+
+        case ValueType::i32:
+            for (unsigned i = 0; i < 4; ++i) {
+                i32x4[i].generateAssert(os, lineNumber, resultNumber, i);
+            }
+
+            break;
+
+        case ValueType::i64:
+            for (unsigned i = 0; i < 2; ++i) {
+                i64x2[i].generateAssert(os, lineNumber, resultNumber, i);
+            }
+
+            break;
+
+        case ValueType::f32:
+            for (unsigned i = 0; i < 4; ++i) {
+                f32x4[i].generateAssert(os, lineNumber, resultNumber, i);
+            }
+
+            break;
+
+        case ValueType::f64:
+            for (unsigned i = 0; i < 2; ++i) {
+                f64x2[i].generateAssert(os, lineNumber, resultNumber, i);
+            }
+
+            break;
+
+        default:
+            break;
+    }
 }
 
 ScriptValue ScriptValue::parse(SourceContext& context)
@@ -57,52 +470,28 @@ ScriptValue ScriptValue::parse(SourceContext& context)
 
     switch (*opcode) {
         case Opcode::i32__const:
-            result.string = tokens.peekToken().getValue();
             result.type = ValueType::i32;
-            result.i32 = requiredI32(context);
+            result.i32 = I32::parse(context);
             break;
 
         case Opcode::i64__const:
-            result.string = tokens.peekToken().getValue();
             result.type = ValueType::i64;
-            result.i64 = requiredI64(context);
+            result.i64 = I64::parse(context);
             break;
 
         case Opcode::f32__const:
-            result.string = tokens.peekToken().getValue();
             result.type = ValueType::f32;
-
-            if (tokens.peekToken().getValue() == "nan:canonical") {
-                result.nan = Nan::canonical;
-                tokens.bump();
-            } else if (tokens.peekToken().getValue() == "nan:arithmetic") {
-                result.nan = Nan::arithmetic;
-                tokens.bump();
-            } else {
-                result.f32 = requiredF32(context);
-            }
-
+            result.f32 = F32::parse(context);
             break;
 
         case Opcode::f64__const:
-            result.string = tokens.peekToken().getValue();
             result.type = ValueType::f64;
-
-            if (tokens.peekToken().getValue() == "nan:canonical") {
-                result.nan  = Nan::canonical;
-                tokens.bump();
-            } else if (tokens.peekToken().getValue() == "nan:arithmetic") {
-                result.nan = Nan::arithmetic;
-                tokens.bump();
-            } else {
-                result.f64 = requiredF64(context);
-            }
-
+            result.f64 = F64::parse(context);
             break;
 
         case Opcode::v128__const:
             result.type = ValueType::v128;
-            result.v128 = requiredV128(context);
+            result.v128 = V128::parse(context);
             break;
 
         default:
@@ -112,42 +501,55 @@ ScriptValue ScriptValue::parse(SourceContext& context)
     return result;
 }
 
-static bool isSpecialF(std::string_view string)
-{
-    if (string[0] == 'i' || string[0] == 'n') {
-        return true;
-    }
-
-    if (string[0] == '+' || string[0] == '-') {
-        if (string[1] == 'i' || string[1] == 'n') {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 void ScriptValue::generateC(std::ostream& os) const
 {
     switch(type) {
         case ValueType::i32:
-            os << normalize(string);
+            i32.generateC(os);
             break;
 
         case ValueType::i64:
-            os << normalize(string) << "LL";
+            i64.generateC(os);
             break;
 
         case ValueType::f32:
-            os << toString(toF32(string), true);
+            f32.generateC(os);
             break;
 
         case ValueType::f64:
-            os << toString(toF64(string), true);
+            f64.generateC(os);
             break;
 
         case ValueType::v128:
-            os << "v128Makei64x2(" << i64x2[0] << ", " << i64x2[1] << ')';
+            v128.generateC(os);
+            break;
+
+        default:
+            break;
+    }
+}
+
+void ScriptValue::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber) const
+{
+    switch(type) {
+        case ValueType::i32:
+            i32.generateAssert(os, lineNumber, resultNumber);
+            break;
+
+        case ValueType::i64:
+            i64.generateAssert(os, lineNumber, resultNumber);
+            break;
+
+        case ValueType::f32:
+            f32.generateAssert(os, lineNumber, resultNumber);
+            break;
+
+        case ValueType::f64:
+            f64.generateAssert(os, lineNumber, resultNumber);
+            break;
+
+        case ValueType::v128:
+            v128.generateAssert(os, lineNumber, resultNumber);
             break;
 
         default:
@@ -233,68 +635,32 @@ AssertReturn* AssertReturn::parse(SourceContext& context)
 void AssertReturn::generateSimpleC(std::ostream& os, std::string_view type, const Script& script)
 {
     auto resultNumber = getNextResult();
-    std::string cast;
-    std::string quietNan;
-    std::string quietNegNan;
 
-    if (type == "float") {
-        cast = "*(uint32_t*)&";
-        quietNan = "0x7fc00000U";
-        quietNegNan = "0xffc00000U";
-    } else if (type == "double") {
-        cast = "*(uint64_t*)&";
-        quietNan = "0x7ff8000000000000ULL";
-        quietNegNan = "0xfff8000000000000ULL";
+    auto resultName = makeResultName(resultNumber);
+    auto expectName = makeExpectName(resultNumber);
+
+    os << "\n\n    " << type << " " << resultName << " = ";
+    if (type == "v128_u") {
+        os << "(v128_u)";
     }
 
-    os << "\n\n    " << type << " result_" << resultNumber << " = ";
     invoke->generateC(os, script);
     os << ';';
 
-    if (results[0].nan == ScriptValue::Nan::canonical) {
-        os << "\n    if (" << cast << "result_" << resultNumber << " != " << quietNan << " && " <<
-            cast << "result_" << resultNumber << " != " << quietNegNan << ") {";
-        os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
-        os << "\n        ++errorCount;";
-        os << "\n    }";
-    } else if (results[0].nan == ScriptValue::Nan::arithmetic) {
-        os << "\n    if (!isnan(result_" << resultNumber << ")) {";
-        os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
-        os << "\n        ++errorCount;";
-        os << "\n    }";
-    } else {
-        os << "\n    " << type << " expect_" << resultNumber << " = ";
-        results[0].generateC(os);
-        os << ';';
-
-        os << "\n\n    if (" << cast << "result_" << resultNumber << " != " << cast << "expect_" << resultNumber << ") {";
-        os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
-        os << "\n        ++errorCount;";
-        os << "\n    }";
+    os << "\n    " << type << " " << expectName << " = ";
+    if (type == "v128_u") {
+        os << "(v128_u)";
     }
+
+    results[0].generateC(os);
+    os << ';';
+
+    results[0].generateAssert(os, lineNumber, resultNumber);
 }
 
 void AssertReturn::generateMultiValueC(std::ostream& os, const Script& script)
 {
     // TBI
-}
-
-void AssertReturn::generateV128C(std::ostream& os, const Script& script)
-{
-    auto resultNumber = getNextResult();
-
-    os << "\n\n    v128_u result_" << resultNumber << " = (v128_u)";
-    invoke->generateC(os, script);
-    os << ';';
-
-    os << "\n    v128_u expect_" << resultNumber << " = (v128_u)";
-    results[0].generateC(os);
-    os << ';';
-
-    os << "\n\n    if (result_" << resultNumber << ".u64[0] != expect_" << resultNumber << ".u64[0] || "
-        "result_" << resultNumber << ".u64[0] != expect_" << resultNumber << ".u64[0]) {" ;
-    os << "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");";
-    os << "\n    }";
 }
 
 void AssertReturn::generateC(std::ostream& os, const Script& script)
@@ -323,8 +689,11 @@ void AssertReturn::generateC(std::ostream& os, const Script& script)
         case ValueType::f64:
             return generateSimpleC(os, "double", script);
 
+        case ValueType::v128:
+            return generateSimpleC(os, "v128_u", script);
+
         default:
-            return generateV128C(os, script);
+            break;
     }
 }
 

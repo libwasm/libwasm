@@ -247,7 +247,7 @@ int main(int argc, char*argv[])
 
     if (wantStatistics) {
         std::cout << "CPU time = " << std::setw(4) << std::setprecision(2) << std::fixed <<
-            double(clock() / double(CLOCKS_PER_SEC)) << "\n";
+            (double(clock()) / double(CLOCKS_PER_SEC)) << "\n";
     }
 
     return (errors == 0) ? 0 : -1;

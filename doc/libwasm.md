@@ -759,6 +759,8 @@ The generated C-code has the same semantics as the original ebassembly text, wit
 The code does not handle traps or division by zero.  The format of an arithmetic Nan is slightly different from the one
 used by the WABT interpreter.
 
+At this moment, the generated xode only works for little-endian systems.
+
 The generated C code can be tested with a subset of the WABT testsuite that can be found in the 'script' directory.
 
 In that directory just enter

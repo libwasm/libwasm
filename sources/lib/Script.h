@@ -24,7 +24,12 @@ class AssertReturn;
 class ScriptValue
 {
     public:
+        ScriptValue()
+        {
+        }
+
         void generateC(std::ostream& os) const;
+        void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber) const;
         static ScriptValue parse(SourceContext& context);
 
         enum Nan : uint8_t
@@ -36,87 +41,75 @@ class ScriptValue
 
         struct I8
         {
-            bool operator==(uint8_t other)
-            {
-                return value == other;
-            }
-
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane = -1) const;
             void generateC(std::ostream& os) const;
             static I8 parse(SourceContext& context);
 
-            uint8_t value;
+            uint8_t value = 0;
             std::string_view string;
         };
 
         struct I16
         {
-            bool operator==(uint16_t other)
-            {
-                return value == other;
-            }
-
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane = -1) const;
             void generateC(std::ostream& os) const;
             static I16 parse(SourceContext& context);
 
-            uint16_t value;
+            uint16_t value = 0;
             std::string_view string;
         };
 
         struct I32
         {
-            bool operator==(uint32_t other)
-            {
-                return value == other;
-            }
-
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane = -1) const;
             void generateC(std::ostream& os) const;
-            static I32 parse(SourceContext& context, bool forV128 = false);
+            static I32 parse(SourceContext& context);
 
-            uint32_t value;
+            uint32_t value = 0;
             std::string_view string;
         };
 
         struct I64
         {
-            bool operator==(uint64_t other)
-            {
-                return value == other;
-            }
-
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane = -1) const;
             void generateC(std::ostream& os) const;
-            static I64 parse(SourceContext& context, bool forV128 = false);
+            static I64 parse(SourceContext& context);
 
-            uint64_t value;
+            uint64_t value = 0;
             std::string_view string;
         };
 
         struct F32
         {
-            bool operator==(float other);
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane = -1) const;
             void generateC(std::ostream& os) const;
-            static F32 parse(SourceContext& context, bool forV128 = false);
+            static F32 parse(SourceContext& context);
 
             Nan nan = Nan::none;
-            float value;
+            float value = 0;
             std::string_view string;
         };
 
         struct F64
         {
-            bool operator==(double other);
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane = -1) const;
             void generateC(std::ostream& os) const;
-            static F64 parse(SourceContext& context, bool forV128 = false);
+            static F64 parse(SourceContext& context);
 
             Nan nan = Nan::none;
-            double value;
+            double value = 0;
             std::string_view string;
         };
 
         struct V128
         {
-            bool operator==(V128 other);
+            V128()
+            {
+            }
+
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber) const;
             void generateC(std::ostream& os) const;
-            static F64 parse(SourceContext& context);
+            static V128 parse(SourceContext& context);
 
             union {
                 I8  i8x16[16];
@@ -127,29 +120,20 @@ class ScriptValue
                 F64 f64x2[2];
             };
 
-            std::string_view string;
+            ValueType type = ValueType::void_;
+            unsigned count = 0;
         };
 
         union
         {
-            int32_t  i32;
-            int64_t  i64;
-            float    f32;
-            double   f64;
-            int8_t   i8x16[16];
-            int16_t  i16x8[8];
-            int32_t  i32x4[4];
-            int64_t  i64x2[2];
-            float    f32x4[4];
-            double   f64x2[2];
-            v128_t   v128;
+            I32  i32;
+            I64  i64;
+            F32  f32;
+            F64  f64;
+            V128 v128;
         };
 
         ValueType type = ValueType::void_;
-        Nan nan = Nan::none;
-        Nan nans[4];
-
-        std::string_view string;
 };
 
 class Invoke
@@ -175,7 +159,6 @@ class AssertReturn
         void generateC(std::ostream& os, const Script& script);
         void generateSimpleC(std::ostream& os, std::string_view type, const Script& script);
         void generateMultiValueC(std::ostream& os, const Script& script);
-        void generateV128C(std::ostream& os, const Script& script);
         static AssertReturn* parse(SourceContext& context);
 
     private:

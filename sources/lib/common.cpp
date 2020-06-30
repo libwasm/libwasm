@@ -225,7 +225,7 @@ std::string normalize(std::string_view chars)
         ++pos;
     }
 
-    if (chars[0] == '0') {
+    if (chars[pos] == '0') {
         pos = 1;
 
         while (pos < size && (chars[pos] == '0' || chars[pos] == '_')) {

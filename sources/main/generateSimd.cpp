@@ -344,7 +344,7 @@ static void generateReplaceLane(std::string_view type, uint32_t count, std::stri
         "\n{"
         "\n    v128_u result = U(v1);"
         "\n"
-        "\n    result." << type << "[lane] = U(v1)." << type <<  "[lane];"
+        "\n    result." << type << "[lane] = v2;"
         "\n"
         "\n    return result.v128;"
         "\n}"
@@ -503,12 +503,16 @@ static void generate()
     generateBinaryCall("Avgr", "u16", 8, "AVGR");
 
     generateOperations(generateBinaryCall, "Max", "MAX_VALUE", Type("i8", 16), Type("i16", 8), Type("i32", 4),
-            Type("i64", 2), Type("f32", 4), Type("f64", 2),
-            Type("u8", 16), Type("u16", 8), Type("u32", 4), Type("u64", 2));
+            Type("i64", 2), Type("u8", 16), Type("u16", 8), Type("u32", 4), Type("u64", 2));
+
+    generateBinaryCall("Max", "f32", 4, "maxF32");
+    generateBinaryCall("Max", "f64", 2, "maxF64");
 
     generateOperations(generateBinaryCall, "Min", "MIN_VALUE", Type("i8", 16), Type("i16", 8), Type("i32", 4),
-            Type("i64", 2), Type("f32", 4), Type("f64", 2),
-            Type("u8", 16), Type("u16", 8), Type("u32", 4), Type("u64", 2));
+            Type("i64", 2), Type("u8", 16), Type("u16", 8), Type("u32", 4), Type("u64", 2));
+
+    generateBinaryCall("Min", "f32", 4, "minF32");
+    generateBinaryCall("Min", "f64", 2, "minF64");
 
     generateUnaryCall("Abs", "i8", 16, "ABS_VALUE");
     generateUnaryCall("Abs", "i16", 8, "ABS_VALUE");

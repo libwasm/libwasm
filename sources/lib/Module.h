@@ -102,8 +102,8 @@ class Module
             uint32_t typeCount = 0;
             uint32_t dataSegmentCount = 0;
             uint32_t sectionCount = 0;
-            uint32_t instructionCount = 0;
-            uint32_t initInstructionCount = 0;
+            size_t instructionCount = 0;
+            size_t initInstructionCount = 0;
 
             void show(std::ostream& os, std::string_view indent = "");
         };

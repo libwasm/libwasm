@@ -866,7 +866,7 @@ InstructionShuffle* InstructionShuffle::parse(SourceContext& context, Opcode opc
 
     for (int i = 0; i < 16; ++i) {
         if (auto index = parseLane32Index(context)) {
-            result->value[i] = *index;
+            result->value[i] = uint8_t(*index);
         } else {
             context.msgs().error(context.tokens().peekToken(-1), "Missing or invalid lane index.");
         }

@@ -676,7 +676,7 @@ void Module::generateCPreamble(std::ostream& os)
                 }
             }
 
-            os << "\n};";
+            os << "\n    };";
 
             os << "\n    memcpy(" << memoryName << ".data";
 

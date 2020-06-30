@@ -7,7 +7,7 @@
 
 using namespace libwasm;
 
-std::string opcodeName(std::string_view name)
+static std::string opcodeName(std::string_view name)
 {
     std::string result;
 
