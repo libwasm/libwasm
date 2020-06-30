@@ -8,6 +8,8 @@ a converter between sequential code and folded code and a converter from a text 
 
 A large subset of the wabt testsuite base directory was added to the 'script' directory.
 
+The complete testsuite 'simd' directory is added.
+
 Refer to the documentation for more information.
 
 ## Installation
