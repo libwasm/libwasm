@@ -1739,7 +1739,12 @@ void GlobalImport::check(CheckContext& context)
 
 void GlobalImport::generateC(std::ostream& os, const Module* module)
 {
-    os << "\nextern " << type.getCName() << ' ' << getCName(module) << ';';
+    os << "\nextern ";
+    if (mut == Mut::const_) {
+        os << "const ";
+    }
+
+    os << type.getCName() << ' ' << getCName(module) << ';';
 }
 
 void GlobalImport::generate(std::ostream& os, Module* module)
@@ -2942,6 +2947,10 @@ void GlobalDeclaration::generateC(std::ostream& os, const Module* module)
 
     if (!isExported) {
         os << "static ";
+    }
+
+    if (mut == Mut::const_) {
+        os << "const ";
     }
 
     os << type.getCName() << ' ' << getCName(module);
