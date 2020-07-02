@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <optional>
 
 using namespace std::string_literals;
@@ -35,13 +36,13 @@ static void traverseStatements(CCompound* node, std::function<void(CNode*)> exec
             traverseStatements(ifStatement->getElseStatements(), exec);
         } else if (auto* switchStatement = next->castTo<CSwitch>(); switchStatement != nullptr) {
             for (auto& cs : switchStatement->getCases()) {
-                auto* statement = cs.statement;
+                if (auto* statement = cs.statement; statement != nullptr) {
+                    if (auto* compound = statement->castTo<CCompound>(); compound != nullptr) {
+                        traverseStatements(compound, exec);
+                    }
 
-                if (auto* compound = statement->castTo<CCompound>(); compound != nullptr) {
-                    traverseStatements(compound, exec);
+                    exec(statement);
                 }
-
-                exec(statement);
             }
         } else if (auto* compound = next->castTo<CCompound>(); compound != nullptr) {
             traverseStatements(compound, exec);
@@ -316,7 +317,7 @@ static bool needsParenthesis(CNode* node, std::string_view op)
     if (parentKind == CNode::kBinauryExpression) {
         auto precedence = binaryPrecedence(op);
 
-        if (precedence == 2) {
+        if (precedence == 2 || precedence == 11) {
             return true;
         }
 
@@ -330,12 +331,8 @@ static bool needsParenthesis(CNode* node, std::string_view op)
 
         auto parentPrecedence = binaryPrecedence(parentOp);
 
-        if (precedence == 11) {
-            return true;
-        }
-
         if (parentPrecedence < 9) {
-            return parentPrecedence != 2;
+            return parentPrecedence != 2 && parentPrecedence != 11;
         }
 
         return parentPrecedence >= precedence;
@@ -837,7 +834,10 @@ void CIf::generateC(std::ostream& os, CGenerator& generator)
 void CSwitch::addCase(uint64_t value, CNode* statement)
 {
     cases.emplace_back(value, statement);
-    statement->link(this);
+
+    if (statement != nullptr) {
+        statement->link(this);
+    }
 }
 
 void CSwitch::setDefault(CNode* statement)
@@ -855,12 +855,14 @@ void CSwitch::generateC(std::ostream& os, CGenerator& generator)
     for (auto& c : cases) {
         generator.nl(os);
         os << "  case " << c.value << ": ";
-        generator.indent();
-        generator.indent();
-        c.statement->generateC(os, generator);
-        os << ';';
-        generator.undent();
-        generator.undent();
+        if (c.statement != nullptr) {
+            generator.indent();
+            generator.indent();
+            c.statement->generateC(os, generator);
+            os << ';';
+            generator.undent();
+            generator.undent();
+        }
     }
 
     if (defaultCase != nullptr) {
@@ -1402,11 +1404,42 @@ CNode* CGenerator::generateCBrUnless(Instruction* instruction)
 
 CNode* CGenerator::generateCBrTable(Instruction* instruction)
 {
+    struct Branch
+    {
+        Branch(uint32_t label, uint32_t number)
+          : label(label), number(number)
+        {
+        }
+
+        bool operator<(const Branch& other)
+        {
+            return std::tie(label, number) < std::tie(other.label, other.number);
+        }
+
+        uint32_t label;
+        uint32_t number;
+    };
+
     auto* branchInstruction = static_cast<InstructionBrTable*>(instruction);
-    auto temp = getTemp(ValueType::i32);
+    std::vector<Branch> branches;
     auto defaultLabel = branchInstruction->getDefaultLabel();
     auto& labelInfo = getLabel(defaultLabel);
-    auto* result = new CCompound;
+    const auto& labels = branchInstruction->getLabels();
+    bool isComplex = !labelInfo.types.empty() || !labelInfo.temps.empty();
+    uint32_t number = 0;
+
+    branches.reserve(labels.size());
+
+    for (auto label : labels) {
+        auto& labelInfo = getLabel(label);
+
+        labelInfo.branchTarget = true;
+        isComplex = isComplex || !labelInfo.types.empty() || !labelInfo.temps.empty();
+        branches.emplace_back(label, number++);
+    }
+
+    std::sort(branches.begin(), branches.end());
+
     auto* index = popExpression();
 
     if (index->hasSideEffects()) {
@@ -1415,23 +1448,56 @@ CNode* CGenerator::generateCBrTable(Instruction* instruction)
 
     labelInfo.branchTarget = true;
 
-    result->addStatement(new CBinaryExpression("=", new CNameUse(temp), index));
+    if (isComplex) {
+        auto temp = getTemp(ValueType::i32);
+        auto* result = new CCompound;
+        result->addStatement(new CBinaryExpression("=", new CNameUse(temp), index));
 
-    unsigned count = 0;
-    for (auto label : branchInstruction->getLabels()) {
-        auto* condition = new CBinaryExpression("==", new CNameUse(temp), new CI32(count++));
-        result->addStatement(generateCBrIf(condition, label));
+        for (auto branch : branches) {
+            if (branch.label == defaultLabel) {
+                continue;
+            }
+
+            auto* condition = new CBinaryExpression("==", new CNameUse(temp), new CI32(branch.number));
+            result->addStatement(generateCBrIf(condition, branch.label));
+        }
+
+        if (!labelInfo.backward && !labelInfo.types.empty()) {
+            result->addStatement(saveBlockResults(defaultLabel));
+        }
+
+        result->addStatement(new CBr(labelInfo.label));
+
+        skipUnreachable();
+
+        return result;
+    } else {
+        auto *result = new CSwitch(index);
+
+        for (auto b = branches.begin(), e = branches.end(); b != e; ++b) {
+            const auto& branch = *b;
+
+            if (branch.label == defaultLabel) {
+                continue;
+            }
+
+            auto n = b + 1;
+
+            if (n != e && n->label == branch.label) {
+                result->addCase(branch.number, nullptr);
+            } else {
+                auto& labelInfo = getLabel(branch.label);
+
+                result->addCase(branch.number, new CBr(labelInfo.label));
+            }
+        }
+
+        result->setDefault(new CBr(labelInfo.label));
+
+        skipUnreachable();
+
+        return result;
     }
-
-    if (!labelInfo.backward && !labelInfo.types.empty()) {
-        result->addStatement(saveBlockResults(defaultLabel));
-    }
-
-    result->addStatement(new CBr(labelInfo.label));
-
-    skipUnreachable();
-
-    return result;
 }
 
 CNode* CGenerator::generateCBinaryExpression(std::string_view op)

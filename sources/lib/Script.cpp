@@ -193,11 +193,9 @@ void ScriptValue::F32::generateAssert(std::ostream& os, size_t lineNumber, unsig
     auto [resultName, expectName] = makeNames(resultNumber, lane, "f32x4");
     auto* cast = "*(uint32_t*)&";
     auto* quietNan = "0x7fc00000U";
-    auto* quietNegNan = "0xffc00000U";
 
     if (nan == Nan::canonical) {
-        os << "\n    if (" << cast << resultName << " != " << quietNan << " && " <<
-            cast << resultName << " != " << quietNegNan << ") {"
+        os << "\n    if ((" << cast << resultName << " & " << quietNan << ") != " << quietNan << ") {"
             "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
@@ -244,11 +242,9 @@ void ScriptValue::F64::generateAssert(std::ostream& os, size_t lineNumber, unsig
     auto [resultName, expectName] = makeNames(resultNumber, lane, "f64x2");
     auto* cast = "*(uint64_t*)&";
     auto* quietNan = "0x7ff8000000000000ULL";
-    auto* quietNegNan = "0xfff8000000000000ULL";
 
     if (nan == Nan::canonical) {
-        os << "\n    if (" << cast << resultName << " != " << quietNan << " && " <<
-            cast << resultName << " != " << quietNegNan << ") {"
+        os << "\n    if ((" << cast << resultName << " & " << quietNan << ") != " << quietNan << ") {"
             "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";

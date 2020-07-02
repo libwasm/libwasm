@@ -849,6 +849,7 @@ class CGenerator
 
         CNode* generateCBinaryExpression(std::string_view op);
         CNode* generateCBlock(Instruction* instruction);
+        CNode* generateCBr(uint32_t index);
         CNode* generateCBr(Instruction* instruction);
         CNode* generateCBrIf(CNode* condition, uint32_t index);
         CNode* generateCBrIf(Instruction* instruction);
