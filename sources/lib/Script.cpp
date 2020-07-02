@@ -70,7 +70,7 @@ static std::pair<std::string, std::string> makeNames(unsigned resultNumber, int 
 
 void ScriptValue::I8::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
 {
-    auto [resultName, expectName] = makeNames(resultNumber, lane, "i8x16");
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i8");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
           "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
@@ -103,7 +103,7 @@ void ScriptValue::I16::generateC(std::ostream& os) const
 
 void ScriptValue::I16::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
 {
-    auto [resultName, expectName] = makeNames(resultNumber, lane, "i16x8");
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i16");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
           "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
@@ -129,7 +129,7 @@ void ScriptValue::I32::generateC(std::ostream& os) const
 
 void ScriptValue::I32::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
 {
-    auto [resultName, expectName] = makeNames(resultNumber, lane, "i32x4");
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i32");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
           "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
@@ -155,7 +155,7 @@ void ScriptValue::I64::generateC(std::ostream& os) const
 
 void ScriptValue::I64::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
 {
-    auto [resultName, expectName] = makeNames(resultNumber, lane, "i64x2");
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "i64");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
           "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
@@ -190,7 +190,7 @@ void ScriptValue::F32::generateC(std::ostream& os) const
 
 void ScriptValue::F32::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
 {
-    auto [resultName, expectName] = makeNames(resultNumber, lane, "f32x4");
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "f32");
     auto* cast = "*(uint32_t*)&";
     auto* quietNan = "0x7fc00000U";
 
@@ -239,7 +239,7 @@ void ScriptValue::F64::generateC(std::ostream& os) const
 
 void ScriptValue::F64::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
 {
-    auto [resultName, expectName] = makeNames(resultNumber, lane, "f64x2");
+    auto [resultName, expectName] = makeNames(resultNumber, lane, "f64");
     auto* cast = "*(uint64_t*)&";
     auto* quietNan = "0x7ff8000000000000ULL";
 
