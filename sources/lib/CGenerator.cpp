@@ -324,15 +324,18 @@ static bool needsParenthesis(CNode* node, std::string_view op)
         auto* binaryParent = static_cast<CBinaryExpression*>(parent);
         std::string_view parentOp = binaryParent->getOp();
 
-
         if (parentOp == op && (op == "+" || op == "*")) {
             return false;
         }
 
         auto parentPrecedence = binaryPrecedence(parentOp);
 
+        if (parentPrecedence == 1) {
+            return true;
+        }
+
         if (parentPrecedence < 9) {
-            return parentPrecedence != 2 && parentPrecedence != 11;
+            return parentPrecedence != 2;
         }
 
         return parentPrecedence >= precedence;
@@ -806,7 +809,6 @@ void CIf::generateC(std::ostream& os, CGenerator& generator)
 
     generator.generateStatement(os, tempDeclarations);
 
-    generator.nl(os);
     os << "if (";
     condition->generateC(os, generator);
     os << ") {";
@@ -828,6 +830,8 @@ void CIf::generateC(std::ostream& os, CGenerator& generator)
 
     if (labelDeclaration != nullptr) {
         generator.generateStatement(os, labelDeclaration);
+    } else {
+        generator.nl(os);
     }
 }
 
@@ -1568,7 +1572,12 @@ CNode* CGenerator::generateCShift(std::string_view op, std::string_view type)
         mod = 64;
     }
 
-    right = new CBinaryExpression("%", right, new CI32(mod));
+    if (auto value = getIntegerValue(right)) {
+        delete right;
+        right = new CI32(*value % mod);
+    } else {
+        right = new CBinaryExpression("%", right, new CI32(mod));
+    }
 
     if (!cast.empty()) {
         left = new CCast(cast, left);
