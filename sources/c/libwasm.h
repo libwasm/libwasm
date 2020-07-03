@@ -51,6 +51,9 @@ typedef uint64_t u64x2_t __attribute__ ((vector_size (16)));
 
 typedef float    f32x4_t __attribute__ ((vector_size (16)));
 typedef double   f64x2_t __attribute__ ((vector_size (16)));
+
+typedef long  l32x4_t __attribute__ ((vector_size (16)));
+typedef long long  i64x2_t __attribute__ ((vector_size (16)));
 #endif
 
 typedef union
@@ -78,6 +81,9 @@ typedef union
     u64x2_t u64x2;
     f32x4_t f32x4;
     f64x2_t f64x2;
+
+    l32x4_t l32x4;
+    i64x2_t l64x2;
 #endif
 
 } v128_u;
@@ -145,12 +151,7 @@ v128_t narrowU16x8I32x4(v128_t v1, v128_t v2);
 #define v128Bitselect(v1,v2,v3) \
     v128Ori64x2(v128Andi64x2(v1, v3), v128Andi64x2(v2, v128Noti64x2(v3)))
 
-#ifdef HARDWARE_SUPPORT
-#define v128Shufflei8x16(v1,v2,v3) \
-    V(__builtin_shuffle(U(v1).i8x16, U(v2).i8x16,  U(v3).i8x16))
-#else
 v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3);
-#endif
 
 v128_t v128Swizzlei8x16(v128_t v1, v128_t v2);
 

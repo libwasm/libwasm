@@ -633,7 +633,6 @@ uint16_t SatSubu16(uint16_t v1, uint16_t v2)
     return (int16_t)result;
 }
 
-#ifndef HARDWARE_SUPPORT
 v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3)
 {
     v128_u result;
@@ -650,8 +649,6 @@ v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3)
 
     return result.v128;
 }
-
-#endif
 
 v128_t v128Swizzlei8x16(v128_t v1, v128_t v2)
 {
