@@ -593,22 +593,6 @@ class InstructionMemory : public Instruction
         uint32_t alignPower = 0;
 };
 
-class InstructionMemory0 : public Instruction
-{
-    public:
-        InstructionMemory0()
-          : Instruction(ImmediateType::memory0)
-        {
-        }
-
-        virtual void write(BinaryContext& context) override;
-        virtual void generate(std::ostream& os, InstructionContext& context) override;
-        virtual void check(CheckContext& context) override;
-
-        static InstructionMemory0* parse(SourceContext& context, Opcode opcode);
-        static InstructionMemory0* read(BinaryContext& context);
-};
-
 class InstructionIndirect : public Instruction
 {
     public:
@@ -662,6 +646,11 @@ class InstructionSegmentIdxMem : public Instruction
         {
         }
 
+        auto getSegmentIndex() const
+        {
+            return segmentIndex;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -672,6 +661,22 @@ class InstructionSegmentIdxMem : public Instruction
     protected:
         uint32_t segmentIndex = 0;
         uint8_t memory = 0;
+};
+
+class InstructionMem0 : public Instruction
+{
+    public:
+        InstructionMem0()
+          : Instruction(ImmediateType::mem0)
+        {
+        }
+
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionMem0* parse(SourceContext& context, Opcode opcode);
+        static InstructionMem0* read(BinaryContext& context);
 };
 
 class InstructionMem : public Instruction

@@ -4411,6 +4411,15 @@ void DataSegment::show(std::ostream& os, Module* module)
     os << '\n';
 }
 
+std::string DataSegment::getCName(const Module* module) const
+{
+    auto* memory = module->getMemory(memoryIndex);
+    auto memoryName = memory->getCName(module);
+
+    return memoryName + "_data_" + toString(number);
+
+}
+
 void DataSection::write(BinaryContext& context) const
 {
     auto& data = context.data();

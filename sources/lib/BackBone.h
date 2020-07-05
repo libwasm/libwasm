@@ -1958,6 +1958,8 @@ class DataSegment : public TreeNode
             id = value;
         }
 
+        std::string getCName(const Module* module) const;
+
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
         void check(CheckContext& context);

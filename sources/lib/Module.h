@@ -304,20 +304,12 @@ class Module
             return importTable[index];
         }
 
-        void addSegment(DataSegment* segment)
-        {
-            segmentTable.push_back(segment);
-        }
-
         bool addSegmentId(std::string_view id, uint32_t index)
         {
             return segmentMap.add(id, index, true);
         }
 
-        DataSegment* getSegment(uint32_t index) const
-        {
-            return segmentTable[index];
-        }
+        DataSegment* getSegment(uint32_t index) const;
 
         uint32_t getSegmentIndex(std::string_view id)
         {
@@ -626,7 +618,6 @@ class Module
         size_t tableSectionIndex = invalidSection;
         size_t typeSectionIndex = invalidSection;
 
-        std::vector<DataSegment*> segmentTable;
         std::vector<Element*> elementTable;
         std::vector<Event*> eventTable;
         std::vector<Global*> globalTable;

@@ -873,7 +873,8 @@ class CGenerator
         CNode* generateCLocalTee(Instruction* instruction);
         CNode* generateCLoop(Instruction* instruction);
         CNode* generateCMemorySize();
-        CNode* generateCMemoryGrow();
+        CNode* generateCMemoryCall(std::string_view name, unsigned argumentCount);
+        CNode* generateCMemoryInit(Instruction* instruction);
         CNode* generateCReturn(Instruction* instruction);
         void generateCSelect(Instruction* instruction);
         CNode* generateCShift(std::string_view op, std::string_view type);

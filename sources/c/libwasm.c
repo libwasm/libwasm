@@ -152,6 +152,22 @@ uint32_t growMemory(Memory* memory, uint32_t size)
     return result;
 }
 
+void fillMemory(Memory* memory, uint32_t to, uint32_t value, uint32_t size)
+{
+    memset(memory->data + to, value, size);
+}
+
+void copyMemory(Memory* memory, uint32_t to, uint32_t from, uint32_t size)
+{
+    memmove(memory->data + to, memory->data + from, size);
+}
+
+void initMemory(Memory* memory, const char *data, uint32_t to, uint32_t from,
+        uint32_t size)
+{
+    memcpy(memory->data + to, data + from, size);
+}
+
 void initializeTable(Table* table, uint32_t min, uint32_t max)
 {
     table->elemntCount = min;

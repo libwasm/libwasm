@@ -1047,15 +1047,15 @@ void InstructionMemory::generate(std::ostream& os, InstructionContext& context)
     }
 }
 
-InstructionMemory0* InstructionMemory0::parse(SourceContext& context, Opcode opcode)
+InstructionMem0* InstructionMem0::parse(SourceContext& context, Opcode opcode)
 {
-    return context.makeTreeNode<InstructionMemory0>();
+    return context.makeTreeNode<InstructionMem0>();
 }
 
-InstructionMemory0* InstructionMemory0::read(BinaryContext& context)
+InstructionMem0* InstructionMem0::read(BinaryContext& context)
 {
     auto& data = context.data();
-    auto result = context.makeTreeNode<InstructionMemory0>();
+    auto result = context.makeTreeNode<InstructionMem0>();
 
     context.msgs().errorWhen(data.getU8() != 0, "reserved argument must be 0.");
     return result ;
@@ -1155,24 +1155,6 @@ void InstructionDepthEventIdx::generate(std::ostream& os, InstructionContext& co
     os << opcode << " (type " << eventIndex << ')';
 }
 
-void InstructionMemory0::write(BinaryContext& context)
-{
-    auto& data = context.data();
-
-    writeOpcode(context);
-    data.putU8(0);
-}
-
-void InstructionMemory0::check(CheckContext& context)
-{
-    // nothing to do
-}
-
-void InstructionMemory0::generate(std::ostream& os, InstructionContext& context)
-{
-    os << opcode;
-}
-
 InstructionSegmentIdxMem* InstructionSegmentIdxMem::parse(SourceContext& context, Opcode opcode)
 {
     auto result = context.makeTreeNode<InstructionSegmentIdxMem>();
@@ -1214,6 +1196,24 @@ void InstructionSegmentIdxMem::check(CheckContext& context)
 void InstructionSegmentIdxMem::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode << " " << segmentIndex;
+}
+
+void InstructionMem0::write(BinaryContext& context)
+{
+    auto& data = context.data();
+
+    writeOpcode(context);
+    data.putU8(0);
+}
+
+void InstructionMem0::check(CheckContext& context)
+{
+    // nothing to do
+}
+
+void InstructionMem0::generate(std::ostream& os, InstructionContext& context)
+{
+    os << opcode;
 }
 
 InstructionMem* InstructionMem::parse(SourceContext& context, Opcode opcode)
@@ -1529,7 +1529,7 @@ Instruction* Instruction::parse(SourceContext& context)
         case ImmediateType::eventIdx:           result = InstructionEventIdx::parse(context, *opcode); break;
         case ImmediateType::depthEventIdx:      result = InstructionDepthEventIdx::parse(context, *opcode); break;
         case ImmediateType::memory:             result = InstructionMemory::parse(context, *opcode); break;
-        case ImmediateType::memory0:            result = InstructionMemory0::parse(context, *opcode); break;
+        case ImmediateType::mem0:               result = InstructionMem0::parse(context, *opcode); break;
         case ImmediateType::indirect:           result = InstructionIndirect::parse(context, *opcode); break;
         case ImmediateType::refType:            result = InstructionRefType::parse(context, *opcode); break;
         default:
@@ -1670,7 +1670,7 @@ Instruction* Instruction::read(BinaryContext& context)
         case ImmediateType::brTable:            result = InstructionBrTable::read(context); break;
         case ImmediateType::depthEventIdx:      result = InstructionDepthEventIdx::read(context); break;
         case ImmediateType::memory:             result = InstructionMemory::read(context); break;
-        case ImmediateType::memory0:            result = InstructionMemory0::read(context); break;
+        case ImmediateType::mem0:               result = InstructionMem0::read(context); break;
         case ImmediateType::indirect:           result = InstructionIndirect::read(context); break;
         case ImmediateType::refType:            result = InstructionRefType::read(context); break;
         default:

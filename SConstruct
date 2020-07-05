@@ -12,7 +12,7 @@ CacheDir(CACHE_DIR)
 
 libSources=glob.glob('sources/lib/*.cpp')
 mainSources=glob.glob('sources/main/*.cpp')
-libCSources='sources/c/libwasm.c'
+libCSources=['sources/c/libwasm.c', 'sources/c/spectest.c']
 
 if ('sources/lib/OpcodeTables.cpp' not in libSources):
     libSources.append('sources/lib/OpcodeTables.cpp')

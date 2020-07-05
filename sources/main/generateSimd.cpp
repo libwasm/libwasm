@@ -48,7 +48,8 @@ void generateOperations(void (*function)(std::string_view, std::string_view, uin
     (function(name, types.type, types.count, op), ...);
 }
 
-static void generateMakeV128(std::string_view type, uint32_t count, std::string_view typeName)
+static void generateMakeV128(std::string_view type, uint32_t count, std::string_view typeName,
+         std::string_view parameterType)
 {
     std::string fullType = makeFullType(type, count);
     std::string signature = "v128_t v128Make";
@@ -60,7 +61,7 @@ static void generateMakeV128(std::string_view type, uint32_t count, std::string_
 
     for (uint32_t i = 0; i < count; ++i) {
         signature += seperator;
-        signature += typeName;
+        signature += parameterType;
         signature += " v";
         signature += toString(i);
         seperator = ", ";
@@ -76,7 +77,13 @@ static void generateMakeV128(std::string_view type, uint32_t count, std::string_
         "\n";
 
     for (uint32_t i = 0; i < count; ++i) {
-        functionDefinitions << "\n    result." << type << '[' << i << "] = v" << i << ';';
+        functionDefinitions << "\n    result." << type << '[' << i << "] = ";
+
+        if (typeName != parameterType) {
+            functionDefinitions << '(' << typeName << ')';
+        }
+
+        functionDefinitions << "v" << i << ';';
     }
 
     functionDefinitions <<
@@ -460,16 +467,16 @@ static void generate()
     makeStoreFunction("storeI64I16", "*(int16_t*)", "int64_t", "(int16_t)");
     makeStoreFunction("storeI64I32", "*(int32_t*)", "int64_t", "(int32_t)");
 
-    generateMakeV128("i8", 16, "int8_t");
-    generateMakeV128("u8", 16, "uint8_t");
-    generateMakeV128("i16", 8, "int16_t");
-    generateMakeV128("u16", 8, "uint16_t");
-    generateMakeV128("i32", 4, "int32_t");
-    generateMakeV128("u32", 4, "uint32_t");
-    generateMakeV128("i64", 2, "int64_t");
-    generateMakeV128("u64", 2, "uint64_t");
-    generateMakeV128("f32", 4, "float");
-    generateMakeV128("f64", 2, "double");
+    generateMakeV128("i8", 16, "int8_t", "int32_t");
+    generateMakeV128("u8", 16, "uint8_t", "uint32_t");
+    generateMakeV128("i16", 8, "int16_t", "int32_t");
+    generateMakeV128("u16", 8, "uint16_t", "uint32_t");
+    generateMakeV128("i32", 4, "int32_t", "int32_t");
+    generateMakeV128("u32", 4, "uint32_t", "uint32_t");
+    generateMakeV128("i64", 2, "int64_t", "int64_t");
+    generateMakeV128("u64", 2, "uint64_t", "uint64_t");
+    generateMakeV128("f32", 4, "float", "float");
+    generateMakeV128("f64", 2, "double", "double");
 
     generateLoadExtend("i16", 8);
     generateLoadExtend("u16", 8);

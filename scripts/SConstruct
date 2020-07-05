@@ -17,9 +17,9 @@ gcc = Environment(CC='gcc',
                   CXX='g++')
 
 if DEBUG == '1':
-    gcc.Append(CCFLAGS=' -g -Wno-unused-value')
+    gcc.Append(CCFLAGS=' -g')
 else:
-    gcc.Append(CCFLAGS=' -g -O2 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-value')
+    gcc.Append(CCFLAGS=' -g -Wall -Wno-unused -O2 -march=native -fomit-frame-pointer -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused')
 
 if NDEBUG == '1':
     gcc.Append(CCFLAGS=' -DNDEBUG')
@@ -28,9 +28,9 @@ clang = Environment(CC='clang',
                     CXX='clang++')
 
 if DEBUG == '1':
-    clang.Append(CCFLAGS=' -g -Wno-unused-value')
+    clang.Append(CCFLAGS=' -g')
 else:
-    clang.Append(CCFLAGS=' -g -O2 -march=native -fomit-frame-pointer -Wall -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-lambda-capture -Wno-unused-value')
+    clang.Append(CCFLAGS=' -g -O2 -Wall -Wno-unused -march=native -fomit-frame-pointer -Wmissing-declarations -Wsign-compare -Wconversion -Wno-sign-conversion -Wold-style-cast -Wno-parentheses -Wno-unused-lambda-capture')
 
 if NDEBUG == '1':
     clang.Append(CCFLAGS=' -DNDEBUG')

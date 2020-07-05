@@ -249,7 +249,7 @@ void ScriptValue::F64::generateAssert(std::ostream& os, size_t lineNumber, unsig
             "\n        ++errorCount;"
             "\n    }";
     } else if (nan == Nan::arithmetic) {
-        os << "\n    if (!isnan(" << resultName << ")) {"
+        os << "\n    if (!isnan((float)" << resultName << ")) {"
             "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
@@ -755,6 +755,44 @@ void Script::generateC(std::ostream& os, bool optimized)
                             break;
 
                         case ExternalType::global:
+                            os << module->getGlobal(index)->getCName(module.get());
+                            break;
+
+                        case ExternalType::event:
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+
+                os << '\n';
+            }
+
+            if (auto* importSection = module->getImportSection(); importSection != nullptr) {
+                for (auto& import : importSection->getImports()) {
+                    uint32_t index;
+
+                    os << "\n#define " << module->getId() << "__" << cName(import->getName()) << ' ';
+
+                    switch (import->getKind()) {
+                        case ExternalType::function:
+                            index = static_cast<FunctionImport*>(import.get())->getNumber();
+                            os << module->getFunction(index)->getCName(module.get());
+                            break;
+
+                        case ExternalType::table:
+                            index = static_cast<TableImport*>(import.get())->getNumber();
+                            os << module->getTable(index)->getCName(module.get());
+                            break;
+
+                        case ExternalType::memory:
+                            index = static_cast<MemoryImport*>(import.get())->getNumber();
+                            os << module->getMemory(index)->getCName(module.get());
+                            break;
+
+                        case ExternalType::global:
+                            index = static_cast<GlobalImport*>(import.get())->getNumber();
                             os << module->getGlobal(index)->getCName(module.get());
                             break;
 

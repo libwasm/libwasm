@@ -470,6 +470,11 @@ void Module::addGlobalEntry(GlobalDeclaration* entry)
     section->addGlobal(entry);
 }
 
+DataSegment* Module::getSegment(uint32_t index) const
+{
+    return getDataSection()->getSegments()[index].get();
+}
+
 void Module::addDataEntry(DataSegment* entry)
 {
     auto* section = requiredDataSection();
@@ -657,7 +662,7 @@ void Module::generateCPreamble(std::ostream& os)
         for (auto& segment : segments) {
             auto* memory = memoryTable[segment->getMemoryIndex()];
             auto memoryName = memory->getCName(this);
-            auto segmentName = memoryName + "_data_" + toString(segmentNumber++);
+            auto segmentName = segment->getCName(this);
 
             os << "\n    static const char " << segmentName << "[] = {"
                 "\n       ";

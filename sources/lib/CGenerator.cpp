@@ -1747,15 +1747,53 @@ CNode* CGenerator::generateCMemorySize()
     return new CBinaryExpression(".", new CNameUse(memory->getCName(module)), new CNameUse("pageCount"));
 }
 
-CNode* CGenerator::generateCMemoryGrow()
+CNode* CGenerator::generateCMemoryCall(std::string_view name, unsigned argumentCount)
 {
     auto* memory = module->getMemory(0);
-    auto* result = new CCall("growMemory");
+    auto* call = new CCall(name);
+    bool tempifyDone = false;
+ 
+    for (unsigned i = 0; i < argumentCount; ++i) {
+        auto* argument = popExpression();
 
-    result->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
-    result->addArgument(popExpression());
+        if (!tempifyDone && argument->hasSideEffects()) {
+            tempify();
+            tempifyDone = true;
+        }
 
-    return result;
+        call->addArgument(argument);
+    }
+ 
+    call->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
+    call->reverseArguments();
+
+    return call;
+}
+
+CNode* CGenerator::generateCMemoryInit(Instruction* instruction)
+{
+    auto* idxMemInstruction = static_cast<InstructionSegmentIdxMem*>(instruction);
+    auto* memory = module->getMemory(0);
+    auto* segment = module->getSegment(idxMemInstruction->getSegmentIndex());
+    auto* call = new CCall("initMemory");
+    bool tempifyDone = false;
+ 
+    for (unsigned i = 0; i < 3; ++i) {
+        auto* argument = popExpression();
+
+        if (!tempifyDone && argument->hasSideEffects()) {
+            tempify();
+            tempifyDone = true;
+        }
+
+        call->addArgument(argument);
+    }
+ 
+    call->addArgument(new CUnaryExpression("&", new CNameUse(segment->getCName(module))));
+    call->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
+    call->reverseArguments();
+
+    return call;
 }
 
 CNode* CGenerator::generateCCast(std::string_view name)
@@ -2734,7 +2772,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::memory__grow:
-                pushExpression(generateCMemoryGrow(), ValueType::i32);
+                pushExpression(generateCMemoryCall("growMemory", 1), ValueType::i32);
                 break;
 
             case Opcode::i32__extend8_s:
@@ -2803,10 +2841,22 @@ CNode* CGenerator::generateCStatement()
                 pushExpression(generateCCallPredef("satU64F64", 1), ValueType::i64);
                 break;
 
-    //      case Opcode::memory__init:
-    //      case Opcode::data__drop:
-    //      case Opcode::memory__copy:
-    //      case Opcode::memory__fill:
+            case Opcode::memory__init:
+                statement = generateCMemoryInit(instruction);
+                break;
+
+            case Opcode::data__drop:
+                // nop
+                break;
+
+            case Opcode::memory__copy:
+                statement = generateCMemoryCall("copyMemory", 3);
+                break;
+
+            case Opcode::memory__fill:
+                statement = generateCMemoryCall("fillMemory", 3);
+                break;
+
     //      case Opcode::table__init:
     //      case Opcode::elem__drop:
     //      case Opcode::table__copy:

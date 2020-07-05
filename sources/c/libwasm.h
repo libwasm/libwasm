@@ -88,8 +88,13 @@ typedef union
 
 } v128_u;
 
-extern void initializeMemory(Memory*, uint32_t min, uint32_t max);
-extern uint32_t growMemory(Memory*, uint32_t size);
+extern void initializeMemory(Memory* memory, uint32_t min, uint32_t max);
+extern uint32_t growMemory(Memory* memory, uint32_t size);
+extern void fillMemory(Memory* memory, uint32_t to, uint32_t value, uint32_t size);
+extern void copyMemory(Memory* memory, uint32_t to, uint32_t from, uint32_t size);
+extern void initMemory(Memory* memory, const char *data, uint32_t to, uint32_t from,
+        uint32_t size);
+
 extern void initializeTable(Table*, uint32_t min, uint32_t max);
 
 int32_t reinterpretI32F32(float value);
