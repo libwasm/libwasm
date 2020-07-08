@@ -1234,15 +1234,15 @@ void TypeUse::generate(std::ostream& os, Module* module)
 }
 
 static std::string buildCName(std::string_view id, std::string_view externId, const char* defaultName,
-        uint32_t number, const Module* module)
+        uint32_t number, bool isExported, const Module* module)
 {
     std::string result;
     std::string prefix = module->getNamePrefix();
 
-    if (!id.empty()) {
-        result = prefix + cName(id);
-    } else if (!externId.empty()) {
+    if (!externId.empty()) {
         result = cName(externId);
+    } else if (!id.empty()) {
+        result = prefix + cName(id);
     } else {
         result = prefix + defaultName + toString(number);
     }
@@ -1252,7 +1252,7 @@ static std::string buildCName(std::string_view id, std::string_view externId, co
 
 std::string TypeUse::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "_f_", number, module);
+    return buildCName(id, externId, "_f_", number, isExported, module);
 }
 
 void TypeUse::generateC(std::ostream& os, const Module* module, size_t number)
@@ -1381,7 +1381,7 @@ void FunctionImport::show(std::ostream& os, Module* module)
 
 std::string Memory::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "_memory_", number, module);
+    return buildCName(id, externId, "_memory_", number, isExported, module);
 }
 
 void MemoryImport::write(BinaryContext& context) const
@@ -1561,7 +1561,7 @@ void EventImport::show(std::ostream& os, Module* module)
 
 std::string Table::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "_table_", number, module);
+    return buildCName(id, externId, "_table_", number, isExported, module);
 }
 
 void TableImport::write(BinaryContext& context) const
@@ -2938,7 +2938,7 @@ void GlobalDeclaration::generate(std::ostream& os, Module* module)
 
 std::string Global::getCName(const Module* module) const
 {
-    return buildCName(id, externId, "_global_", number, module);
+    return buildCName(id, externId, "_global_", number, isExported, module);
 }
 
 void GlobalDeclaration::generateC(std::ostream& os, const Module* module)
@@ -3829,6 +3829,14 @@ void ElementDeclaration::show(std::ostream& os, Module* module)
     os << "]\n";
 }
 
+std::string ElementDeclaration::getCName(const Module* module) const
+{
+    std::string prefix = module->getNamePrefix();
+
+    return prefix + "_elem_" + toString(number);
+
+}
+
 void ElementSection::write(BinaryContext& context) const
 {
     auto& data = context.data();
@@ -4413,10 +4421,9 @@ void DataSegment::show(std::ostream& os, Module* module)
 
 std::string DataSegment::getCName(const Module* module) const
 {
-    auto* memory = module->getMemory(memoryIndex);
-    auto memoryName = memory->getCName(module);
+    std::string prefix = module->getNamePrefix();
 
-    return memoryName + "_data_" + toString(number);
+    return prefix + "_data_" + toString(number);
 
 }
 

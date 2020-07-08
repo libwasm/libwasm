@@ -56,4 +56,4 @@ for source in scripts:
             LIBS=['libwasmc', 'm'], LIBPATH='../lib',
             CPPPATH=['.', '../sources/c'])
 
-    Command(outName, executable, executable + '>' + outName)
+    Command(outName, executable, executable + '>&' + outName)

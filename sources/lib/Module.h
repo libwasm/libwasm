@@ -24,7 +24,7 @@ class DataCountSection;
 class DataSection;
 class ElementDeclaration;
 class ElementSection;
-class Element;
+class ElementDeclaration;
 class Event;
 class EventSection;
 class ExportDeclaration;
@@ -363,10 +363,7 @@ class Module
             return elementMap.add(id, index);
         }
 
-        Element* getElement(uint32_t index) const
-        {
-            return elementTable[index];
-        }
+        ElementDeclaration* getElement(uint32_t index) const;
 
         uint32_t getElementIndex(std::string_view id)
         {
@@ -618,7 +615,6 @@ class Module
         size_t tableSectionIndex = invalidSection;
         size_t typeSectionIndex = invalidSection;
 
-        std::vector<Element*> elementTable;
         std::vector<Event*> eventTable;
         std::vector<Global*> globalTable;
         std::vector<ImportDeclaration*> importTable;

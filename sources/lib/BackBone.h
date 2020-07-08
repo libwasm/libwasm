@@ -1786,6 +1786,17 @@ class ElementDeclaration : public TreeNode
             id = value;
         }
 
+        size_t getSize() const
+        {
+            if (flags & SegmentFlagElemExpr) {
+                return refExpressions.size();
+            } else {
+                return functionIndexes.size();
+            }
+        }
+
+        std::string getCName(const Module* module) const;
+
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
         void check(CheckContext& context);
@@ -1956,6 +1967,16 @@ class DataSegment : public TreeNode
         void setId(std::string_view value)
         {
             id = value;
+        }
+
+        auto getFlags() const
+        {
+            return flags;
+        }
+
+        void setFlags(SegmentFlags value)
+        {
+            flags = value;
         }
 
         std::string getCName(const Module* module) const;

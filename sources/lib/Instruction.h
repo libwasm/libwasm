@@ -726,6 +726,11 @@ class InstructionTableElementIdx : public Instruction
         {
         }
 
+        auto getElementIndex() const
+        {
+            return elementIndex;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;

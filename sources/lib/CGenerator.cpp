@@ -1789,8 +1789,57 @@ CNode* CGenerator::generateCMemoryInit(Instruction* instruction)
         call->addArgument(argument);
     }
  
-    call->addArgument(new CUnaryExpression("&", new CNameUse(segment->getCName(module))));
+    call->addArgument(new CNameUse(segment->getCName(module)));
     call->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
+    call->reverseArguments();
+
+    return call;
+}
+
+CNode* CGenerator::generateCTableCall(std::string_view name, unsigned argumentCount)
+{
+    auto* table = module->getTable(0);
+    auto* call = new CCall(name);
+    bool tempifyDone = false;
+ 
+    for (unsigned i = 0; i < argumentCount; ++i) {
+        auto* argument = popExpression();
+
+        if (!tempifyDone && argument->hasSideEffects()) {
+            tempify();
+            tempifyDone = true;
+        }
+
+        call->addArgument(argument);
+    }
+ 
+    call->addArgument(new CUnaryExpression("&", new CNameUse(table->getCName(module))));
+    call->reverseArguments();
+
+    return call;
+}
+
+CNode* CGenerator::generateCTableInit(Instruction* instruction)
+{
+    auto* tableElementIdxInstruction = static_cast<InstructionTableElementIdx*>(instruction);
+    auto* table = module->getTable(0);
+    auto* element = module->getElement(tableElementIdxInstruction->getElementIndex());
+    auto* call = new CCall("initTable");
+    bool tempifyDone = false;
+ 
+    for (unsigned i = 0; i < 3; ++i) {
+        auto* argument = popExpression();
+
+        if (!tempifyDone && argument->hasSideEffects()) {
+            tempify();
+            tempifyDone = true;
+        }
+
+        call->addArgument(argument);
+    }
+ 
+    call->addArgument(new CNameUse(element->getCName(module)));
+    call->addArgument(new CUnaryExpression("&", new CNameUse(table->getCName(module))));
     call->reverseArguments();
 
     return call;
@@ -2857,12 +2906,24 @@ CNode* CGenerator::generateCStatement()
                 statement = generateCMemoryCall("fillMemory", 3);
                 break;
 
-    //      case Opcode::table__init:
-    //      case Opcode::elem__drop:
-    //      case Opcode::table__copy:
+            case Opcode::table__init:
+                statement = generateCTableInit(instruction);
+                break;
+
+            case Opcode::elem__drop:
+                // nop
+                break;
+
+            case Opcode::table__copy:
+                statement = generateCTableCall("copyTable", 3);
+                break;
+
     //      case Opcode::table__grow:
     //      case Opcode::table__size:
-    //      case Opcode::table__fill:
+            case Opcode::table__fill:
+                statement = generateCTableCall("fillTable", 3);
+                break;
+
 
             // SIMD
             case Opcode::v128__load:

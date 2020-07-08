@@ -162,7 +162,7 @@ void copyMemory(Memory* memory, uint32_t to, uint32_t from, uint32_t size)
     memmove(memory->data + to, memory->data + from, size);
 }
 
-void initMemory(Memory* memory, const char *data, uint32_t to, uint32_t from,
+void initMemory(Memory* memory, const char* data, uint32_t to, uint32_t from,
         uint32_t size)
 {
     memcpy(memory->data + to, data + from, size);
@@ -178,6 +178,17 @@ void initializeTable(Table* table, uint32_t min, uint32_t max)
     } else {
         table->data = calloc(min, sizeof(void*));
     }
+}
+
+void copyTable(Table* table, uint32_t to, uint32_t from, uint32_t size)
+{
+    memmove(table->data + to, table->data + from, size * sizeof(void*));
+}
+
+void initTable(Table* table, const void** data, uint32_t to, uint32_t from,
+        uint32_t size)
+{
+    memcpy(table->data + to, data + from, size * sizeof(void*));
 }
 
 int32_t reinterpretI32F32(float value)

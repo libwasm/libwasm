@@ -456,6 +456,11 @@ void Module::addTableEntry(TableDeclaration* entry)
     section->addTable(entry);
 }
 
+ElementDeclaration* Module::getElement(uint32_t index) const
+{
+    return getElementSection()->getElements()[index].get();
+}
+
 void Module::addMemoryEntry(MemoryDeclaration* entry)
 {
     auto* section = requiredMemorySection();
@@ -641,6 +646,90 @@ std::string Module::getNamePrefix() const
 
 void Module::generateCPreamble(std::ostream& os)
 {
+    if (auto* dataSection = getDataSection(); dataSection != nullptr && memoryCount > 0) {
+        auto& segments = dataSection->getSegments();
+
+        for (auto& segment : segments) {
+            auto* memory = memoryTable[segment->getMemoryIndex()];
+            auto memoryName = memory->getCName(this);
+            auto segmentName = segment->getCName(this);
+
+            os << "\nstatic const char " << segmentName << "[] = {"
+                "\n    ";
+
+            const char* separator = "";
+            unsigned columnCount = 0;
+
+            for (auto c : segment->getInit()) {
+                os << separator << " 0x" << std::hex << std::setw(2) << std::setfill('0') <<
+                    unsigned(uint8_t(c)) << std::dec;
+                separator = ", ";
+
+                if (++columnCount == 16) {
+                    columnCount = 0;
+                    os << "\n    ";
+                }
+            }
+
+            os << "\n};";
+        }
+    }
+    os << '\n';
+
+    if (auto* elementSection = getElementSection(); elementSection != nullptr && tableCount > 0) {
+        auto& elements = elementSection->getElements();
+
+        for (auto& element : elements) {
+            auto* table = tableTable[element->getTableIndex()];
+            auto tableName = table->getCName(this);
+            auto elementName = element->getCName(this);
+            auto flags = element->getFlags();
+
+            os << "\nstatic const void* " << elementName << "[] = {"
+                "\n    ";
+
+            const char* separator = "";
+            unsigned columnCount = 0;
+
+            if (flags & SegmentFlagElemExpr) {
+                for (auto& refExpression : element->getRefExpressions()) {
+                    auto* instruction = refExpression->getInstructions()[0].get();
+                    auto opcode = instruction->getOpcode();
+
+                    os << separator;
+
+                    if (opcode == Opcode::ref__null) {
+                        os << "NULL";
+                    } else {
+                        auto *f = static_cast<InstructionFunctionIdx*>(instruction);
+
+                        os << functionTable[f->getIndex()]->getCName(this);
+                    }
+
+                    separator = ", ";
+
+                    if (++columnCount == 8) {
+                        columnCount = 0;
+                        os << "\n    ";
+                    }
+                }
+            } else {
+                for (auto index : element->getFunctionIndexes()) {
+                    os << separator;
+
+                    os << functionTable[index]->getCName(this);
+                    separator = ", ";
+
+                    if (++columnCount == 8) {
+                        columnCount = 0;
+                        os << "\n    ";
+                    }
+                }
+            }
+
+            os << "\n};";
+        }
+    }
     os << '\n';
     os << "\nvoid " << getNamePrefix() << "initialize()"
         "\n{";
@@ -660,35 +749,16 @@ void Module::generateCPreamble(std::ostream& os)
         unsigned segmentNumber = 0;
 
         for (auto& segment : segments) {
+            if ((segment->getFlags() & SegmentFlagPassive) != 0) {
+                continue;
+            }
+
             auto* memory = memoryTable[segment->getMemoryIndex()];
             auto memoryName = memory->getCName(this);
             auto segmentName = segment->getCName(this);
 
-            os << "\n    static const char " << segmentName << "[] = {"
-                "\n       ";
-
-            const char* separator = "";
-            unsigned columnCount = 0;
-
-            for (auto c : segment->getInit()) {
-                os << separator << " 0x" << std::hex << std::setw(2) << std::setfill('0') <<
-                    unsigned(uint8_t(c)) << std::dec;
-                separator = ",";
-
-                if (++columnCount == 16) {
-                    columnCount = 0;
-                    os << "\n      ";
-                }
-            }
-
-            os << "\n    };";
-
-            os << "\n    memcpy(" << memoryName << ".data";
-
-            if (auto* expression = segment->getExpression(); expression != nullptr) {
-                os << " + ";
-                generateInitExpression(os, expression->getInstructions()[0].get());
-            }
+            os << "\n    memcpy(" << memoryName << ".data + ";
+            generateInitExpression(os, segment->getExpression()->getInstructions()[0].get());
 
             os << ", " << segmentName << ", " << segment->getInit().size() << ");";
         }
@@ -707,45 +777,28 @@ void Module::generateCPreamble(std::ostream& os)
     if (auto* elementSection = getElementSection(); elementSection != nullptr) {
         auto& elements = elementSection->getElements();
 
-        os << "\n    uint32_t offset;";
-
         for (auto& element : elements) {
-            auto* table = tableTable[element->getTableIndex()];
+            if ((element->getFlags() & SegmentFlagPassive) != 0) {
+                continue;
+            }
+
+            auto index = element->getTableIndex();
+            if (index >= tableTable.size()) {
+                continue;
+            }
+
+            auto* table = tableTable[index];
             auto tableName = table->getCName(this);
+            auto elementName = element->getCName(this);
             auto flags = element->getFlags();
 
-            os << "\n    offset = ";
+            os << "\n    memcpy(" << tableName << ".data";
             if (auto* expression = element->getExpression(); expression != nullptr) {
+                os << " + ";
                 generateInitExpression(os, expression->getInstructions()[0].get());
-            } else {
-                os << '0';
             }
 
-            os << ';';
-
-            if (flags & SegmentFlagElemExpr) {
-                for (auto& refExpression : element->getRefExpressions()) {
-                    auto* instruction = refExpression->getInstructions()[0].get();
-                    auto opcode = instruction->getOpcode();
-
-                    os << "\n    " << tableName << ".data[offset++] = ";
-
-                    if (opcode == Opcode::ref__null) {
-                        os << "NULL";
-                    } else {
-                        auto *f = static_cast<InstructionFunctionIdx*>(instruction);
-
-                        os << functionTable[f->getIndex()]->getCName(this);
-                    }
-
-                    os << ';';
-                }
-            } else {
-                for (auto index : element->getFunctionIndexes()) {
-                    os << "\n    " << tableName << ".data[offset++] = " <<
-                    functionTable[index]->getCName(this) << ';';
-                }
-            }
+            os << ", " << elementName << ", " << element->getSize() << " * sizeof(void*));";
         }
     }
 

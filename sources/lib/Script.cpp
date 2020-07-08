@@ -73,7 +73,7 @@ void ScriptValue::I8::generateAssert(std::ostream& os, size_t lineNumber, unsign
     auto [resultName, expectName] = makeNames(resultNumber, lane, "i8");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
-          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
           "\n        ++errorCount;"
           "\n    }";
 }
@@ -106,7 +106,7 @@ void ScriptValue::I16::generateAssert(std::ostream& os, size_t lineNumber, unsig
     auto [resultName, expectName] = makeNames(resultNumber, lane, "i16");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
-          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
           "\n        ++errorCount;"
           "\n    }";
 }
@@ -132,7 +132,7 @@ void ScriptValue::I32::generateAssert(std::ostream& os, size_t lineNumber, unsig
     auto [resultName, expectName] = makeNames(resultNumber, lane, "i32");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
-          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
           "\n        ++errorCount;"
           "\n    }";
 }
@@ -158,7 +158,7 @@ void ScriptValue::I64::generateAssert(std::ostream& os, size_t lineNumber, unsig
     auto [resultName, expectName] = makeNames(resultNumber, lane, "i64");
 
     os << "\n\n    if (" << resultName << " != " << expectName << ") {"
-          "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
           "\n        ++errorCount;"
           "\n    }";
 }
@@ -196,17 +196,17 @@ void ScriptValue::F32::generateAssert(std::ostream& os, size_t lineNumber, unsig
 
     if (nan == Nan::canonical) {
         os << "\n    if ((" << cast << resultName << " & " << quietNan << ") != " << quietNan << ") {"
-            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
     } else if (nan == Nan::arithmetic) {
         os << "\n    if (!isnan(" << resultName << ")) {"
-            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
     } else {
         os << "\n\n    if (" << cast << resultName << " != " << cast << expectName << ") {"
-            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
     }
@@ -245,17 +245,17 @@ void ScriptValue::F64::generateAssert(std::ostream& os, size_t lineNumber, unsig
 
     if (nan == Nan::canonical) {
         os << "\n    if ((" << cast << resultName << " & " << quietNan << ") != " << quietNan << ") {"
-            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
     } else if (nan == Nan::arithmetic) {
         os << "\n    if (!isnan((float)" << resultName << ")) {"
-            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
     } else {
         os << "\n\n    if (" << cast << resultName << " != " << cast << expectName << ") {"
-            "\n        printf(\"assert_return failed at line %d\\n\", " << lineNumber << ");"
+            "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
             "\n        ++errorCount;"
             "\n    }";
     }
@@ -716,7 +716,9 @@ void Script::generateC(std::ostream& os, bool optimized)
           "\n#include <math.h>"
           "\n#include <string.h>"
           "\n"
-          "\nunsigned errorCount = 0;";
+          "\nunsigned errorCount = 0;"
+          "\nvoid spectest__initialize();";
+
 
     std::stringstream mainCode;
 
@@ -768,44 +770,6 @@ void Script::generateC(std::ostream& os, bool optimized)
 
                 os << '\n';
             }
-
-            if (auto* importSection = module->getImportSection(); importSection != nullptr) {
-                for (auto& import : importSection->getImports()) {
-                    uint32_t index;
-
-                    os << "\n#define " << module->getId() << "__" << cName(import->getName()) << ' ';
-
-                    switch (import->getKind()) {
-                        case ExternalType::function:
-                            index = static_cast<FunctionImport*>(import.get())->getNumber();
-                            os << module->getFunction(index)->getCName(module.get());
-                            break;
-
-                        case ExternalType::table:
-                            index = static_cast<TableImport*>(import.get())->getNumber();
-                            os << module->getTable(index)->getCName(module.get());
-                            break;
-
-                        case ExternalType::memory:
-                            index = static_cast<MemoryImport*>(import.get())->getNumber();
-                            os << module->getMemory(index)->getCName(module.get());
-                            break;
-
-                        case ExternalType::global:
-                            index = static_cast<GlobalImport*>(import.get())->getNumber();
-                            os << module->getGlobal(index)->getCName(module.get());
-                            break;
-
-                        case ExternalType::event:
-                            break;
-
-                        default:
-                            break;
-                    }
-                }
-
-                os << '\n';
-            }
         } else if (command.invoke) {
             mainCode << "\n    ";
             command.invoke->generateC(mainCode, *this);
@@ -818,9 +782,11 @@ void Script::generateC(std::ostream& os, bool optimized)
     os << "\n\nint main()"
         "\n{";
 
+    os << "\n    spectest__initialize();";
     os << mainCode.str();
-    os << "\n    return errorCount != 0;";
-    os << "\n}\n";
+    os << "\n    return errorCount != 0;"
+        "\n}\n"
+        "\n";
 }
 
 };

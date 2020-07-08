@@ -875,6 +875,8 @@ class CGenerator
         CNode* generateCMemorySize();
         CNode* generateCMemoryCall(std::string_view name, unsigned argumentCount);
         CNode* generateCMemoryInit(Instruction* instruction);
+        CNode* generateCTableCall(std::string_view name, unsigned argumentCount);
+        CNode* generateCTableInit(Instruction* instruction);
         CNode* generateCReturn(Instruction* instruction);
         void generateCSelect(Instruction* instruction);
         CNode* generateCShift(std::string_view op, std::string_view type);
