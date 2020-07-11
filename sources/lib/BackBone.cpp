@@ -3501,6 +3501,20 @@ void Expression::generateCValue(std::ostream& os, const Module* module)
 
             break;
 
+        case Opcode::ref__null:
+            os << "NULL";
+            break;
+
+        case Opcode::ref__func:
+            {
+                auto functionIndex = static_cast<InstructionFunctionIdx*>(instruction)->getIndex();
+                auto* function = module->getFunction(functionIndex);
+
+                os << "(void*)" << function->getCName(module);
+            }
+
+            break;
+
         default:
             // TBI
             assert(false);

@@ -637,7 +637,7 @@ std::string Module::getNamePrefix() const
     std::string prefix;
 
     if (!id.empty()) {
-        prefix += id;
+        prefix = cName(id);
         prefix += "__";
     }
 
@@ -818,11 +818,6 @@ void Module::generateC(std::ostream& os, bool optimized)
         os << '\n';
     }
 
-    if (auto* globalSection = getGlobalSection(); globalSection != nullptr) {
-        globalSection->generateC(os, this);
-        os << '\n';
-    }
-
     if (auto* memorySection = getMemorySection(); memorySection != nullptr) {
         memorySection->generateC(os, this);
     }
@@ -833,6 +828,11 @@ void Module::generateC(std::ostream& os, bool optimized)
 
     if (auto* functionSection = getFunctionSection(); functionSection != nullptr) {
         functionSection->generateC(os, this);
+        os << '\n';
+    }
+
+    if (auto* globalSection = getGlobalSection(); globalSection != nullptr) {
+        globalSection->generateC(os, this);
         os << '\n';
     }
 

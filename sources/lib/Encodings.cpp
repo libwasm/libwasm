@@ -202,11 +202,11 @@ std::string_view ValueType::getCName() const
         case f32:          return "float";
         case f64:          return "double";
         case v128:         return "v128_t";
-        case externref:    return "void *";
+        case externref:    return "void*";
         case exnref:       return "void*";
-        case nullref:      return "NULL";
-        case funcref:      return "funcref";
-        case void_:        return "void*";
+        case nullref:      return "void*";
+        case funcref:      return "void*";
+        case void_:        return "void";
 
         default:           return std::string_view();
     }

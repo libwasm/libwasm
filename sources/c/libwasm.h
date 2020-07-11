@@ -29,7 +29,7 @@ typedef struct
 typedef struct
 {
     void** data;
-    uint32_t elemntCount;
+    uint32_t elementCount;
     uint32_t maxElementCount;
 } Table;
 
@@ -91,12 +91,14 @@ typedef union
 extern void initializeMemory(Memory* memory, uint32_t min, uint32_t max);
 extern uint32_t growMemory(Memory* memory, uint32_t size);
 extern void fillMemory(Memory* memory, uint32_t to, uint32_t value, uint32_t size);
-extern void copyMemory(Memory* memory, uint32_t to, uint32_t from, uint32_t size);
+extern void copyMemory(Memory* dst, Memory* src, uint32_t to, uint32_t from, uint32_t size);
 extern void initMemory(Memory* memory, const char* data, uint32_t to, uint32_t from,
         uint32_t size);
 
 extern void initializeTable(Table*, uint32_t min, uint32_t max);
-extern void copyTable(Table* table, uint32_t to, uint32_t from, uint32_t size);
+extern uint32_t growTable(Table* table, uint32_t size);
+extern void fillTable(Table* table, uint32_t to, void* value, uint32_t size);
+extern void copyTable(Table* dst, Table* src, uint32_t to, uint32_t from, uint32_t size);
 extern void initTable(Table* table, const void** data, uint32_t to, uint32_t from,
         uint32_t size);
 

@@ -34,25 +34,26 @@ class CNode
             kNone,
             kBinauryExpression,
             kBr,
-            kCallIndirect,
             kCall,
+            kCallIndirect,
             kCast,
             kCompound,
+            kF32,
+            kF64,
             kFunction,
             kI32,
             kI64,
-            kF32,
-            kF64,
-            kV128,
             kIf,
             kLabel,
             kLoad,
             kNameUse,
             kReturn,
             kStore,
+            kSubscript,
             kSwitch,
             kTernaryExpression,
             kUnaryExpression,
+            kV128,
             kVariable,
         };
 
@@ -178,6 +179,35 @@ class CBr : public CNode
         unsigned label = 0;
 };
 
+class CSubscript : public CNode
+{
+    public:
+        static const CNodeKind kind = kSubscript;
+
+        CSubscript(CNode* array, CNode* subscript)
+            : CNode(kind), array(array), subscript(subscript)
+        {
+            array->link(this);
+            subscript->link(this);
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
+
+        auto* getArray() const
+        {
+            return array;
+        }
+
+        auto* getSubscript() const
+        {
+            return subscript;
+        }
+
+    private:
+        CNode* array = nullptr;
+        CNode* subscript = nullptr;
+};
+
 class CSwitch : public CNode
 {
     public:
@@ -266,10 +296,11 @@ class CCallIndirect : public CNode
     public:
         static const CNodeKind kind = kCallIndirect;
 
-        CCallIndirect(uint32_t typeIndex, CNode* tableIndex)
-            : CNode(kind), typeIndex(typeIndex), tableIndex(tableIndex)
+        CCallIndirect(uint32_t typeIndex, uint32_t tableIndex, CNode* indexInTable)
+            : CNode(kind), typeIndex(typeIndex), tableIndex(tableIndex),
+              indexInTable(indexInTable)
         {
-            tableIndex->link(this);
+            indexInTable->link(this);
         }
 
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
@@ -279,7 +310,8 @@ class CCallIndirect : public CNode
 
     private:
         uint32_t typeIndex = 0;
-        CNode* tableIndex = nullptr;
+        uint32_t tableIndex = 0;
+        CNode* indexInTable = nullptr;
         std::vector<CNode*> arguments;
 };
 
@@ -875,8 +907,12 @@ class CGenerator
         CNode* generateCMemorySize();
         CNode* generateCMemoryCall(std::string_view name, unsigned argumentCount);
         CNode* generateCMemoryInit(Instruction* instruction);
-        CNode* generateCTableCall(std::string_view name, unsigned argumentCount);
+        CNode* generateCMemoryCopy(Instruction* instruction);
+        CNode* generateCTableSize(Instruction* instruction);
+        CNode* generateCTableCall(Instruction* instruction, std::string_view name, unsigned argumentCount);
         CNode* generateCTableInit(Instruction* instruction);
+        CNode* generateCTableAccess(Instruction* instruction, bool set);
+        CNode* generateCTableCopy(Instruction* instruction);
         CNode* generateCReturn(Instruction* instruction);
         void generateCSelect(Instruction* instruction);
         CNode* generateCShift(std::string_view op, std::string_view type);
@@ -886,6 +922,7 @@ class CGenerator
         CNode* generateCUnaryExpression(std::string_view op);
         CNode* generateCCall(Instruction* instruction);
         CNode* generateCCallIndirect(Instruction* instruction);
+        CNode* generateCFunctionReference(Instruction* instruction);
 
         void buildCTree();
         void skipUnreachable(unsigned count = 0);

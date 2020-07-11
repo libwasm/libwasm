@@ -740,6 +740,15 @@ bool Assembler::doParseScript()
             auto p = std::shared_ptr<Invoke>(invoke);
 
             script->addInvoke(p);
+        } else if (startClause(context, "register")) {
+            if (auto name = requiredString(context); !name.empty()) {
+                if (module->getId().empty()) {
+                    module->setId(name);
+                }
+            }
+
+            (void)tokens.getId();
+            requiredCloseParenthesis(context);
         } else if (tokens.getParenthesis('(')) {
             ++ignoreds[tokens.peekToken().getValue()];
             tokens.recover();

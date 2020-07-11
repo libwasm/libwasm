@@ -606,6 +606,11 @@ class InstructionIndirect : public Instruction
             return typeIndex;
         }
 
+        auto getTableIndex() const
+        {
+            return tableIndex;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -651,6 +656,11 @@ class InstructionSegmentIdxMem : public Instruction
             return segmentIndex;
         }
 
+        auto getMemory() const
+        {
+            return memory;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -687,6 +697,11 @@ class InstructionMem : public Instruction
         {
         }
 
+        auto getMemory() const
+        {
+            return memory;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -706,6 +721,16 @@ class InstructionMemMem : public Instruction
         {
         }
 
+        auto getDestination() const
+        {
+            return destination;
+        }
+
+        auto getSource() const
+        {
+            return source;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -714,8 +739,8 @@ class InstructionMemMem : public Instruction
         static InstructionMemMem* read(BinaryContext& context);
 
     protected:
-        uint8_t dst = 0;
-        uint8_t src = 0;
+        uint8_t destination = 0;
+        uint8_t source = 0;
 };
 
 class InstructionTableElementIdx : public Instruction
@@ -729,6 +754,11 @@ class InstructionTableElementIdx : public Instruction
         auto getElementIndex() const
         {
             return elementIndex;
+        }
+
+        auto getTableIndex() const
+        {
+            return tableIndex;
         }
 
         virtual void write(BinaryContext& context) override;
@@ -775,6 +805,16 @@ class InstructionTableTable : public Instruction
         {
         }
 
+        auto getDestination() const
+        {
+            return destination;
+        }
+
+        auto getSource() const
+        {
+            return source;
+        }
+
         virtual void write(BinaryContext& context) override;
         virtual void generate(std::ostream& os, InstructionContext& context) override;
         virtual void check(CheckContext& context) override;
@@ -783,8 +823,8 @@ class InstructionTableTable : public Instruction
         static InstructionTableTable* read(BinaryContext& context);
 
     protected:
-        uint8_t dst = 0;
-        uint8_t src = 0;
+        uint8_t destination = 0;
+        uint8_t source = 0;
 };
 
 class InstructionRefType : public Instruction

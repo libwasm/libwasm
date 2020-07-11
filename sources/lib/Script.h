@@ -124,6 +124,17 @@ class ScriptValue
             unsigned count = 0;
         };
 
+        struct ERef
+        {
+            void generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane = -1) const;
+            void generateC(std::ostream& os) const;
+            static ERef parse(SourceContext& context);
+
+            bool isNull = false;
+            uint64_t value = 0;
+            std::string_view string;
+        };
+
         union
         {
             I32  i32;
@@ -131,6 +142,7 @@ class ScriptValue
             F32  f32;
             F64  f64;
             V128 v128;
+            ERef eref;
         };
 
         ValueType type = ValueType::void_;

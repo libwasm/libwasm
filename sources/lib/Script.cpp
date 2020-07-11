@@ -447,6 +447,36 @@ void ScriptValue::V128::generateAssert(std::ostream& os, size_t lineNumber, unsi
     }
 }
 
+ScriptValue::ERef ScriptValue::ERef::parse(SourceContext& context)
+{
+    auto& tokens = context.tokens();
+    ERef result;
+
+    result.string = tokens.peekToken().getValue();
+    result.value = requiredI64(context);
+
+    return result;
+}
+
+void ScriptValue::ERef::generateC(std::ostream& os) const
+{
+    if (isNull) {
+        os << "NULL";
+    } else {
+        os << "(_externalRefs + " << normalize(string) << "LL)";
+    }
+}
+
+void ScriptValue::ERef::generateAssert(std::ostream& os, size_t lineNumber, unsigned resultNumber, int lane) const
+{
+    auto [resultName, expectName] = makeNames(resultNumber);
+
+    os << "\n\n    if (" << resultName << " != " << expectName << ") {"
+          "\n        fprintf(stderr, \"assert_return failed at line %d\\n\", " << lineNumber << ");"
+          "\n        ++errorCount;"
+          "\n    }";
+}
+
 ScriptValue ScriptValue::parse(SourceContext& context)
 {
     auto& tokens = context.tokens();
@@ -461,6 +491,11 @@ ScriptValue ScriptValue::parse(SourceContext& context)
     auto opcode = Opcode::fromString(*token);
 
     if (!opcode) {
+        if (*token == "ref.extern") {
+            result.type = ValueType::externref;
+            result.eref = ERef::parse(context);
+        }
+
         return result;
     }
 
@@ -488,6 +523,14 @@ ScriptValue ScriptValue::parse(SourceContext& context)
         case Opcode::v128__const:
             result.type = ValueType::v128;
             result.v128 = V128::parse(context);
+            break;
+
+        case Opcode::ref__null:
+            (void) requiredRefType(context);
+            result.type = ValueType::externref;
+            result.eref.string = "0";
+            result.eref.value = 0;
+            result.eref.isNull = true;
             break;
 
         default:
@@ -520,6 +563,10 @@ void ScriptValue::generateC(std::ostream& os) const
             v128.generateC(os);
             break;
 
+        case ValueType::externref:
+            eref.generateC(os);
+            break;
+
         default:
             break;
     }
@@ -546,6 +593,10 @@ void ScriptValue::generateAssert(std::ostream& os, size_t lineNumber, unsigned r
 
         case ValueType::v128:
             v128.generateAssert(os, lineNumber, resultNumber);
+            break;
+
+        case ValueType::externref:
+            eref.generateAssert(os, lineNumber, resultNumber);
             break;
 
         default:
@@ -717,6 +768,7 @@ void Script::generateC(std::ostream& os, bool optimized)
           "\n#include <string.h>"
           "\n"
           "\nunsigned errorCount = 0;"
+          "\nvoid* _externalRefs[1];"
           "\nvoid spectest__initialize();";
 
 
@@ -735,7 +787,7 @@ void Script::generateC(std::ostream& os, bool optimized)
             module->generateC(os, optimized);
             lastModule = module.get();
 
-            mainCode << "\n    " << module->getId() << "__initialize();";
+            mainCode << "\n    " << cName(module->getId()) << "__initialize();";
 
             if (auto* exportSection = module->getExportSection(); exportSection != nullptr) {
                 for (auto& export_ : exportSection->getExports()) {

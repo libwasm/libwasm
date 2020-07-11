@@ -1263,8 +1263,8 @@ InstructionMemMem* InstructionMemMem::read(BinaryContext& context)
     auto& data = context.data();
     auto result = context.makeTreeNode<InstructionMemMem>();
 
-    result->dst = data.getU8();
-    result->src = data.getU8();
+    result->destination = data.getU8();
+    result->source = data.getU8();
 
     return result;
 }
@@ -1274,8 +1274,8 @@ void InstructionMemMem::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putU8(dst);
-    data.putU8(src);
+    data.putU8(destination);
+    data.putU8(source);
 }
 
 void InstructionMemMem::check(CheckContext& context)
@@ -1397,9 +1397,9 @@ InstructionTableTable* InstructionTableTable::parse(SourceContext& context, Opco
     auto result = context.makeTreeNode<InstructionTableTable>();
 
     if (auto table = parseTableIndex(context)) {
-        result->dst = uint8_t(*table);
+        result->destination = uint8_t(*table);
         if (auto table = parseTableIndex(context)) {
-            result->src = uint8_t(*table);
+            result->source = uint8_t(*table);
         }
     }
 
@@ -1411,8 +1411,8 @@ InstructionTableTable* InstructionTableTable::read(BinaryContext& context)
     auto& data = context.data();
     auto result = context.makeTreeNode<InstructionTableTable>();
 
-    result->dst = data.getU8();
-    result->src = data.getU8();
+    result->destination = data.getU8();
+    result->source = data.getU8();
 
     return result;
 }
@@ -1422,8 +1422,8 @@ void InstructionTableTable::write(BinaryContext& context)
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putU8(dst);
-    data.putU8(src);
+    data.putU8(destination);
+    data.putU8(source);
 }
 
 void InstructionTableTable::check(CheckContext& context)

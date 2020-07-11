@@ -455,6 +455,14 @@ void CBr::generateC(std::ostream& os, CGenerator& generator)
     os << "goto label" << label;
 }
 
+void CSubscript::generateC(std::ostream& os, CGenerator& generator)
+{
+    array->generateC(os, generator);
+    os << '[';
+    subscript->generateC(os, generator);
+    os << ']';
+}
+
 void CCallIndirect::addArgument(CNode* argument)
 {
     arguments.push_back(argument);
@@ -468,11 +476,11 @@ void CCallIndirect::reverseArguments()
 
 void CCallIndirect::generateC(std::ostream& os, CGenerator& generator)
 {
-    auto* table = generator.getModule()->getTable(0);
+    auto* table = generator.getModule()->getTable(tableIndex);
 
     os << "((" << generator.getModule()->getNamePrefix() << "type" << typeIndex << ')' <<
         table->getCName(generator.getModule()) << ".data[";
-    tableIndex->generateC(os, generator);
+    indexInTable->generateC(os, generator);
 
     os << "])(";
 
@@ -1688,11 +1696,11 @@ CNode* CGenerator::generateCLocalTee(Instruction* instruction)
     auto* right = popExpression();
     auto* result = new CBinaryExpression("=", new CNameUse(localName(instruction)), right);
 
-    pushExpression(new CNameUse(localName(instruction)));
-
     if (right->hasSideEffects()) {
         tempify();
     }
+
+    pushExpression(new CNameUse(localName(instruction)));
 
     return result;
 }
@@ -1744,7 +1752,8 @@ CNode* CGenerator::generateCMemorySize()
 {
     auto* memory = module->getMemory(0);
 
-    return new CBinaryExpression(".", new CNameUse(memory->getCName(module)), new CNameUse("pageCount"));
+    return new CBinaryExpression(".", new CNameUse(memory->getCName(module)),
+            new CNameUse("pageCount"));
 }
 
 CNode* CGenerator::generateCMemoryCall(std::string_view name, unsigned argumentCount)
@@ -1770,10 +1779,36 @@ CNode* CGenerator::generateCMemoryCall(std::string_view name, unsigned argumentC
     return call;
 }
 
+CNode* CGenerator::generateCMemoryCopy(Instruction* instruction)
+{
+    auto* memMemInstruction = static_cast<InstructionMemMem*>(instruction);
+    auto* destination = module->getMemory(memMemInstruction->getDestination());
+    auto* source = module->getMemory(memMemInstruction->getSource());
+    auto* call = new CCall("copyMemory");
+    bool tempifyDone = false;
+
+    for (unsigned i = 0; i < 3; ++i) {
+        auto* argument = popExpression();
+
+        if (!tempifyDone && argument->hasSideEffects()) {
+            tempify();
+            tempifyDone = true;
+        }
+
+        call->addArgument(argument);
+    }
+ 
+    call->addArgument(new CUnaryExpression("&", new CNameUse(source->getCName(module))));
+    call->addArgument(new CUnaryExpression("&", new CNameUse(destination->getCName(module))));
+    call->reverseArguments();
+
+    return call;
+}
+
 CNode* CGenerator::generateCMemoryInit(Instruction* instruction)
 {
     auto* idxMemInstruction = static_cast<InstructionSegmentIdxMem*>(instruction);
-    auto* memory = module->getMemory(0);
+    auto* memory = module->getMemory(idxMemInstruction->getMemory());
     auto* segment = module->getSegment(idxMemInstruction->getSegmentIndex());
     auto* call = new CCall("initMemory");
     bool tempifyDone = false;
@@ -1796,9 +1831,12 @@ CNode* CGenerator::generateCMemoryInit(Instruction* instruction)
     return call;
 }
 
-CNode* CGenerator::generateCTableCall(std::string_view name, unsigned argumentCount)
+CNode* CGenerator::generateCTableCall(Instruction* instruction, std::string_view name,
+        unsigned argumentCount)
 {
-    auto* table = module->getTable(0);
+    auto* tableInstruction = static_cast<InstructionTable*>(instruction);
+    auto tableIndex = tableInstruction->getIndex();
+    auto* table = module->getTable(tableIndex);
     auto* call = new CCall(name);
     bool tempifyDone = false;
  
@@ -1819,10 +1857,20 @@ CNode* CGenerator::generateCTableCall(std::string_view name, unsigned argumentCo
     return call;
 }
 
+CNode* CGenerator::generateCTableSize(Instruction* instruction)
+{
+    auto* tableInstruction = static_cast<InstructionTable*>(instruction);
+    auto tableIndex = tableInstruction->getIndex();
+    auto* table = module->getTable(tableIndex);
+
+    return new CBinaryExpression(".", new CNameUse(table->getCName(module)),
+            new CNameUse("elementCount"));
+}
+
 CNode* CGenerator::generateCTableInit(Instruction* instruction)
 {
     auto* tableElementIdxInstruction = static_cast<InstructionTableElementIdx*>(instruction);
-    auto* table = module->getTable(0);
+    auto* table = module->getTable(tableElementIdxInstruction->getTableIndex());
     auto* element = module->getElement(tableElementIdxInstruction->getElementIndex());
     auto* call = new CCall("initTable");
     bool tempifyDone = false;
@@ -1843,6 +1891,64 @@ CNode* CGenerator::generateCTableInit(Instruction* instruction)
     call->reverseArguments();
 
     return call;
+}
+
+CNode* CGenerator::generateCTableCopy(Instruction* instruction)
+{
+    auto* tableTableInstruction = static_cast<InstructionTableTable*>(instruction);
+    auto* destination = module->getTable(tableTableInstruction->getDestination());
+    auto* source = module->getTable(tableTableInstruction->getSource());
+    auto* call = new CCall("copyTable");
+    bool tempifyDone = false;
+
+    for (unsigned i = 0; i < 3; ++i) {
+        auto* argument = popExpression();
+
+        if (!tempifyDone && argument->hasSideEffects()) {
+            tempify();
+            tempifyDone = true;
+        }
+
+        call->addArgument(argument);
+    }
+ 
+    call->addArgument(new CUnaryExpression("&", new CNameUse(source->getCName(module))));
+    call->addArgument(new CUnaryExpression("&", new CNameUse(destination->getCName(module))));
+    call->reverseArguments();
+
+    return call;
+}
+
+CNode* CGenerator::generateCTableAccess(Instruction* instruction, bool set)
+{
+    auto* tableInstruction = static_cast<InstructionTable*>(instruction);
+    auto tableIndex = tableInstruction->getIndex();
+    auto* table = module->getTable(tableIndex);
+    CNode* value = nullptr;
+
+    if (set) {
+        value = popExpression();
+        if (value->hasSideEffects()) {
+            tempify();
+        }
+    }
+    
+    auto* subscript = popExpression();
+
+    if (subscript->hasSideEffects()) {
+        tempify();
+    }
+
+    auto* data = new CBinaryExpression(".", new CNameUse(table->getCName(module)),
+                new CNameUse("data"));
+    auto* access = new CSubscript(data, subscript);
+
+    if (set) {
+        return new CBinaryExpression("=", access, value);
+    } else {
+        pushExpression(access);
+        return nullptr;
+    }
 }
 
 CNode* CGenerator::generateCCast(std::string_view name)
@@ -1998,9 +2104,10 @@ CNode* CGenerator::generateCCallIndirect(Instruction* instruction)
 {
     auto callInstruction = static_cast<InstructionIndirect*>(instruction);
     auto typeIndex = callInstruction->getTypeIndex();
+    auto tableIndex = callInstruction->getTableIndex();
     auto hasSideEffects = expressionStack.back().hasSideEffects;
-    auto* tableIndex = popExpression();
-    auto* call = new CCallIndirect(typeIndex, tableIndex);
+    auto* indexInTable = popExpression();
+    auto* call = new CCallIndirect(typeIndex, tableIndex, indexInTable);
     auto* signature = module->getType(typeIndex)->getSignature();
     auto& results = signature->getResults();
     std::vector<std::string> temps;
@@ -2102,6 +2209,16 @@ CNode* CGenerator::generateCShuffle(Instruction* instruction)
 
 
     return result;
+}
+
+CNode* CGenerator::generateCFunctionReference(Instruction* instruction)
+{
+    auto* indexInstruction = static_cast<InstructionFunctionIdx*>(instruction);
+    auto functionIndex = indexInstruction->getIndex();
+    auto* function = module->getFunction(functionIndex);
+    auto* name = new CNameUse(function->getCName(module));
+
+    return new CCast("void*", name);
 }
 
 void CGenerator::generateCFunction()
@@ -2269,8 +2386,13 @@ CNode* CGenerator::generateCStatement()
                 statement = generateCGlobalSet(instruction);
                 break;
 
-    //      case Opcode::table__get:
-    //      case Opcode::table__set:
+            case Opcode::table__get:
+                generateCTableAccess(instruction, false);
+                break;
+
+            case Opcode::table__set:
+                statement = generateCTableAccess(instruction, true);
+                break;
 
             case Opcode::i32__load:
                 generateCLoad("loadI32", instruction, ValueType::i32);
@@ -2844,9 +2966,18 @@ CNode* CGenerator::generateCStatement()
                 pushExpression(generateCDoubleCast("int64_t", "int32_t"), ValueType::i64);
                 break;
 
-    //      case Opcode::ref__null:
-    //      case Opcode::ref__is_null:
-    //      case Opcode::ref__func:
+            case Opcode::ref__null:
+                pushExpression(new CNameUse("NULL"));
+                break;
+
+            case Opcode::ref__is_null:
+                pushExpression(generateCUnaryExpression("!"), ValueType::i32);
+                break;
+
+            case Opcode::ref__func:
+                pushExpression(generateCFunctionReference(instruction));
+                break;
+
     //      case Opcode::alloca:
 
             case Opcode::br_unless:
@@ -2899,7 +3030,7 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::memory__copy:
-                statement = generateCMemoryCall("copyMemory", 3);
+                statement = generateCMemoryCopy(instruction);
                 break;
 
             case Opcode::memory__fill:
@@ -2915,13 +3046,19 @@ CNode* CGenerator::generateCStatement()
                 break;
 
             case Opcode::table__copy:
-                statement = generateCTableCall("copyTable", 3);
+                statement = generateCTableCopy(instruction);
                 break;
 
-    //      case Opcode::table__grow:
-    //      case Opcode::table__size:
+            case Opcode::table__grow:
+                pushExpression(generateCTableCall(instruction, "growTable", 1), ValueType::i32);
+                break;
+
+            case Opcode::table__size:
+                pushExpression(generateCTableSize(instruction), ValueType::i32);
+                break;
+
             case Opcode::table__fill:
-                statement = generateCTableCall("fillTable", 3);
+                statement = generateCTableCall(instruction, "fillTable", 3);
                 break;
 
 

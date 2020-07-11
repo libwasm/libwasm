@@ -127,15 +127,17 @@ void initializeMemory(Memory* memory, uint32_t min, uint32_t max)
 
 uint32_t growMemory(Memory* memory, uint32_t size)
 {
-    uint32_t pageCount = memory->pageCount + size;
+    uint64_t pageCount64 = (uint64_t)memory->pageCount + size;
 
-    if (pageCount == 0) {
+    if (pageCount64 == 0) {
         return 0;
     }
 
-    if (pageCount < memory->pageCount || pageCount > memory->maxPageCount) {
+    if (pageCount64 < memory->pageCount || pageCount64 > memory->maxPageCount) {
         return -1;
     }
+
+    uint32_t pageCount = (uint32_t)pageCount64;
 
     char* data = realloc(memory->data, pageCount * memoryPageSize);
 
@@ -152,14 +154,43 @@ uint32_t growMemory(Memory* memory, uint32_t size)
     return result;
 }
 
+uint32_t growTable(Table* table, uint32_t size)
+{
+    uint64_t elementCount64 = (uint64_t)table->elementCount + size;
+
+    if (elementCount64 == 0) {
+        return 0;
+    }
+
+    if (elementCount64 < table->elementCount || elementCount64 > table->maxElementCount) {
+        return -1;
+    }
+
+    uint32_t elementCount = (uint32_t)elementCount64;
+
+    void** data = realloc(table->data, elementCount * sizeof(void*));
+
+    if (data == NULL) {
+        return -1;
+    }
+
+    uint32_t result = table->elementCount;
+
+    memset(data + result, 0, size * sizeof(void*));
+    table->elementCount = elementCount;
+    table->data = data;
+
+    return result;
+}
+
 void fillMemory(Memory* memory, uint32_t to, uint32_t value, uint32_t size)
 {
     memset(memory->data + to, value, size);
 }
 
-void copyMemory(Memory* memory, uint32_t to, uint32_t from, uint32_t size)
+extern void copyMemory(Memory* dst, Memory* src, uint32_t to, uint32_t from, uint32_t size)
 {
-    memmove(memory->data + to, memory->data + from, size);
+    memmove(dst->data + to, src->data + from, size);
 }
 
 void initMemory(Memory* memory, const char* data, uint32_t to, uint32_t from,
@@ -170,7 +201,7 @@ void initMemory(Memory* memory, const char* data, uint32_t to, uint32_t from,
 
 void initializeTable(Table* table, uint32_t min, uint32_t max)
 {
-    table->elemntCount = min;
+    table->elementCount = min;
     table->maxElementCount = max;
 
     if (min == 0) {
@@ -180,9 +211,16 @@ void initializeTable(Table* table, uint32_t min, uint32_t max)
     }
 }
 
-void copyTable(Table* table, uint32_t to, uint32_t from, uint32_t size)
+void fillTable(Table* table, uint32_t to, void* value, uint32_t size)
 {
-    memmove(table->data + to, table->data + from, size * sizeof(void*));
+    while (size-- > 0) {
+        table->data[to++] = value;
+    }
+}
+
+void copyTable(Table* dst, Table*src, uint32_t to, uint32_t from, uint32_t size)
+{
+    memmove(dst->data + to, src->data + from, size * sizeof(void*));
 }
 
 void initTable(Table* table, const void** data, uint32_t to, uint32_t from,
