@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+void** _externalRefs = NULL;
+
 Table spectest__table;
 Memory spectest__memory;
 uint32_t spectest__global_i32 = 666;

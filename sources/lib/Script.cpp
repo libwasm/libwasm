@@ -768,7 +768,7 @@ void Script::generateC(std::ostream& os, bool optimized)
           "\n#include <string.h>"
           "\n"
           "\nunsigned errorCount = 0;"
-          "\nvoid* _externalRefs[1];"
+          "\nextern void** _externalRefs;"
           "\nvoid spectest__initialize();";
 
 
