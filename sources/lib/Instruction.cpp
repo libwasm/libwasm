@@ -63,7 +63,7 @@ InstructionNone* InstructionNone::parse(SourceContext& context, Opcode opcode)
     auto& tokens = context.tokens();
 
     if (opcode == Opcode::end || opcode == Opcode::else_) {
-        if (auto id = tokens.getId()) {
+        if (auto id = context.getId()) {
             auto index = module->getLabelIndex(*id);
 
             context.msgs().errorWhen(index != 0, tokens.peekToken(-1),
@@ -443,7 +443,7 @@ InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
 
     auto result = context.makeTreeNode<InstructionBlock>();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->label = *id;
         module->pushLabel(*id);
     } else {

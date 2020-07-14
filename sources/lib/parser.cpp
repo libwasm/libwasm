@@ -63,7 +63,7 @@ std::optional<uint32_t> parseTableIndex(SourceContext& context)
         if (*value < module->getTableCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getTableIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -83,7 +83,7 @@ std::optional<uint32_t> parseTypeIndex(SourceContext& context)
         if (*value < module->getTypeCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getTypeIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -103,7 +103,7 @@ std::optional<uint32_t> parseFunctionIndex(SourceContext& context)
         if (*value < module->getFunctionCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getFunctionIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -123,7 +123,7 @@ std::optional<uint32_t> parseMemoryIndex(SourceContext& context)
         if (*value < module->getMemoryCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getMemoryIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -143,7 +143,7 @@ std::optional<uint32_t> parseEventIndex(SourceContext& context)
         if (*value < module->getEventCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getEventIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -163,7 +163,7 @@ std::optional<uint32_t> parseSegmentIndex(SourceContext& context)
         if (*value < module->getSegmentCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getSegmentIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -183,7 +183,7 @@ std::optional<uint32_t> parseElementIndex(SourceContext& context)
         if (*value < module->getElementCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getElementIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -203,7 +203,7 @@ std::optional<uint32_t> parseGlobalIndex(SourceContext& context)
         if (*value < module->getGlobalCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getGlobalIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -223,7 +223,7 @@ std::optional<uint32_t> parseLocalIndex(SourceContext& context)
         if (*value < module->getLocalCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getLocalIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -243,7 +243,7 @@ std::optional<uint32_t> parseLabelIndex(SourceContext& context)
         if (*value <= module->getLabelCount()) {
             return *value;
         }
-    } else if (auto id = tokens.getId()) {
+    } else if (auto id = context.getId()) {
         if (auto index = module->getLabelIndex(*id); index != invalidIndex) {
             return index;
         }
@@ -524,11 +524,11 @@ v128_t requiredV128(SourceContext context)
     return {};
 }
 
-std::string_view requiredString(SourceContext& context)
+std::string requiredString(SourceContext& context)
 {
     auto& tokens = context.tokens();
 
-    if (auto value = tokens.getString()) {
+    if (auto value = context.getString()) {
         return *value;
     }
 

@@ -614,7 +614,7 @@ Invoke* Invoke::parse(SourceContext& context)
 
     auto result = new Invoke;
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->moduleName = *id;
     }
 
@@ -682,9 +682,7 @@ AssertReturn* AssertReturn::parse(SourceContext& context)
 void AssertReturn::generateSimpleC(std::ostream& os, std::string_view type, const Script& script)
 {
     auto resultNumber = getNextResult();
-
-    auto resultName = makeResultName(resultNumber);
-    auto expectName = makeExpectName(resultNumber);
+    auto [resultName, expectName] = makeNames(resultNumber);
 
     os << "\n\n    " << type << " " << resultName << " = ";
     if (type == "v128_u") {
@@ -768,7 +766,7 @@ void Script::generateC(std::ostream& os, bool optimized)
           "\n#include <string.h>"
           "\n"
           "\nunsigned errorCount = 0;"
-          "\nextern void** _externalRefs;"
+          "\nextern void* _externalRefs[];"
           "\nvoid spectest__initialize();";
 
 

@@ -108,6 +108,24 @@ std::string SourceContext::unEscape(std::string_view chars)
     return data;
 }
 
+std::optional<std::string> SourceContext::getString()
+{
+    if (auto string = tokenBuffer.getString()) {
+        return unEscape(*string);
+    }
+
+    return {};
+}
+
+std::optional<std::string> SourceContext::getId()
+{
+    if (auto id = tokenBuffer.getId()) {
+        return unEscape(*id);
+    }
+
+    return {};
+}
+
 void SourceContext::write(std::ostream& os)
 {
     BinaryErrorHandler error;

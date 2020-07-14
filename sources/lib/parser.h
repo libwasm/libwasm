@@ -45,7 +45,7 @@ int64_t requiredI64(SourceContext& context);
 float requiredF32(SourceContext& context);
 double requiredF64(SourceContext& context);
 v128_t requiredV128(SourceContext context);
-std::string_view requiredString(SourceContext& context);
+std::string requiredString(SourceContext& context);
 bool requiredParenthesis(SourceContext& context, char parenthesis);
 bool requiredKeyword(SourceContext& context, std::string_view keyword);
 bool requiredStartClause(SourceContext& context, std::string_view name);

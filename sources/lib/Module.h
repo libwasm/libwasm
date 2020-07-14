@@ -525,9 +525,9 @@ class Module
             return uint32_t(labelStack.size());
         }
 
-        void pushLabel(std::string_view id)
+        void pushLabel(std::string id)
         {
-            labelStack.push_back(id);
+            labelStack.push_back(std::move(id));
         }
 
         void popLabel()
@@ -625,7 +625,7 @@ class Module
         std::vector<size_t> customSectionIndexes;
 
         std::vector<std::unique_ptr<Section>> sections;
-        std::vector<std::string_view> labelStack;
+        std::vector<std::string> labelStack;
         std::vector<Local*> locals;
 
         IndexMap elementMap;

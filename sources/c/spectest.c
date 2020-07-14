@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-void** _externalRefs = NULL;
+void* _externalRefs[1];
 
 Table spectest__table;
 Memory spectest__memory;

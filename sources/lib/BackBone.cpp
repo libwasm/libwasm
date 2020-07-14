@@ -153,7 +153,7 @@ static void makeExport(SourceContext& context, ExternalType type, uint32_t index
 
         _export->setKind(type);
         _export->setNumber(module->nextExportCount());
-        _export->setName(context.unEscape(requiredString(context)));
+        _export->setName(requiredString(context));
         _export->setIndex(index);
 
         module->addExportEntry(_export);
@@ -768,7 +768,7 @@ Signature* Signature::parse(SourceContext& context)
 
     while (startClause(context, "param")) {
         found = true;
-        if (auto id = tokens.getId()) {
+        if (auto id = context.getId()) {
             if (auto value = parseValueType(context)) {
                 auto* local = context.makeTreeNode<Local>(*id, *value);
 
@@ -935,7 +935,7 @@ TypeDeclaration* TypeDeclaration::parse(SourceContext& context)
 
     result->number = context.getModule()->getTypeCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addTypeId(*id, result->number)) {
@@ -1185,7 +1185,7 @@ void TypeUse::parse(SourceContext& context, TypeUse* result, bool forBlock)
     auto& msgs = context.msgs();
 
     if (startClause(context, "type")) {
-        if (auto id = tokens.getId()) {
+        if (auto id = context.getId()) {
             result->signatureIndex = module->getTypeIndex(*id);
             msgs.errorWhen(result->signatureIndex == invalidIndex, tokens.peekToken(-1),
                     "Type with id '", *id, "' does not exist.");
@@ -1319,7 +1319,7 @@ FunctionImport* FunctionImport::parse(SourceContext& context)
     module->startFunction();
     result->number = module->nextFunctionCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addFunctionId(result->id, result->number)) {
@@ -1409,7 +1409,7 @@ MemoryImport* MemoryImport::parse(SourceContext& context)
     module->addMemory(result);
     result->number = module->nextMemoryCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addMemoryId(*id, result->number)) {
@@ -1498,7 +1498,7 @@ EventImport* EventImport::parse(SourceContext& context)
     module->addEvent(result);
     result->number = module->nextEventCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addEventId(*id, result->number)) {
@@ -1591,7 +1591,7 @@ TableImport* TableImport::parse(SourceContext& context)
     module->addTable(result);
     result->number = module->nextTableCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addTableId(*id, result->number)) {
@@ -1687,7 +1687,7 @@ GlobalImport* GlobalImport::parse(SourceContext& context)
     module->addGlobal(result);
     result->number = module->nextGlobalCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addGlobalId(*id, result->number)) {
@@ -1790,7 +1790,7 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
 
     auto startPos = tokens.getPos();
 
-    auto id = tokens.getId();
+    auto id = context.getId();
 
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<FunctionImport>();
@@ -1815,14 +1815,14 @@ ImportDeclaration* ImportDeclaration::parseFunctionImport(SourceContext& context
     module->addFunction(result);
     module->startFunction();
 
-    if (auto value = tokens.getString()) {
-        result->setModuleName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setModuleName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
-    if (auto value = tokens.getString()) {
-        result->setName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1847,7 +1847,7 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
 
     auto startPos = tokens.getPos();
 
-    auto id = tokens.getId();
+    auto id = context.getId();
 
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<TableImport>();
@@ -1871,14 +1871,14 @@ ImportDeclaration* ImportDeclaration::parseTableImport(SourceContext& context)
 
     module->addTable(result);
 
-    if (auto value = tokens.getString()) {
-        result->setModuleName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setModuleName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
-    if (auto value = tokens.getString()) {
-        result->setName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1914,7 +1914,7 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
 
     auto startPos = tokens.getPos();
 
-    auto id = tokens.getId();
+    auto id = context.getId();
 
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<MemoryImport>();
@@ -1938,14 +1938,14 @@ ImportDeclaration* ImportDeclaration::parseMemoryImport(SourceContext& context)
 
     module->addMemory(result);
 
-    if (auto value = tokens.getString()) {
-        result->setModuleName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setModuleName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
-    if (auto value = tokens.getString()) {
-        result->setName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -1975,7 +1975,7 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
 
     auto startPos = tokens.getPos();
 
-    auto id = tokens.getId();
+    auto id = context.getId();
 
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<EventImport>();
@@ -1999,14 +1999,14 @@ ImportDeclaration* ImportDeclaration::parseEventImport(SourceContext& context)
 
     module->addEvent(result);
 
-    if (auto value = tokens.getString()) {
-        result->setModuleName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setModuleName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
-    if (auto value = tokens.getString()) {
-        result->setName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -2035,7 +2035,7 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
 
     auto startPos = tokens.getPos();
 
-    auto id = tokens.getId();
+    auto id = context.getId();
 
     auto& msgs = context.msgs();
     auto result = context.makeTreeNode<GlobalImport>();
@@ -2059,14 +2059,14 @@ ImportDeclaration* ImportDeclaration::parseGlobalImport(SourceContext& context)
 
     module->addGlobal(result);
 
-    if (auto value = tokens.getString()) {
-        result->setModuleName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setModuleName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
-    if (auto value = tokens.getString()) {
-        result->setName(context.unEscape(*value));
+    if (auto value = context.getString()) {
+        result->setName(*value);
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -2127,14 +2127,14 @@ ImportDeclaration* ImportDeclaration::parse(SourceContext& context)
     std::string name;
     std::string moduleName;
 
-    if (auto value = tokens.getString()) {
-        moduleName = context.unEscape(*value);
+    if (auto value = context.getString()) {
+        moduleName = *value;
     } else {
         msgs.expected(tokens.peekToken(), "module name");
     }
 
-    if (auto value = tokens.getString()) {
-        name = context.unEscape(*value);
+    if (auto value = context.getString()) {
+        name = *value;
     } else {
         msgs.expected(tokens.peekToken(), "name");
     }
@@ -2287,7 +2287,7 @@ FunctionDeclaration* FunctionDeclaration::parse(SourceContext& context)
 
     result->number = module->nextFunctionCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addFunctionId(result->id, result->number)) {
@@ -2457,7 +2457,7 @@ TableDeclaration* TableDeclaration::parse(SourceContext& context)
     module->addTable(result);
     result->number = module->nextTableCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addTableId(*id, result->number)) {
@@ -2657,7 +2657,7 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
     result->number = module->nextMemoryCount();
     module->addMemory(result);
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addMemoryId(*id, result->number)) {
@@ -2674,8 +2674,8 @@ MemoryDeclaration* MemoryDeclaration::parse(SourceContext& context)
 
         std::string init;
 
-        while (auto str = tokens.getString()) {
-            init.append(context.unEscape(*str));
+        while (auto str = context.getString()) {
+            init.append(*str);
         }
 
         uint32_t m = uint32_t((init.size() + 0x10000 - 1) / 0x10000);
@@ -2844,7 +2844,7 @@ GlobalDeclaration* GlobalDeclaration::parse(SourceContext& context)
     result->number = module->nextGlobalCount();
     module->addGlobal(result);
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addGlobalId(*id, result->number)) {
@@ -3635,7 +3635,7 @@ ElementDeclaration* ElementDeclaration::parse(SourceContext& context)
 
     result->number = module->nextElementCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         if (auto index = module->getTableIndex(*id); index != invalidIndex) {
             result->tableIndex = index;
         } else {
@@ -3942,7 +3942,7 @@ Local* Local::parse(SourceContext& context)
 
     result->number = module->nextLocalCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addLocalId(*id, result->number)) {
@@ -4308,7 +4308,7 @@ DataSegment* DataSegment::parse(SourceContext& context)
 
     result->number = module->getSegmentCount();
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addSegmentId(*id, result->number)) {
@@ -4338,8 +4338,8 @@ DataSegment* DataSegment::parse(SourceContext& context)
         requiredCloseParenthesis(context);
     }
 
-    while (auto str = tokens.getString()) {
-        result->init.append(context.unEscape(*str));
+    while (auto str = context.getString()) {
+        result->init.append(*str);
     }
 
     auto flags = SegmentFlagNone;
@@ -4586,7 +4586,7 @@ EventDeclaration* EventDeclaration::parse(SourceContext& context)
     result->number = module->nextEventCount();
     module->addEvent(result);
 
-    if (auto id = tokens.getId()) {
+    if (auto id = context.getId()) {
         result->id = *id;
 
         if (!module->addEventId(*id, result->number)) {

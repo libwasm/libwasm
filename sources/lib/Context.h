@@ -101,6 +101,8 @@ class SourceContext : public Context
         }
 
         std::string unEscape(std::string_view chars);
+        std::optional<std::string> getString();
+        std::optional<std::string> getId();
         void write(std::ostream& os);
 
         template<typename T, typename... Ts>

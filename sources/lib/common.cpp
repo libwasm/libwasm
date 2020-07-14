@@ -471,21 +471,25 @@ std::string cName(std::string_view name)
 
     std::string result;
 
-    if (!isAlpha(name[0]) && name[0] != '_') {
-        result += '_';
-    }
-
-    for (auto c : name) {
-        if (!isAlphaNumeric(c)) {
-            c = '_';
+    if (!name.empty()) {
+        if (!isAlpha(name[0]) && name[0] != '_') {
+            result = '_';
         }
 
-        result += c;
-    }
+        for (auto c : name) {
+            if (!isAlphaNumeric(c) && c != '_') {
+                result += '_';
+                result += hexChar((c >> 4) & 0xf);
+                result += hexChar(c & 0xf);
+            } else {
+                result += c;
+            }
+        }
 
-    if (auto it = std::lower_bound(std::begin(reserved), std::end(reserved), result);
-            it != std::end(reserved) && result == *it) {
-        result += '_';
+        if (auto it = std::lower_bound(std::begin(reserved), std::end(reserved), result);
+                it != std::end(reserved) && result == *it) {
+            result += '_';
+        }
     }
 
     return result;

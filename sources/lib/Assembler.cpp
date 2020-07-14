@@ -680,7 +680,7 @@ bool Assembler::doParseScript()
                 size_t startPos = 0;
                 size_t endPos = tokens.size();
 
-                if (auto id = tokens.getId()) {
+                if (auto id = context.getId()) {
                     module->setId(*id);
                 }
 
@@ -704,14 +704,14 @@ bool Assembler::doParseScript()
 
             auto endPos = tokens.peekToken(-2).getCorrespondingIndex();
 
-            if (auto id = tokens.getId()) {
+            if (auto id = context.getId()) {
                 module->setId(*id);
             }
 
             if (tokens.getKeyword("binary")) {
                 std::string code;
 
-                while (auto str = tokens.getString()) {
+                while (auto str = context.getString()) {
                     code.append(context.unEscape(*str));
                 }
 
@@ -747,7 +747,7 @@ bool Assembler::doParseScript()
                 }
             }
 
-            (void)tokens.getId();
+            (void)context.getId();
             requiredCloseParenthesis(context);
         } else if (tokens.getParenthesis('(')) {
             ++ignoreds[tokens.peekToken().getValue()];
