@@ -650,6 +650,18 @@ bool Assembler::parseModule(size_t startPos, size_t endPos)
     tokens.setPos(endPos);
     checkSemantics();
 
+    if (auto* exportSection = module->getExportSection(); exportSection != nullptr) {
+        auto& exports = exportSection->getExports();
+
+        using exporType = std::unique_ptr<ExportDeclaration>;
+
+        std::sort(exports.begin(), exports.end(),
+                [](const exporType& x, const exporType& y) {
+                    return std::tuple(x->getLineNumber(), x->getColumnNumber()) <
+                           std::tuple(y->getLineNumber(), y->getColumnNumber());
+                });
+    }
+
     return errorCount == msgs.getErrorCount();
 }
 
@@ -675,7 +687,7 @@ bool Assembler::doParseScript()
                 tokens.setPos(0);
 
                 module = std::make_shared<Module>();
-                context.setModule(module);
+                context.setModule(module.get());
 
                 size_t startPos = 0;
                 size_t endPos = tokens.size();
@@ -700,7 +712,7 @@ bool Assembler::doParseScript()
     while (!tokens.atEnd()) {
         if (startClause(context, "module")) {
             module = std::make_shared<Module>();
-            context.setModule(module);
+            context.setModule(module.get());
 
             auto endPos = tokens.peekToken(-2).getCorrespondingIndex();
 
@@ -751,9 +763,10 @@ bool Assembler::doParseScript()
             requiredCloseParenthesis(context);
         } else if (tokens.getParenthesis('(')) {
             ++ignoreds[tokens.peekToken().getValue()];
+            script->incrementIgnoreCount();
             tokens.recover();
         } else {
-            msgs.error(tokens.peekToken(), "Expected '('.");
+            msgs.error(tokens.nextToken(), "Expected '('.");
         }
     }
 
@@ -772,19 +785,7 @@ bool Assembler::parse()
 
 void Assembler::write(std::ostream& os)
 {
-    if (auto* exportSection = module->getExportSection(); exportSection != nullptr) {
-        auto& exports = exportSection->getExports();
-
-        using exporType = std::unique_ptr<ExportDeclaration>;
-
-        std::sort(exports.begin(), exports.end(),
-                [](const exporType& x, const exporType& y) {
-                    return std::tuple(x->getLineNumber(), x->getColumnNumber()) <
-                           std::tuple(y->getLineNumber(), y->getColumnNumber());
-                });
-    }
-
-    context.write(os);
+    module->write(os);
 }
 
 };

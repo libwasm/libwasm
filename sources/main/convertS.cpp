@@ -54,7 +54,7 @@ int main(int argc, char*argv[])
                         parm = p + 1;
                     } else {
                         if (i == argc - 1) {
-                            std::cerr << "Error: Missing parameter for option " << argv[i] << '\n';
+                            std::cerr << "Error: Missing parameter for option " << (p - 1) << '\n';
                             usage(argv[0]);
                             exit(-1);
                         }

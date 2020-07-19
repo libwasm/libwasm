@@ -12,6 +12,29 @@
 namespace libwasm
 {
 
+bool isBinary(std::istream& stream)
+{
+    stream.seekg(0, std::ios::end);
+
+    if (auto fileSize = stream.tellg(); fileSize < 4) {
+        return false;
+    }
+
+    union
+    {
+        char chars[4];
+        uint8_t p[4];
+    };
+
+    stream.seekg(0, std::ios::beg);
+    stream.read(chars, 4);
+
+    unsigned i = p[0] | (p[1] << 8) | (p[2] << 16) | p[3] << 24;
+
+    stream.seekg(0, std::ios::beg);
+    return i == wasmMagic;
+}
+
 void dumpChars(std::ostream& os, std::string_view chars, size_t startOffset)
 {
     auto flags = os.flags();

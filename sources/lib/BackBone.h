@@ -52,25 +52,11 @@ class Section : public TreeNode
         {
         }
 
-        void setOffsets(size_t start, size_t end)
-        {
-            startOffset = start;
-            endOffset = end;
-        }
+        void setData(Context& context, size_t start, size_t end);
 
         auto getType() const
         {
             return type;
-        }
-
-        auto getStartOffset() const
-        {
-            return startOffset;
-        }
-
-        auto getEndOffset() const
-        {
-            return endOffset;
         }
 
         void dump(std::ostream& os, BinaryContext& context);
@@ -84,6 +70,7 @@ class Section : public TreeNode
         size_t startOffset = 0;
         size_t endOffset = 0;
         SectionType type = SectionType::custom;
+        std::string data;
 };
 
 class CustomSection : public Section

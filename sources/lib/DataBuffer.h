@@ -256,8 +256,6 @@ class DataBuffer
             putSleb(value);
         }
 
-        void dump(std::ostream& os, size_t startOffset, size_t endOffset);
-
         void push();
         std::string pop();
         void append(std::string_view str);

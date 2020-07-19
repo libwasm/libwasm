@@ -126,16 +126,6 @@ std::optional<std::string> SourceContext::getId()
     return {};
 }
 
-void SourceContext::write(std::ostream& os)
-{
-    BinaryErrorHandler error;
-    BinaryContext bContext(*this, error);
-
-    bContext.data().reset();
-
-    bContext.write(os);
-}
-
 bool CheckContext::checkSemantics()
 {
     if (module->needsDataCount()) {

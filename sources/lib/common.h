@@ -83,6 +83,7 @@ unsigned hash(std::string_view value);
 
 unsigned fromHex(char c);
 
+bool isBinary(std::istream& stream);
 void dumpChars(std::ostream& os, std::string_view chars, size_t startOffset);
 std::pair<std::string, std::string> unEscape(std::string_view chars);
 void generateChars(std::ostream& os, std::string_view chars);

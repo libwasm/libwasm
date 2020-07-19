@@ -79,6 +79,21 @@ class Assembler
             return context;
         }
 
+        auto& getModule()
+        {
+            return module;
+        }
+
+        bool isScript() const
+        {
+            return script->isScript();
+        }
+
+        auto* getScript() const
+        {
+            return script.get();
+        }
+
         bool parse();
 
     private:

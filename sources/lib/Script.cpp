@@ -15,12 +15,7 @@ using namespace std::string_literals;
 namespace libwasm
 {
 
-static auto getNextResult()
-{
-    static unsigned resultCount = 0;
-
-    return resultCount++;
-}
+unsigned AssertReturn::resultCount = 0;
 
 static std::string makeResultName(unsigned resultNumber)
 {
@@ -742,6 +737,11 @@ void AssertReturn::generateC(std::ostream& os, const Script& script)
     }
 }
 
+bool Script::isScript() const
+{
+    return ignoreCount > 0 || commands.size() != 1 || !commands[0].module;
+}
+
 void Script::addModule(std::shared_ptr<Module>& module)
 {
     commands.emplace_back(module);
@@ -759,6 +759,8 @@ void Script::addInvoke(std::shared_ptr<Invoke>& invoke)
 
 void Script::generateC(std::ostream& os, bool optimized)
 {
+    AssertReturn::reset();
+
     os << "\n#include \"libwasm.h\""
           "\n"
           "\n#include <stdint.h>"
@@ -775,14 +777,14 @@ void Script::generateC(std::ostream& os, bool optimized)
     unsigned moduleNameCount = 0;
 
     for (auto& command : commands) {
-        if (command.module) {
+        if (command.module != nullptr) {
             auto& module = command.module;
 
             if (module->getId().empty()) {
                 module->setId("module_" + toString(moduleNameCount++));
             }
 
-            module->generateC(os, optimized);
+            module->generateCBody(os, optimized);
             lastModule = module.get();
 
             mainCode << "\n    " << cName(module->getId()) << "__initialize();";
@@ -820,11 +822,11 @@ void Script::generateC(std::ostream& os, bool optimized)
 
                 os << '\n';
             }
-        } else if (command.invoke) {
+        } else if (command.invoke != nullptr) {
             mainCode << "\n    ";
             command.invoke->generateC(mainCode, *this);
             mainCode << ';';
-        } else if (command.assertReturn) {
+        } else if (command.assertReturn != nullptr) {
             command.assertReturn->generateC(mainCode, *this);
         }
     }

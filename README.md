@@ -4,11 +4,10 @@ Linwasm is a library to manipulate webassembly files from C++.
 It also contains an assembler (converting .wat to .wasm), a dissassembler (converting .wasm to .wat), 
 a converter between sequential code and folded code and a converter from a text file to a C file.
 
-## New feature: Added testsuite
+## New feature: new program.
+The *webasm*, *webdisasm* and *convertS* programs are deprecated.
 
-A large subset of the wabt testsuite base directory was added to the 'script' directory.
-
-The complete testsuite 'simd' directory is added.
+The are replaced by *wasmdasm*, one program to rule them all.
 
 Refer to the documentation for more information.
 

@@ -808,6 +808,21 @@ void Module::generateCPreamble(std::ostream& os)
 
 void Module::generateC(std::ostream& os, bool optimized)
 {
+    os << "\n#include \"libwasm.h\""
+          "\n"
+          "\n#include <stdint.h>"
+          "\n#include <math.h>"
+          "\n#include <string.h>"
+          "\n"
+          "\nunsigned errorCount = 0;"
+          "\nextern void* _externalRefs[];"
+          "\nvoid spectest__initialize();";
+
+    generateCBody(os, optimized);
+}
+
+void Module::generateCBody(std::ostream& os, bool optimized)
+{
     if (auto* typeSection = getTypeSection(); typeSection != nullptr) {
         typeSection->generateC(os, this);
         os << '\n';
@@ -926,6 +941,24 @@ void Module::Statistics::show(std::ostream& os, std::string_view indent)
     os << indent << "Number of instructions     " << (instructionCount + initInstructionCount) << '\n';
     os << indent << "              in code      " << instructionCount << '\n';
     os << indent << "              in inits     " << initInstructionCount << '\n';
+}
+
+void Module::write(std::ostream& os)
+{
+    BinaryErrorHandler error;
+    BinaryContext bContext(error);
+
+    bContext.setModule(this);
+    bContext.write(os);
+}
+
+void Module::dump(std::ostream& os)
+{
+    BinaryErrorHandler error;
+    BinaryContext bContext(error);
+
+    bContext.setModule(this);
+    bContext.dump(os);
 }
 
 };

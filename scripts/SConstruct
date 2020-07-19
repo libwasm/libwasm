@@ -10,7 +10,7 @@ GCC = ARGUMENTS.get('GCC', '0')
 
 CacheDir(CACHE_DIR)
 
-convertS = '../bin/convertS'
+wasmdasm = '../bin/wasmdasm'
 libSources = '../sources/c/libwasm.c'
 
 gcc = Environment(CC='gcc',
@@ -50,10 +50,10 @@ for source in scripts:
     executable = 'exe/' + name
     outName = 'result/' + name
 
-    Command(cName, [source, convertS], convertS + ' -C -o ' + cName + ' ' + source)
+    Command(cName, [source, wasmdasm], wasmdasm + ' ' + source + ' -C ' + cName)
 
     compiler.Program(executable, cName,
             LIBS=['libwasmc', 'm'], LIBPATH='../lib',
             CPPPATH=['.', '../sources/c'])
 
-    Command(outName, executable, executable + '>&' + outName)
+    Command(outName, executable, executable + ' 2>' + outName)

@@ -188,13 +188,20 @@ void Limits::show(std::ostream& os)
     }
 }
 
+void Section::setData(Context& context, size_t start, size_t end)
+{
+    data.append(context.data().data() + start, end - start);
+    startOffset = start;
+    endOffset = end;
+}
+
 void Section::dump(std::ostream& os, BinaryContext& context)
 {
     os << '\n' << type << " section:";
-    if (startOffset == 0) {
+    if (data.empty()) {
         os << "*** no binary data available.\n";
     } else {
-        context.data().dump(os, startOffset, endOffset);
+        dumpChars(os, data, startOffset);
     }
 }
 
@@ -218,10 +225,9 @@ CustomSection* CustomSection::read(BinaryContext& context)
         msgs.warning("Custom section '", name, "' ignored");
     }
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
     result->name = name;
 
-    //TBI debug sections
     data.setPos(startPos + size);
 
     if (data.getPos() != startPos + size) {
@@ -1065,7 +1071,7 @@ TypeSection* TypeSection::read(BinaryContext& context)
 
     msgs.setSectionName("Type");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -2193,7 +2199,7 @@ ImportSection* ImportSection::read(BinaryContext& context)
 
     msgs.setSectionName("Import");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -2382,7 +2388,7 @@ FunctionSection* FunctionSection::read(BinaryContext& context)
 
     msgs.setSectionName("Function");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     module->startLocalFunctions();
 
@@ -2590,7 +2596,7 @@ TableSection* TableSection::read(BinaryContext& context)
 
     msgs.setSectionName("Table");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -2772,7 +2778,7 @@ MemorySection* MemorySection::read(BinaryContext& context)
 
     msgs.setSectionName("Memory");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -2994,7 +3000,7 @@ GlobalSection* GlobalSection::read(BinaryContext& context)
 
     msgs.setSectionName("Global");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -3232,7 +3238,7 @@ ExportSection* ExportSection::read(BinaryContext& context)
 
     msgs.setSectionName("Export");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -3304,7 +3310,7 @@ StartSection* StartSection::read(BinaryContext& context)
 
     msgs.setSectionName("Start");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     result->functionIndex = data.getU32leb();
 
@@ -3879,7 +3885,7 @@ ElementSection* ElementSection::read(BinaryContext& context)
 
     msgs.setSectionName("Element");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -3954,6 +3960,7 @@ Local* Local::parse(SourceContext& context)
         result->type = *type;
     } else {
         msgs.expected(tokens.peekToken(), "Value type");
+        tokens.recover();
     }
 
     return result;
@@ -4219,7 +4226,7 @@ CodeSection* CodeSection::read(BinaryContext& context)
 
     msgs.setSectionName("Code");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -4469,7 +4476,7 @@ DataSection* DataSection::read(BinaryContext& context)
 
     msgs.setSectionName("Data");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);
@@ -4520,7 +4527,7 @@ DataCountSection* DataCountSection::read(BinaryContext& context)
 
     msgs.setSectionName("DataCount");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     result->dataCount = data.getU32leb();
 
@@ -4676,7 +4683,7 @@ EventSection* EventSection::read(BinaryContext& context)
 
     msgs.setSectionName("Event");
 
-    result->setOffsets(startPos, startPos + size);
+    result->setData(context, startPos, startPos + size);
 
     for (unsigned i = 0, count = unsigned(data.getU32leb()); i < count; i++) {
         msgs.setEntryNumber(i);

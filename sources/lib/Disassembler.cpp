@@ -27,7 +27,7 @@ bool Disassembler::checkHeader()
 
 bool Disassembler::readSections()
 {
-    context.setModule(module);
+    context.setModule(module.get());
 
     while (!data.atEnd()) {
         auto c = data.getU8();
@@ -132,7 +132,9 @@ bool Disassembler::readSections()
 
 bool Disassembler::checkSemantics()
 {
-    context.getModule()->makeDataCountSection();
+    if (context.getModule()->needsDataCount()) {
+        context.getModule()->makeDataCountSection();
+    }
 
     CheckErrorHandler error(msgs.getErrorStream());
     CheckContext checkContext(context, error);

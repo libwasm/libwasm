@@ -25,10 +25,10 @@ class Context
 
         auto* getModule()
         {
-            return module.get();
+            return module;
         }
 
-        void setModule(std::shared_ptr<Module>& m)
+        void setModule(Module* m)
         {
             module = m;
         }
@@ -40,7 +40,7 @@ class Context
 
     protected:
         DataBuffer dataBuffer;
-        std::shared_ptr<Module> module;
+        Module* module;
 };
 
 class BinaryContext : public Context
@@ -48,11 +48,6 @@ class BinaryContext : public Context
     public:
         BinaryContext(BinaryErrorHandler& error)
           : errorHandler(error)
-        {
-        }
-
-        BinaryContext(Context& other, BinaryErrorHandler& error)
-          : Context(other), errorHandler(error)
         {
         }
 
@@ -103,7 +98,6 @@ class SourceContext : public Context
         std::string unEscape(std::string_view chars);
         std::optional<std::string> getString();
         std::optional<std::string> getId();
-        void write(std::ostream& os);
 
         template<typename T, typename... Ts>
         T* makeTreeNode(const Ts&... ts)

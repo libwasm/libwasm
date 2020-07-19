@@ -1,14 +1,15 @@
 # libwasm
 
 Linwasm is a library to manipulate webassembly files from C++.
-It also contains an assembler (converting a text file to a binary file, a dissassembler (converting a binary file
-to a text file) and a converter (converting a text file or a script file to C, or convertsings a text file to contain
-folded instructions).
 
-The assembler and disassembler are described first, because they can be used out of the box and require
-little documentation.
+It also contains a program, named *wasmdasm*, to exercise the library.
+This allows to convert a text, binary or script file to a text file, a binary file or c-code.
+The generated text file can use sequential code or folded expressions.
+Different kindof readable dumps can also be generated.
 
-The libray will be described last.
+The conversion progarm is first described, as well as some older deprecated programs.
+
+Then the library is described.
 
 ### Conventions
 
@@ -21,16 +22,22 @@ Script files usually have the *.wast* extension.
 
 <P style="page-break-before: always">
 
-## Assembler.
+## Wasmdasm.
 
-The start the assembler use the command
+*Wasmdasm* is a program that converts different types of webassembly input, and generates
+different types of webassembly output, C-code and dumps.
 
-     $ bin/webasm [*options*] *wat_files*
+To start *wasmdasm* use the command
 
-*wat_files* is a list of one or more webassembly text files.
+     $ bin/wasmdasm *input_file* [*options*]
+or
+
+     $ bin/wasmdasm -h
+
+*input_file* is a webassembly text, binary or script file.
+Note thet the input file must precede all options.
 
 *options* is a list of options.
-
 
 ### Options
 In the description of the options, the following example text file (called 'sample.wat') will be used:
@@ -44,6 +51,217 @@ In the description of the options, the following example text file (called 'samp
           i32.add)
       )
 
+
+Many options have an optional output file name.  These default to *std::cout*.
+
+Multiple options can name the same output file.  The output corresponding to these options will
+be concatenated into the file in the order as specified in the command.
+
+#### The *-h* option.
+The *-h* option shows the help page.
+
+##### Example
+
+     $ bin/wasmdasm -h
+
+     Usage: bin/wasmdasm <input_file> [options]
+     Options:
+       -b <output_file>   generate binary file
+       -c [output_file]   generate C file
+       -C [output_file]   generate optimized C file
+       -d [output_file]   dump raw file content
+       -h                 print this help message and exit
+       -p [output_file]   print formatted file content
+       -P [output_file]   print formatted file content with dassembled code
+       -S                 print statistics
+       -t [output_file]   generate text file
+       -T [output_file]   generate text file, using S-expressions for code
+
+
+     The input file can be a text, binary or script file.
+     The input file must precede all options.
+
+     For the '-b' command, the output file is required.
+     For all other options, the output file defaults to std::cout.
+     The '-d' option only applies for a binary input file.
+     When the input file is a script, then only the '-c' and '-C' options apply.
+
+#### The *-b* option.
+The *-b* option specifies that a binary file must be produced.
+
+The output file name is required.
+
+##### Example
+
+     $ bin/wasmdasm sample.wat -b sample.wasm
+
+converts the text file *sample.wat* into the binary file *sample.wasm*.
+
+#### The *-c* and *-C* option
+The *-c* option specifies that a C file must be produced.
+
+The *-C* option specifies that an enhanced C file must be produced.
+
+The output file name is optional and defaults to *std::cout*.
+
+The *-C* option works like the *-c* option, but generates enhanced C-code.
+It is best to always use the *-C* option.
+The *-c* option is only used to help debug the code enhancer.
+
+##### Example
+
+     $ bin/wasmdasm sample.wat -C sample.c
+
+produces the following C code:
+
+     #include <stdint.h>
+     #include <math.h>
+     #include <string.h>
+
+     unsigned errorCount = 0;
+     extern void* _externalRefs[];
+     void spectest__initialize();
+     typedef int32_t(*type0)(int32_t _local_0, int32_t _local_1);
+
+     static int32_t _f_0(int32_t lhs, int32_t rhs);
+
+     void initialize()
+     {
+     }
+
+     static int32_t _f_0(int32_t lhs, int32_t rhs)
+     {
+         return lhs + rhs;
+     }
+
+#### The *-d* option.
+the *-d* option specifies that the raw content of all sections must be dumped.
+
+The output file name is optional and defaults to *std::cout*.
+
+##### Example
+     $ bin/wasmdasm sample.wasm -d sample.dump
+
+     produces the following dump:
+     Type section:
+     0000000a:  01 60 02 7f 7f 01 7f                                .`.....
+
+     Function section:
+     00000013:  01 00                                               ..
+
+     Code section:
+     00000017:  01 07 00 20 00 20 01 6a  0b                         ... . .j.
+
+#### The *-p* option.
+The *-p* option specifies that the internal data structure of the assembler must be
+dumped in a human readable format.  The internal data structure represents all the sections and
+their content parsed from the inout file.
+
+The output file name is optional and defaults to *std::cout*.
+
+##### Example
+     $ bin/wasmdasm sample.wat -p
+
+     Type section:
+       Type 0:  (i32, i32) -> i32
+
+     Function section:
+       func 0:  signature index="0"  (lhs i32, rhs i32) -> i32
+
+     Code section:
+       Code for function 0
+
+#### The *-P* option.
+The *-P* produces the same output as the *-p* option, but adds the code to each function.
+
+The output file name is optional and defaults to *std::cout*.
+
+##### Example
+     $ bin/wasmdasm sample.wat -P
+
+     Type section:
+       Type 0:  (i32, i32) -> i32
+
+     Function section:
+       func 0:  signature index="0"  (lhs i32, rhs i32) -> i32
+
+     Code section:
+       Code for function 0:
+         local.get 0
+         local.get 1
+         i32.add
+
+#### The *-S* option.
+The *-S* option prints statistics.
+
+##### Example
+     $ bin/wasmdasm sample.wat -S
+
+     Statistic for sample.wat:
+         Number of sections         3
+         Number of types            1
+         Number of imports          0
+         Number of functions        1
+         Number of tables           0
+         Number of memories         0
+         Number of globals          0
+         Number of exports          0
+         Number of elements         0
+         Number of data segments    0
+         Number of instructions     3
+                       in code      3
+                       in inits     0
+     
+     NO ERRORS; NO WARNINGS; 
+     CPU time = 0.01
+
+#### The *-t* option.
+The *-t* option specifies that a text ouput file must be produced.
+The name of the output file must be given with thw *-o* option.
+
+The output file name is optional and defaults to *std::cout*.
+
+##### Example
+     $ bin/wasmdasm sample.wasm -t
+
+     (module
+       (type (;0;) (func (param i32 i32) (result i32)))
+       (func (;0;) (type 0) (param i32 i32) (result i32)
+         local.get 0
+         local.get 1
+         i32.add))
+
+
+#### The *-T* option.
+The *-T* option specifies that a text ouput file must be produced.
+The code will be emitted in S-expression format.
+The name of the output file must be given with thw *-o* option.
+
+The output file name is optional and defaults to *std::cout*.
+
+##### Example
+      $ bin/wasmdasm sample.wasm -T
+
+      (module
+        (type (;0;) (func (param i32 i32) (result i32)))
+        (func (;0;) (type 0) (param i32 i32) (result i32)
+          (i32.add (local.get 0) (local.get 1))))
+
+<P style="page-break-before: always">
+
+## Assembler.
+
+** This program is deprecated**.
+
+The start the assembler use the command
+
+     $ bin/webasm [*options*] *wat_files*
+
+*wat_files* is a list of one or more webassembly text files.
+
+*options* is a list of options.
+
+### Options
 
 #### The *-h* option.
 The *-h* option shows the help page.
@@ -99,10 +317,6 @@ their content parsed from the inout file.
      Code section:
        Code for function 0
 
-     DataCount section:
-       data count: 0
-
-
 #### The *-P* option.
 The *-P* produces the same output as the *-p* option, but adds the code to each function.
 
@@ -120,16 +334,14 @@ The *-P* produces the same output as the *-p* option, but adds the code to each 
          local.get 1
          i32.add
 
-     DataCount section:
-       data count: 0
-
-
 #### The *-S* option.
 The *-S* option prints assembler statistics.
 
 <P style="page-break-before: always">
 
 ## Disassembler.
+
+** This program is deprecated**.
 
 The start the disassembler use the command
 
@@ -215,10 +427,6 @@ their content parsed from the inout file.
      Code section:
        Code for function 0
 
-     DataCount section:
-       data count: 0
-
-
 #### The *-P* option.
 The *-P* produces the same output as the *-p* option, but adds the code to each function.
 
@@ -236,10 +444,6 @@ The *-P* produces the same output as the *-p* option, but adds the code to each 
          local.get 1
          i32.add
 
-     DataCount section:
-       data count: 0
-
-
 #### The *-d* option.
 the *-d* option specifies that the raw content of all sections must be dumped.
 
@@ -251,9 +455,6 @@ the *-d* option specifies that the raw content of all sections must be dumped.
 
      Function section:
      00000013:  01 00                                               ..
-
-     DataCount section:
-     00000017:  00                                                  .
 
      Code section:
      0000001a:  01 07 00 20 00 20 01 6a  0b                         ... . .j.
@@ -267,6 +468,8 @@ The *-S* option prints assembler statistics.
 <P style="page-break-before: always">
 
 ## The convertS program.
+
+** This program is deprecated**.
 
 The convertS program converts a text file into a new text file or a C file.
 The new text file can either be in sequential format or in S-expression format.
@@ -322,7 +525,8 @@ The name of the output file must be given with thw *-o* option.
 The *-c* option specifies that a C file must be produced. In ths case the input file can be a script file.
 
 #### The *-C* option.
-The *-C* option works like the *-c* option, but generates enhanced C-code.  It is best to always use th*-C* code.
+The *-C* option works like the *-c* option, but generates enhanced C-code.
+It is best to always use thie *-C* option.
 The *-c* option is only used to help debug the code enhancer.
 
 ##### Example

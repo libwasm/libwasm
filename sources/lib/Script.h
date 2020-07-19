@@ -173,10 +173,21 @@ class AssertReturn
         void generateMultiValueC(std::ostream& os, const Script& script);
         static AssertReturn* parse(SourceContext& context);
 
+        static void reset()
+        {
+            resultCount = 0;
+        }
+
     private:
+        static auto getNextResult()
+        {
+            return resultCount++;
+        }
+
         Invoke* invoke;
         std::vector<ScriptValue> results;
         size_t lineNumber = 0;
+        static unsigned resultCount;
 };
 
 
@@ -194,7 +205,13 @@ class Script
             return lastModule;
         }
 
+        void incrementIgnoreCount()
+        {
+            ignoreCount++;
+        }
+
         void generateC(std::ostream& os, bool optimized);
+        bool isScript() const;
 
     private:
         struct Command
@@ -221,6 +238,7 @@ class Script
 
         const Module* lastModule = nullptr;
         std::vector<Command> commands;
+        unsigned ignoreCount = 0;
 };
 
 };

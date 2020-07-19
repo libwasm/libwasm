@@ -552,6 +552,7 @@ class Module
         void generate(std::ostream& os);
         void generateS(std::ostream& os);
         void generateC(std::ostream& os, bool optimized = false);
+        void generateCBody(std::ostream& os, bool optimized = false);
 
         void makeDataCountSection();
 
@@ -581,6 +582,8 @@ class Module
         }
 
         std::string getNamePrefix() const;
+        void write(std::ostream& os);
+        void dump(std::ostream& os);
 
     protected:
         bool dataCountFlag = false;
@@ -638,7 +641,6 @@ class Module
         IndexMap tableMap;
         IndexMap typeMap;
 
-        DataBuffer dataBuffer;
         std::vector<IndexMap> localMaps;
         std::vector<uint32_t> localCounts;
         std::string id;
