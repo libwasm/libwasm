@@ -1006,6 +1006,10 @@ void TypeDeclaration::generateC(std::ostream& os, const Module* module)
     auto& results = signature->getResults();
     auto resultCount = results.size();
 
+    if (!usedAsIndirect) {
+        return;
+    }
+
     os << "\ntypedef ";
 
     if (resultCount == 1) {

@@ -1100,6 +1100,10 @@ void InstructionIndirect::write(BinaryContext& context)
 void InstructionIndirect::check(CheckContext& context)
 {
     context.checkTypeIndex(this, typeIndex);
+
+    auto* type = context.getModule()->getType(typeIndex);
+
+    type->setUsedAsIndirect(true);
 }
 
 void InstructionIndirect::generate(std::ostream& os, InstructionContext& context)

@@ -794,6 +794,11 @@ class TypeDeclaration : public TreeNode
             number = n;
         }
 
+        void setUsedAsIndirect(bool value)
+        {
+            usedAsIndirect = value;
+        }
+
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
         void generateC(std::ostream& os, const Module* module);
@@ -808,6 +813,7 @@ class TypeDeclaration : public TreeNode
         uint32_t number = 0;
         std::string id;
         static const uint8_t func = 0x60;
+        bool usedAsIndirect = false;
 };
 
 class TypeSection : public Section
