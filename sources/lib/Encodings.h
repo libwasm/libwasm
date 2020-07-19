@@ -18,7 +18,6 @@ namespace libwasm
 enum class ImmediateType
 {
     none,
-    valueType,
     i8,
     i32,
     i64,
@@ -37,6 +36,7 @@ enum class ImmediateType
     segmentIdxMem,
     mem,
     memMem,
+    select,
     tableElementIdx,
     table,
     tableTable,
@@ -224,6 +224,7 @@ class Opcode
             return_call_indirect = 0x13,
             drop = 0x1a,
             select = 0x1b,
+            selectV = 0x1c,
             local__get = 0x20,
             local__set = 0x21,
             local__tee = 0x22,
@@ -748,7 +749,8 @@ inline const Opcode::Info Opcode::info[] =
     { Opcode::return_call, ImmediateType::functionIdx, SignatureCode::special, "return_call", 0 },
     { Opcode::return_call_indirect, ImmediateType::indirect, SignatureCode::special, "return_call_indirect", 0 },
     { Opcode::drop, ImmediateType::none, SignatureCode::special, "drop", 0 },
-    { Opcode::select, ImmediateType::valueType, SignatureCode::special, "select", 0 },
+    { Opcode::select, ImmediateType::select, SignatureCode::special, "select", 0 },
+    { Opcode::selectV, ImmediateType::select, SignatureCode::special, "select", 0 },
     { Opcode::local__get, ImmediateType::localIdx, SignatureCode::special, "local.get", 0 },
     { Opcode::local__set, ImmediateType::localIdx, SignatureCode::special, "local.set", 0 },
     { Opcode::local__tee, ImmediateType::localIdx, SignatureCode::special, "local.tee", 0 },

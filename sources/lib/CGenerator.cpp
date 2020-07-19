@@ -1995,7 +1995,7 @@ CNode* CGenerator::generateCDrop(Instruction* instruction)
 
 void CGenerator::generateCSelect(Instruction* instruction)
 {
-    auto* selectInstruction = static_cast<InstructionValueType*>(instruction);
+    auto* selectInstruction = static_cast<InstructionSelect*>(instruction);
     auto type = selectInstruction->getType();
     bool tempifyDone = false;
     auto* condition = popExpression();

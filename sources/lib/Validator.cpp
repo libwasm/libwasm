@@ -492,7 +492,7 @@ void Validator::checkSpecial()
                 auto t1 = popOperand();
                 auto t2 = popOperand(t1);
                 pushOperand(t2);
-                static_cast<InstructionValueType*>(currentInstruction)->setType(t1);
+                static_cast<InstructionSelect*>(currentInstruction)->setType(t1);
             }
 
             break;

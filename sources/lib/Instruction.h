@@ -147,13 +147,11 @@ class InstructionNone : public Instruction
         static InstructionNone* read(BinaryContext& context);
 };
 
-class InstructionValueType : public InstructionNone
+class InstructionSelect : public Instruction
 {
     public:
-        InstructionValueType() = default;
-
-        InstructionValueType(Opcode op)
-          : InstructionNone(op)
+        InstructionSelect()
+          : Instruction(ImmediateType::select)
         {
         }
 
@@ -167,11 +165,15 @@ class InstructionValueType : public InstructionNone
             type = t;
         }
 
-        static InstructionValueType* parse(SourceContext& context, Opcode opcode);
-        static InstructionValueType* read(BinaryContext& context);
+        virtual void write(BinaryContext& context) override;
+        virtual void generate(std::ostream& os, InstructionContext& context) override;
+        virtual void check(CheckContext& context) override;
+
+        static InstructionSelect* parse(SourceContext& context, Opcode opcode);
+        static InstructionSelect* read(BinaryContext& context, Opcode opcode);
 
     private:
-        ValueType type;
+        ValueType type = ValueType::void_;
 };
 
 class InstructionI32 : public Instruction
