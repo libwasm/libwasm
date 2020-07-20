@@ -121,7 +121,6 @@ produces the following C code:
      unsigned errorCount = 0;
      extern void* _externalRefs[];
      void spectest__initialize();
-     typedef int32_t(*type0)(int32_t _local_0, int32_t _local_1);
 
      static int32_t _f_0(int32_t lhs, int32_t rhs);
 
@@ -564,16 +563,15 @@ The following webassemly code
 
 is converted into the following C code:
 
-     int32_t __fib(int32_t __n)
+     int32_t algorothm__fib(int32_t n)
      {
-       int32_t result0 = 0;
-       if (__n < 2) {
+       if (n < 2) {
          return 1;
        }
-       return __fib(__n - 2) + __fib(__n - 1);
-       return result0;
+  
+       return algorothm__fib(n - 2) + algorothm__fib(n - 1);
      }
-
+`
 ##### Example
 
 The following script file
@@ -609,6 +607,8 @@ The following script file
         )
       )
 
+     (assert_return (invoke "fib" (i32.const 6)) (i32.const 13))
+
 is converted to the following C file
 
      #include "libwasm.h"
@@ -616,8 +616,6 @@ is converted to the following C file
      #include <stdint.h>
      #include <math.h>
      #include <string.h>
-
-     typedef int32_t(*algorothm__type0)(int32_t);
 
      static int32_t algorothm__fib(int32_t n);
 
@@ -650,8 +648,6 @@ is converted to the following C file
              printf("assert_return failed at line %d\n", 32);
          }
      }
-
-(assert_return (invoke "fib" (i32.const 6)) (i32.const 13))
 
 
 <P style="page-break-before: always">

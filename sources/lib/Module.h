@@ -549,6 +549,8 @@ class Module
         void addCodeEntry(CodeEntry* entry);
 
         void show(std::ostream& os, unsigned flags);
+        void write(std::ostream& os);
+        void dump(std::ostream& os);
         void generate(std::ostream& os);
         void generateS(std::ostream& os);
         void generateC(std::ostream& os, bool optimized = false);
@@ -582,8 +584,6 @@ class Module
         }
 
         std::string getNamePrefix() const;
-        void write(std::ostream& os);
-        void dump(std::ostream& os);
 
     protected:
         bool dataCountFlag = false;
