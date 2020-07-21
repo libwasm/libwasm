@@ -802,6 +802,13 @@ void Module::generateCPreamble(std::ostream& os)
         }
     }
 
+    if (startSectionIndex != invalidSection) {
+        auto* startSection = static_cast<StartSection*>(sections[startSectionIndex].get());
+        auto* startFunction = getFunction(startSection->getFunctionIndex());
+
+        os << "\n    " << startFunction->getCName(this) << "();";
+    }
+
     os << "\n}";
     os << '\n';
 }
