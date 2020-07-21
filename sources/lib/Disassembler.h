@@ -35,6 +35,18 @@ class Disassembler
             good = readWasm(stream);
         }
 
+        Disassembler(std::istream& stream, std::shared_ptr<Module> module)
+          : context(msgs), data(context.data()), module(module)
+        {
+            good = readWasm(stream);
+        }
+
+        Disassembler(std::istream& stream, std::ostream& errorStream, std::shared_ptr<Module> module)
+          : msgs(errorStream), context(msgs), data(context.data()), module(module)
+        {
+            good = readWasm(stream);
+        }
+
         ~Disassembler() = default;
 
         bool isGood() const

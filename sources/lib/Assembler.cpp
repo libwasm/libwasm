@@ -670,7 +670,7 @@ bool Assembler::doParseScript()
     script = std::make_shared<Script>();
 
     if (tokens.getParenthesis('(')) {
-        if (auto key = tokens.getKeyword()) {
+        if (auto key = tokens.getKeyword(); *key != "module") {
             if (*key == "type" ||
                     *key == "memory" ||
                     *key == "table" ||
@@ -728,10 +728,10 @@ bool Assembler::doParseScript()
                 }
 
                 std::stringstream stream(code);
-                Disassembler disassembler(stream);
+                Disassembler disassembler(stream, module);
 
                 if (disassembler.isGood()) {
-                    script->addModule(disassembler.getModule());
+                    script->addModule(module);
                 } else {
                     std::cerr << "Unable to read binary module" << std::endl;
                 }
