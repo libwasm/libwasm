@@ -701,14 +701,17 @@ uint16_t SatSubu16(uint16_t v1, uint16_t v2)
 v128_t v128Shufflei8x16(v128_t v1, v128_t v2, v128_t v3)
 {
     v128_u result;
+    v128_u v1u = U(v1);
+    v128_u v2u = U(v2);
+    v128_u v3u = U(v3);
 
     for (unsigned i = 0; i < 16; ++i) {
-        uint32_t index = U(v3).u8[i];
+        uint32_t index = v3u.u8[i];
 
         if (index >= 0 && index < 16) {
-            result.i8[i] =  U(v1).i8[i];
+            result.i8[i] =  v1u.i8[index];
         } else {
-            result.i8[i] =  U(v2).i8[index - 16];
+            result.i8[i] =  v2u.i8[index - 16];
         }
     }
 
