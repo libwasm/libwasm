@@ -93,13 +93,23 @@ void InstructionNone::check(CheckContext& context)
     // nothing to do
 }
 
+void InstructionNone::generate(std::ostream& os, InstructionContext& context)
+{
+    if (opcode == Opcode::end) {
+        context.leaveBlock();
+    }
+
+    os << opcode;
+}
 
 void InstructionSelect::write(BinaryContext& context)
 {
     auto& data = context.data();
 
     writeOpcode(context);
-    data.putI32leb(int32_t(type));
+    if (opcode == Opcode::selectV) {
+        data.putI32leb(int32_t(type));
+    }
 }
 
 void InstructionSelect::generate(std::ostream& os, InstructionContext& context)
@@ -118,15 +128,6 @@ void InstructionSelect::check(CheckContext& context)
     }
 }
 
-
-void InstructionNone::generate(std::ostream& os, InstructionContext& context)
-{
-    if (opcode == Opcode::end) {
-        context.leaveBlock();
-    }
-
-    os << opcode;
-}
 
 InstructionSelect* InstructionSelect::parse(SourceContext& context, Opcode opcode)
 {
@@ -1097,20 +1098,6 @@ void InstructionMemory::generate(std::ostream& os, InstructionContext& context)
     }
 }
 
-InstructionMem0* InstructionMem0::parse(SourceContext& context, Opcode opcode)
-{
-    return context.makeTreeNode<InstructionMem0>();
-}
-
-InstructionMem0* InstructionMem0::read(BinaryContext& context)
-{
-    auto& data = context.data();
-    auto* result = context.makeTreeNode<InstructionMem0>();
-
-    context.msgs().errorWhen(data.getU8() != 0, "reserved argument must be 0.");
-    return result ;
-}
-
 InstructionIndirect* InstructionIndirect::parse(SourceContext& context, Opcode opcode)
 {
     auto* result = context.makeTreeNode<InstructionIndirect>();
@@ -1250,6 +1237,20 @@ void InstructionSegmentIdxMem::check(CheckContext& context)
 void InstructionSegmentIdxMem::generate(std::ostream& os, InstructionContext& context)
 {
     os << opcode << " " << segmentIndex;
+}
+
+InstructionMem0* InstructionMem0::parse(SourceContext& context, Opcode opcode)
+{
+    return context.makeTreeNode<InstructionMem0>();
+}
+
+InstructionMem0* InstructionMem0::read(BinaryContext& context)
+{
+    auto& data = context.data();
+    auto* result = context.makeTreeNode<InstructionMem0>();
+
+    context.msgs().errorWhen(data.getU8() != 0, "reserved argument must be 0.");
+    return result ;
 }
 
 void InstructionMem0::write(BinaryContext& context)
