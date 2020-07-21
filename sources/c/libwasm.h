@@ -53,7 +53,7 @@ typedef float    f32x4_t __attribute__ ((vector_size (16)));
 typedef double   f64x2_t __attribute__ ((vector_size (16)));
 
 typedef long  l32x4_t __attribute__ ((vector_size (16)));
-typedef long long  i64x2_t __attribute__ ((vector_size (16)));
+typedef long long  l64x2_t __attribute__ ((vector_size (16)));
 #endif
 
 typedef union
@@ -83,7 +83,7 @@ typedef union
     f64x2_t f64x2;
 
     l32x4_t l32x4;
-    i64x2_t l64x2;
+    l64x2_t l64x2;
 #endif
 
 } v128_u;
