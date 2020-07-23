@@ -356,7 +356,7 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
 {
     bool parenthesis = needsParenthesis(this, op);
 
-    if (op == "=" && generator.getOptimized()) {
+    if (op == "=" && generator.getEnhanced()) {
         if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kBinauryExpression) {
             auto* rightBinary = static_cast<CBinaryExpression*>(right);
             auto rightPrecedence = binaryPrecedence(rightBinary->getOp());
@@ -3838,15 +3838,15 @@ void CGenerator::optimize()
 
 void CGenerator::generateC(std::ostream& os)
 {
-    if (optimized) {
+    if (enhanced) {
         optimize();
     }
 
     function->generateC(os, *this);
 }
 
-CGenerator::CGenerator(const Module* module, CodeEntry* codeEntry, bool optimized)
-  : module(module), codeEntry(codeEntry), optimized(optimized)
+CGenerator::CGenerator(const Module* module, CodeEntry* codeEntry, bool enhanced)
+  : module(module), codeEntry(codeEntry), enhanced(enhanced)
 {
     buildCTree();
 }

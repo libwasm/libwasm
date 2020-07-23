@@ -826,7 +826,7 @@ class CGenerator
 
         using LabelMap = std::map<unsigned, LabelData>;
 
-        CGenerator(const Module* module, CodeEntry* codeEntry, bool optimized = false);
+        CGenerator(const Module* module, CodeEntry* codeEntry, bool enhanced = false);
         ~CGenerator();
 
         void generateC(std::ostream& os);
@@ -853,9 +853,9 @@ class CGenerator
             return codeEntry;
         }
 
-        auto getOptimized() const
+        auto getEnhanced() const
         {
-            return optimized;
+            return enhanced;
         }
 
         const auto* getModule()
@@ -984,7 +984,7 @@ class CGenerator
         const Module* module;
         std::vector<ExpressionInfo> expressionStack;
         CodeEntry* codeEntry;
-        bool optimized = false;
+        bool enhanced = false;
         CFunction* function;
         std::vector<LabelInfo> labelStack;
         LabelMap labelMap;

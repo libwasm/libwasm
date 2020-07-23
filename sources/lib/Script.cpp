@@ -757,7 +757,7 @@ void Script::addInvoke(std::shared_ptr<Invoke>& invoke)
     commands.emplace_back(invoke);
 }
 
-void Script::generateC(std::ostream& os, bool optimized)
+void Script::generateC(std::ostream& os, bool enhanced)
 {
     AssertReturn::reset();
 
@@ -784,7 +784,7 @@ void Script::generateC(std::ostream& os, bool optimized)
                 module->setId("module_" + toString(moduleNameCount++));
             }
 
-            module->generateCBody(os, optimized);
+            module->generateCBody(os, enhanced);
             lastModule = module.get();
 
             mainCode << "\n    " << cName(module->getId()) << "__initialize();";

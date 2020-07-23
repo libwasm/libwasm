@@ -813,7 +813,7 @@ void Module::generateCPreamble(std::ostream& os)
     os << '\n';
 }
 
-void Module::generateC(std::ostream& os, bool optimized)
+void Module::generateC(std::ostream& os, bool enhanced)
 {
     os << "\n#include \"libwasm.h\""
           "\n"
@@ -825,10 +825,10 @@ void Module::generateC(std::ostream& os, bool optimized)
           "\nextern void* _externalRefs[];"
           "\nvoid spectest__initialize();";
 
-    generateCBody(os, optimized);
+    generateCBody(os, enhanced);
 }
 
-void Module::generateCBody(std::ostream& os, bool optimized)
+void Module::generateCBody(std::ostream& os, bool enhanced)
 {
     if (auto* typeSection = getTypeSection(); typeSection != nullptr) {
         typeSection->generateC(os, this);
@@ -861,7 +861,7 @@ void Module::generateCBody(std::ostream& os, bool optimized)
     generateCPreamble(os);
 
     if (auto* codeSection = getCodeSection(); codeSection != nullptr) {
-        codeSection->generateC(os, this, optimized);
+        codeSection->generateC(os, this, enhanced);
         os << '\n';
     }
 }

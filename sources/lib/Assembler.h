@@ -57,9 +57,9 @@ class Assembler
             module->generateS(os);
         }
 
-        void generateC(std::ostream& os, bool optimized = false)
+        void generateC(std::ostream& os, bool enhanced = false)
         {
-            script->generateC(os, optimized);
+            script->generateC(os, enhanced);
         }
 
         void write(std::ostream& os);

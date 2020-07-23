@@ -210,7 +210,7 @@ class Script
             ignoreCount++;
         }
 
-        void generateC(std::ostream& os, bool optimized);
+        void generateC(std::ostream& os, bool enhanced);
         bool isScript() const;
 
     private:

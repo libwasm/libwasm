@@ -553,8 +553,8 @@ class Module
         void dump(std::ostream& os);
         void generate(std::ostream& os);
         void generateS(std::ostream& os);
-        void generateC(std::ostream& os, bool optimized = false);
-        void generateCBody(std::ostream& os, bool optimized = false);
+        void generateC(std::ostream& os, bool enhanced = false);
+        void generateCBody(std::ostream& os, bool enhanced = false);
 
         void makeDataCountSection();
 
