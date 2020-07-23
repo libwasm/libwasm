@@ -26,6 +26,8 @@ class Local;
 class Module;
 class Signature;
 
+class CIf;
+
 class CNode
 {
     public:
@@ -123,8 +125,14 @@ class CNode
             return true;
         }
 
+        auto isNopped() const
+        {
+            return nopped;
+        }
+
     protected:
         CNodeKind nodeKind = kNone;
+        bool nopped = false;
         CNode* parent = nullptr;
         CNode* next = nullptr;
         CNode* previous = nullptr;
@@ -153,8 +161,8 @@ class CCompound : public CNode
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addStatement(CNode* statement);
-        void optimize(CGenerator& generator);
-        void optimizeIfs(CGenerator& generator);
+        void enhance(CGenerator& generator);
+        void enhanceIf(CIf* ifStatement, CGenerator& generator);
         void flatten();
 };
 
@@ -265,7 +273,7 @@ class CBinaryExpression : public CNode
             op = o;
         }
 
-        auto getOp() const
+        std::string_view getOp() const
         {
             return op;
         }
@@ -285,10 +293,13 @@ class CBinaryExpression : public CNode
             return left->hasSideEffects() || right->hasSideEffects();
         }
 
+        void enhanceAssignment();
+        void enhance();
+
     private:
         CNode* left = nullptr;
         CNode* right = nullptr;
-        std::string_view op;
+        std::string op;
 };
 
 class CCallIndirect : public CNode
@@ -447,7 +458,7 @@ class CFunction : public CNode
             return signature;
         }
 
-        void optimize(CGenerator& generator);
+        void enhance(CGenerator& generator);
 
     private:
         std::string name;
@@ -472,6 +483,11 @@ class CI32 : public CNode
             return value;
         }
 
+        void setValue(int32_t v)
+        {
+            value = v;
+        }
+
         virtual bool hasSideEffects() const override
         {
             return false;
@@ -489,6 +505,11 @@ class CI64 : public CNode
         CI64(uint64_t value)
            : CNode(kind), value(value)
         {
+        }
+
+        void setValue(int64_t v)
+        {
+            value = v;
         }
 
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
@@ -524,6 +545,11 @@ class CF32 : public CNode
             return value;
         }
 
+        void setValue(float v)
+        {
+            value = v;
+        }
+
         virtual bool hasSideEffects() const override
         {
             return false;
@@ -548,6 +574,11 @@ class CF64 : public CNode
         auto getValue() const
         {
             return value;
+        }
+
+        void setValue(double v)
+        {
+            value = v;
         }
 
         virtual bool hasSideEffects() const override
@@ -938,7 +969,7 @@ class CGenerator
 
         std::string getTemp(ValueType type);
         std::vector<std::string> getTemps(const std::vector<ValueType>& types);
-        void optimize();
+        void enhance();
 
         auto& getLabel(size_t index = 0)
         {

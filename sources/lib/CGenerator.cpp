@@ -28,7 +28,7 @@ static void traverse(CNode* node, std::function<void(CNode*)> exec)
 
 static void traverseStatements(CCompound* node, std::function<void(CNode*)> exec)
 {
-    for (auto* next = node->getChild(); next != nullptr; next = next->getNext()) {
+    for (auto* next = node->getChild(); next != nullptr; ) {
         exec(next);
 
         if (auto* ifStatement = next->castTo<CIf>(); ifStatement != nullptr) {
@@ -46,6 +46,14 @@ static void traverseStatements(CCompound* node, std::function<void(CNode*)> exec
             }
         } else if (auto* compound = next->castTo<CCompound>(); compound != nullptr) {
             traverseStatements(compound, exec);
+        }
+
+        auto* node = next;
+
+        next = next->getNext();
+
+        if (node->isNopped()) {
+            delete node;
         }
     }
 }
@@ -238,9 +246,15 @@ void CFunction::generateC(std::ostream& os, CGenerator& generator)
     generator.undent();
 }
 
-void CFunction::optimize(CGenerator& generator)
+void CFunction::enhance(CGenerator& generator)
 {
-    statements->optimize(generator);
+    traverse(this, [](CNode* node) {
+            if (auto* expression = node->castTo<CBinaryExpression>(); expression != nullptr) {
+                expression->enhance();
+            }
+        });
+
+    statements->enhance(generator);
     statements->flatten();
 }
 
@@ -352,11 +366,36 @@ static bool needsParenthesis(CNode* node, std::string_view op)
     return false;
 }
 
-void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
+void CBinaryExpression::enhance()
 {
-    bool parenthesis = needsParenthesis(this, op);
+    if (op == "+") {
+        if (auto* i32 = right->castTo<CI32>(); i32 != nullptr) {
+            if (auto value = i32->getValue(); value < 0) {
+                op = "-";
+                i32->setValue(-value);
+            }
+        } else if (auto* i64 = right->castTo<CI64>(); i64 != nullptr) {
+            if (auto value = i64->getValue(); value < 0) {
+                op = "-";
+                i64->setValue(-value);
+            }
+        } else if (auto* f32 = right->castTo<CF32>(); f32 != nullptr) {
+            if (auto value = f32->getValue(); value < 0) {
+                op = "-";
+                f32->setValue(-value);
+            }
+        } else if (auto* f64 = right->castTo<CF64>(); f64 != nullptr) {
+            if (auto value = f64->getValue(); value < 0) {
+                op = "-";
+                f64->setValue(-value);
+            }
+        }
+    }
+}
 
-    if (op == "=" && generator.getEnhanced()) {
+void CBinaryExpression::enhanceAssignment()
+{
+    if (op == "=") {
         if (left->getKind() == CNode::kNameUse && right->getKind() == CNode::kBinauryExpression) {
             auto* rightBinary = static_cast<CBinaryExpression*>(right);
             auto rightPrecedence = binaryPrecedence(rightBinary->getOp());
@@ -369,16 +408,14 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
                     auto rightLeftName = static_cast<CNameUse*>(rightLeft)->getName();
 
                     if (leftName == rightLeftName) {
-                        if (parenthesis) {
-                            os << '(';
-                        }
+                        // a = a + b --> a += b
+                        op = rightBinary->op + "=";
+                        
 
-                        os << leftName << ' ' << rightBinary->getOp() << "= ";
-                        rightBinary->right->generateC(os, generator);
-
-                        if (parenthesis) {
-                            os << ')';
-                        }
+                        rightBinary->unlink();
+                        right = rightBinary->right;
+                        right->link(this);
+                        delete rightBinary;
 
                         return;
                     }
@@ -389,10 +426,17 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
             auto rightName = static_cast<CNameUse*>(right)->getName();
 
             if (leftName == rightName) {
+                // a = a --> nop
+                nopped = true;
                 return;
             }
         }
     }
+}
+
+void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
+{
+    bool parenthesis = needsParenthesis(this, op);
 
     if (parenthesis) {
         os << '(';
@@ -706,74 +750,78 @@ static CLabel* findLabel(CNode* node, unsigned label)
     }
 }
 
-void CCompound::optimizeIfs(CGenerator& generator)
+void CCompound::enhanceIf(CIf* ifStatement, CGenerator& generator)
 {
-    traverseStatements(this, [&generator](CNode* node) {
-            auto* ifStatement = node->castTo<CIf>();
+    if (ifStatement->getThenStatements()->empty() ||
+            !ifStatement->getElseStatements()->empty()) {
+        return;
+    }
 
-            if (ifStatement == nullptr || ifStatement->getThenStatements()->empty() ||
-                    !ifStatement->getElseStatements()->empty()) {
-                return;
-            }
+    auto* branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
 
-            auto* branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
+    if (branchStatement == nullptr || branchStatement->getLastChild() != nullptr) {
+        return;
+    }
 
-            if (branchStatement == nullptr || branchStatement->getLastChild() != nullptr) {
-                return;
-            }
+    auto label = branchStatement->getLabel();
+    auto *labelStatement = findLabel(ifStatement, label);
 
-            auto label = branchStatement->getLabel();
-            auto *labelStatement = findLabel(node, label);
+    if (labelStatement == nullptr) {
+        return;
+    }
+
+    auto* condition = ifStatement->getCondition();
+
+    condition->unlink();
+    ifStatement->setCondition(notExpression(condition));
+
+    delete branchStatement;
+
+    for (auto* next = ifStatement->getNext(); ; next = ifStatement->getNext()) {
+        ifStatement->addThenStatement(next);
+
+        if (next == labelStatement) {
+            break;
+        }
+    }
+
+    generator.decrementUseCount(label);
+
+    if (ifStatement->getThenStatements()->getLastChild() != nullptr) {
+        if (branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
+                branchStatement != nullptr) {
+            label = branchStatement->getLabel();
+            labelStatement = findLabel(ifStatement->getParent(), label);
 
             if (labelStatement == nullptr) {
                 return;
             }
 
-            auto* condition = ifStatement->getCondition();
-
-            condition->unlink();
-            ifStatement->setCondition(notExpression(condition));
-
-            delete branchStatement;
-
-            for (auto* next = node->getNext(); ; next = node->getNext()) {
-                ifStatement->addThenStatement(next);
+            for (auto* next = ifStatement->getParent()->getNext(); ;
+                    next = ifStatement->getParent()->getNext()) {
+                ifStatement->addElseStatement(next);
 
                 if (next == labelStatement) {
                     break;
                 }
             }
 
+            delete branchStatement;
             generator.decrementUseCount(label);
-
-            if (ifStatement->getThenStatements()->getLastChild() != nullptr) {
-                if (branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
-                        branchStatement != nullptr) {
-                    label = branchStatement->getLabel();
-                    labelStatement = findLabel(node->getParent(), label);
-
-                    if (labelStatement == nullptr) {
-                        return;
-                    }
-
-                    for (auto* next = node->getParent()->getNext(); ; next = node->getParent()->getNext()) {
-                        ifStatement->addElseStatement(next);
-
-                        if (next == labelStatement) {
-                            break;
-                        }
-                    }
-
-                    delete branchStatement;
-                    generator.decrementUseCount(label);
-                }
-            }
-        });
+        }
+    }
 }
 
-void CCompound::optimize(CGenerator& generator)
+void CCompound::enhance(CGenerator& generator)
 {
-    optimizeIfs(generator);
+    traverseStatements(this, [this, &generator](CNode* node) {
+            if (auto* ifStatement = node->castTo<CIf>(); ifStatement != nullptr) {
+                enhanceIf(ifStatement, generator);
+            } else if (auto* assignment = node->castTo<CBinaryExpression>();
+                    assignment != nullptr && assignment->getOp() == "=") {
+                assignment->enhanceAssignment();
+            }
+        });
 }
 
 void CIf::setResultDeclaration(CNode* node)
@@ -3823,9 +3871,9 @@ void CGenerator::buildCTree()
     generateCFunction();
 }
 
-void CGenerator::optimize()
+void CGenerator::enhance()
 {
-    traverse(function, [&](CNode* node) {
+    traverseStatements(function->getStatements(), [&](CNode* node) {
             if (auto* labelstatement = node->castTo<CLabel>(); labelstatement != nullptr) {
                 labelMap[labelstatement->getLabel()].declaration = node;
             } else if (auto* branchStatement = node->castTo<CBr>(); branchStatement != nullptr) {
@@ -3833,13 +3881,13 @@ void CGenerator::optimize()
             }
         });
 
-    function->optimize(*this);
+    function->enhance(*this);
 }
 
 void CGenerator::generateC(std::ostream& os)
 {
     if (enhanced) {
-        optimize();
+        enhance();
     }
 
     function->generateC(os, *this);
