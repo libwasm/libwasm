@@ -13,7 +13,7 @@ extern "C" {
 
 #ifndef NOHARDWARE_SUPPORT
 #  ifdef __GNUC__
-#  define HARDWARE_SUPPORT
+#    define HARDWARE_SUPPORT
 #  endif
 #endif
 

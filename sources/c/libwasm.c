@@ -464,25 +464,59 @@ double reinterpretF64I64(int64_t value)
     return *(double*)&value;
 }
 
+uint32_t clz64(uint64_t value)
+{
+    if (value == 0) {
+        return 64;
+    }
+
+#ifdef HARDWARE_SUPPORT
+    if (sizeof(long) == sizeof(long long)) {
+        return (value == 0) ? 64 : __builtin_clzl(value);
+    }
+#endif
+
+    uint32_t result = 0;
+
+    while ((value & (1ull << 63)) == 0) {
+        result++;
+        value <<= 1;
+    }
+
+    return result;
+}
+
+uint32_t ctz64(uint64_t value)
+{
+    if (value == 0) {
+        return 64;
+    }
+
+#ifdef HARDWARE_SUPPORT
+    if (sizeof(long) == sizeof(long long)) {
+        return (value == 0) ? 64 : __builtin_ctzl(value);
+    }
+#endif
+
+    uint32_t result = 0;
+
+    while ((value & 1) == 0) {
+        result++;
+        value >>= 1;
+    }
+
+    return result;
+}
+
 #ifdef HARDWARE_SUPPORT
 uint32_t clz32(uint32_t value)
 {
     return (value == 0) ? 32 : __builtin_clz(value);
 }
 
-uint32_t clz64(uint64_t value)
-{
-    return (value == 0) ? 64 : __builtin_clzl(value);
-}
-
 uint32_t ctz32(uint32_t value)
 {
     return (value == 0) ? 32 : __builtin_ctz(value);
-}
-
-uint32_t ctz64(uint64_t value)
-{
-    return (value == 0) ? 64 : __builtin_ctzl(value);
 }
 
 #else
@@ -495,23 +529,7 @@ uint32_t clz32(uint32_t value)
 
     uint32_t result = 0;
 
-    while ((value & (1u << 31)) != 0) {
-        result++;
-        value <<= 1;
-    }
-
-    return result;
-}
-
-uint32_t clz64(uint64_t value)
-{
-    if (value == 0) {
-        return 64;
-    }
-
-    uint32_t result = 0;
-
-    while ((value & (1ull << 63)) != 0) {
+    while ((value & (1u << 31)) == 0) {
         result++;
         value <<= 1;
     }
@@ -527,23 +545,7 @@ uint32_t ctz32(uint32_t value)
 
     uint32_t result = 0;
 
-    while ((value & 1) != 0) {
-        result++;
-        value >>= 1;
-    }
-
-    return result;
-}
-
-uint32_t ctz64(uint64_t value)
-{
-    if (value == 0) {
-        return 64;
-    }
-
-    uint32_t result = 0;
-
-    while ((value & 1) != 0) {
+    while ((value & 1) == 0) {
         result++;
         value >>= 1;
     }
