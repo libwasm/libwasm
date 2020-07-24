@@ -245,6 +245,11 @@ class CSwitch : public CNode
             return cases;
         }
 
+        auto* getDefault()
+        {
+            return defaultCase;
+        }
+
         void addCase(uint64_t value, CNode* statement);
         void setDefault(CNode* statement);
 

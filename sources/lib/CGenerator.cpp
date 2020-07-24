@@ -44,6 +44,10 @@ static void traverseStatements(CCompound* node, std::function<void(CNode*)> exec
                     exec(statement);
                 }
             }
+
+            if (auto* statement = switchStatement->getDefault(); statement != nullptr) {
+                exec(statement);
+            }
         } else if (auto* compound = next->castTo<CCompound>(); compound != nullptr) {
             traverseStatements(compound, exec);
         }
@@ -1630,7 +1634,7 @@ CNode* CGenerator::generateCShift(std::string_view op, std::string_view type)
 
     if (auto value = getIntegerValue(right)) {
         delete right;
-        right = new CI32(*value % mod);
+        right = new CI32(int32_t(*value) % mod);
     } else {
         right = new CBinaryExpression("%", right, new CI32(mod));
     }

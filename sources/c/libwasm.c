@@ -13,6 +13,221 @@ extern "C" {
 #define AVGR(v1, v2) (v1 + v2 + 1) / 2
 #define ABS_VALUE(v) ((v < 0) ? -v : v)
 
+int8_t loadI8(Memory* memory, uint64_t offset)
+{
+    return *(int8_t*)(memory->data + offset);
+}
+
+uint8_t loadU8(Memory* memory, uint64_t offset)
+{
+    return loadI8(memory, offset);
+}
+
+int16_t loadI16(Memory* memory, uint64_t offset)
+{
+    uint8_t* p = (uint8_t*)(memory->data + offset);
+
+    return p[0] | (p[1] << 8);
+}
+
+uint16_t loadU16(Memory* memory, uint64_t offset)
+{
+    return loadI16(memory, offset);
+}
+
+int32_t loadI32(Memory* memory, uint64_t offset)
+{
+    uint8_t* p = (uint8_t*)(memory->data + offset);
+
+    return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
+}
+
+uint32_t loadU32(Memory* memory, uint64_t offset)
+{
+    return loadI32(memory, offset);
+}
+
+int64_t loadI64(Memory* memory, uint64_t offset)
+{
+    return loadU32(memory, offset) | ((uint64_t)loadU32(memory, offset + 4) << 32);
+}
+
+uint64_t loadU64(Memory* memory, uint64_t offset)
+{
+    return loadI64(memory, offset);
+}
+
+float loadF32(Memory* memory, uint64_t offset)
+{
+    union
+    {
+        int32_t i;
+        float f;
+    } u;
+
+    u.i = loadI32(memory, offset);
+    return u.f;
+}
+
+double loadF64(Memory* memory, uint64_t offset)
+{
+    union
+    {
+        int64_t i;
+        double f;
+    } u;
+
+    u.i = loadI64(memory, offset);
+    return u.f;
+}
+
+v128_t loadV128(Memory* memory, uint64_t offset)
+{
+    union
+    {
+        int64_t i[2];
+        v128_t v;
+    } u;
+
+    u.i[0] = loadI64(memory, offset);
+    u.i[1] = loadI64(memory, offset + 8);
+    return u.v;
+}
+
+int32_t loadI32U8(Memory* memory, uint64_t offset)
+{
+    return loadU8(memory, offset);
+}
+
+int32_t loadI32I8(Memory* memory, uint64_t offset)
+{
+    return loadI8(memory, offset);
+}
+
+int32_t loadI32U16(Memory* memory, uint64_t offset)
+{
+    return loadU16(memory, offset);
+}
+
+int32_t loadI32I16(Memory* memory, uint64_t offset)
+{
+    return loadI16(memory, offset);
+}
+
+int64_t loadI64U8(Memory* memory, uint64_t offset)
+{
+    return loadU8(memory, offset);
+}
+
+int64_t loadI64I8(Memory* memory, uint64_t offset)
+{
+    return loadI8(memory, offset);
+}
+
+int64_t loadI64U16(Memory* memory, uint64_t offset)
+{
+    return loadU16(memory, offset);
+}
+
+int64_t loadI64I16(Memory* memory, uint64_t offset)
+{
+    return loadI16(memory, offset);
+}
+
+int64_t loadI64U32(Memory* memory, uint64_t offset)
+{
+    return loadU32(memory, offset);
+}
+
+int64_t loadI64I32(Memory* memory, uint64_t offset)
+{
+    return loadI32(memory, offset);
+}
+
+void storeI32(Memory* memory, uint64_t offset, int32_t value)
+{
+    uint8_t* p = (uint8_t*)(memory->data + offset);
+
+    p[0] = value;
+    p[1] = value >> 8;
+    p[2] = value >> 16;
+    p[3] = value >> 24;
+}
+
+void storeI64(Memory* memory, uint64_t offset, int64_t value)
+{
+    storeI32(memory, offset, (int32_t)value);
+    storeI32(memory, offset + 4, (int32_t)(value >> 32));
+}
+
+void storeF32(Memory* memory, uint64_t offset, float value)
+{
+    union
+    {
+        int32_t i;
+        float f;
+    } u;
+
+    u.f = value;
+    storeI32(memory, offset, u.i);
+}
+
+void storeF64(Memory* memory, uint64_t offset, double value)
+{
+    union
+    {
+        int64_t i;
+        double f;
+    } u;
+
+    u.f = value;
+    storeI64(memory, offset, u.i);
+}
+
+void storeV128(Memory* memory, uint64_t offset, v128_t value)
+{
+    union
+    {
+        int64_t i[2];
+        v128_t v;
+    } u;
+
+    u.v = value;
+    storeI64(memory, offset, u.i[0]);
+    storeI64(memory, offset + 8, u.i[1]);
+}
+
+void storeI32I8(Memory* memory, uint64_t offset, int32_t value)
+{
+    *(int8_t*)(memory->data + offset) = (int8_t)value;
+}
+
+void storeI32I16(Memory* memory, uint64_t offset, int32_t value)
+{
+    uint8_t* p = (uint8_t*)(memory->data + offset);
+
+    p[0] = value;
+    p[1] = value >> 8;
+}
+
+void storeI64I8(Memory* memory, uint64_t offset, int64_t value)
+{
+    *(int8_t*)(memory->data + offset) = (int8_t)value;
+}
+
+void storeI64I16(Memory* memory, uint64_t offset, int64_t value)
+{
+    uint8_t* p = (uint8_t*)(memory->data + offset);
+
+    p[0] = (int32_t)value;
+    p[1] = (int32_t)value >> 8;
+}
+
+void storeI64I32(Memory* memory, uint64_t offset, int64_t value)
+{
+    storeI32(memory, offset, (int32_t)value);
+}
+
 uint32_t rotl32(uint32_t value, uint32_t count)
 {
     count %= 32;

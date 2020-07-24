@@ -746,7 +746,6 @@ void Module::generateCPreamble(std::ostream& os)
 
     if (auto* dataSection = getDataSection(); dataSection != nullptr && memoryCount > 0) {
         auto& segments = dataSection->getSegments();
-        unsigned segmentNumber = 0;
 
         for (auto& segment : segments) {
             if ((segment->getFlags() & SegmentFlagPassive) != 0) {
@@ -790,7 +789,6 @@ void Module::generateCPreamble(std::ostream& os)
             auto* table = tableTable[index];
             auto tableName = table->getCName(this);
             auto elementName = element->getCName(this);
-            auto flags = element->getFlags();
 
             os << "\n    memcpy(" << tableName << ".data";
             if (auto* expression = element->getExpression(); expression != nullptr) {

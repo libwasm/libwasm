@@ -490,7 +490,6 @@ void InstructionV128::generate(std::ostream& os, InstructionContext& context)
 InstructionBlock* InstructionBlock::parse(SourceContext& context, Opcode opcode)
 {
     auto* module = context.getModule();
-    auto& tokens = context.tokens();
 
     auto* result = context.makeTreeNode<InstructionBlock>();
 
