@@ -17,11 +17,6 @@ namespace libwasm
 
 unsigned AssertReturn::resultCount = 0;
 
-static std::string makeResultName(unsigned resultNumber)
-{
-    return "result_" + toString(resultNumber);
-}
-
 static std::string makeExpectName(unsigned resultNumber)
 {
     return "expect_" + toString(resultNumber);
@@ -759,6 +754,10 @@ void Script::addInvoke(std::shared_ptr<Invoke>& invoke)
 
 void Script::generateC(std::ostream& os, bool enhanced)
 {
+    if (commands.size() == 1 && commands[0].module != nullptr) {
+        return commands[0].module->generateC(os, enhanced);
+    }
+
     AssertReturn::reset();
 
     os << "\n#include \"libwasm.h\""

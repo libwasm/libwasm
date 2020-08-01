@@ -49,6 +49,7 @@ class CNode
             kLabel,
             kLoad,
             kNameUse,
+            kPostfixExpression,
             kReturn,
             kStore,
             kSubscript,
@@ -162,6 +163,7 @@ class CCompound : public CNode
 
         void addStatement(CNode* statement);
         void enhance(CGenerator& generator);
+        void enhanceVariables(CGenerator& generator);
         void enhanceIf(CIf* ifStatement, CGenerator& generator);
         void flatten();
 };
@@ -225,19 +227,36 @@ class CSwitch : public CNode
             : CNode(kind), condition(condition)
         {
             condition->link(this);
+            defaultStatements = new CCompound;
+            defaultStatements->link(this);
+        }
+
+        ~CSwitch()
+        {
+            for (auto* cs : cases) {
+                delete(cs);
+            }
         }
 
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         struct Case
         {
-            Case(uint64_t value, CNode* statement)
-              : value(value), statement(statement)
+            Case(uint64_t value)
+              : value(value)
             {
+                statements = new CCompound;
             }
 
+            ~Case()
+            {
+                delete statements;
+            }
+
+            void addStatement(CNode* statement);
+
             uint64_t value = 0;
-            CNode* statement = nullptr;
+            CCompound* statements = nullptr;
         };
 
         auto& getCases()
@@ -247,16 +266,16 @@ class CSwitch : public CNode
 
         auto* getDefault()
         {
-            return defaultCase;
+            return defaultStatements;
         }
 
         void addCase(uint64_t value, CNode* statement);
-        void setDefault(CNode* statement);
+        void addDefault(CNode* statement);
 
     private:
         CNode* condition = nullptr;
-        std::vector<Case> cases;
-        CNode* defaultCase = nullptr;
+        std::vector<Case*> cases;
+        CCompound* defaultStatements = nullptr;
 };
 
 class CBinaryExpression : public CNode
@@ -290,7 +309,7 @@ class CBinaryExpression : public CNode
 
         auto* getRight()
         {
-            return left;
+            return right;
         }
 
         virtual bool hasSideEffects() const override
@@ -427,6 +446,19 @@ class CVariable : public CNode
         std::string_view getName() const
         {
             return name;
+        }
+
+        void setInitialValue(CNode* v)
+        {
+            assert(initialValue == nullptr);
+
+            initialValue = v;
+            v->link(this);
+        }
+
+        auto* getInitialValue()
+        {
+            return initialValue;
         }
 
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
@@ -851,6 +883,39 @@ class CUnaryExpression : public CNode
         CNode* operand = nullptr;
 };
 
+class CPostfixExpression : public CNode
+{
+    public:
+        static const CNodeKind kind = kPostfixExpression;
+
+        CPostfixExpression(std::string_view op, CNode* operand)
+            : CNode(kind), op(op), operand(operand)
+        {
+            operand->link(this);
+        }
+
+        auto getOp() const
+        {
+            return op;
+        }
+
+        auto* getOperand() const
+        {
+            return operand;
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
+
+        virtual bool hasSideEffects() const override
+        {
+            return operand->hasSideEffects();
+        }
+
+    private:
+        std::string_view op;
+        CNode* operand = nullptr;
+};
+
 class CGenerator
 {
     public:
@@ -912,7 +977,7 @@ class CGenerator
         void pushBlockResults(uint32_t index);
         CNode* makeCombinedOffset(Instruction* instruction);
         std::vector<ValueType> getBlockResults(InstructionBlock* blockInstruction);
-        CNode* makeBlockResults(const std::vector<ValueType>& types);
+        CCompound* makeBlockResults(const std::vector<ValueType>& types);
         const Local* getLocal(uint32_t index);
 
         CNode* generateCBinaryExpression(std::string_view op);

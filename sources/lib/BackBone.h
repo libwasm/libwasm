@@ -618,6 +618,11 @@ class Local : public TreeNode
             return number;
         }
 
+        void setIsParam(bool v)
+        {
+            isParam = v;
+        }
+
         std::string getCName() const;
         void show(std::ostream& os, Module* module);
         void generate(std::ostream& os, Module* module);
@@ -629,6 +634,7 @@ class Local : public TreeNode
         std::string id;
         ValueType type = 0;
         uint32_t number;
+        bool isParam = false;
 
     friend class CodeEntry;
 };

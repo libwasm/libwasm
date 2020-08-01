@@ -779,6 +779,7 @@ Signature* Signature::parse(SourceContext& context)
                 auto* local = context.makeTreeNode<Local>(*id, *value);
 
                 local->setNumber(module->nextLocalCount());
+                local->setIsParam(true);
 
                 result->params.emplace_back(local);
 
@@ -792,6 +793,7 @@ Signature* Signature::parse(SourceContext& context)
                     auto* local = context.makeTreeNode<Local>(*valueType);
 
                     local->setNumber(module->nextLocalCount());
+                    local->setIsParam(true);
 
                     result->params.emplace_back(local);
                 } else {
@@ -834,6 +836,7 @@ Signature* Signature::read(BinaryContext& context)
         auto* local = context.makeTreeNode<Local>(readValueType(context));
 
         local->setNumber(module->nextLocalCount());
+        local->setIsParam(true);
         result->params.emplace_back(local);
     }
 
@@ -3936,6 +3939,8 @@ std::string Local::getCName() const
 
     if (!id.empty()) {
         result = cName(id);
+    } else if (isParam) {
+        result = "_param_" + toString(number);
     } else {
         result = "_local_" + toString(number);
     }

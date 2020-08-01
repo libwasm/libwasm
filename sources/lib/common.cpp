@@ -654,7 +654,7 @@ std::string toString(double value, bool hexfloat)
 
 std::string makeResultName(unsigned label, size_t index)
 {
-    std::string result("result");
+    std::string result("_result_");
 
     result += toString(label);
 

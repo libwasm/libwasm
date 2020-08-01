@@ -649,7 +649,6 @@ is converted to the following C file
          }
      }
 
-
 <P style="page-break-before: always">
 
 ## Library.
