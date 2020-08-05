@@ -35,11 +35,13 @@ class CNode
         {
             kNone,
             kBinauryExpression,
-            kBr,
+            kBranch,
+            kBreak,
             kCall,
             kCallIndirect,
             kCast,
             kCompound,
+            kContinue,
             kF32,
             kF64,
             kFunction,
@@ -48,6 +50,7 @@ class CNode
             kIf,
             kLabel,
             kLoad,
+            kLoop,
             kNameUse,
             kPostfixExpression,
             kReturn,
@@ -84,6 +87,9 @@ class CNode
         void unlink();
 
         CNode* traverseToNext(CNode* root);
+
+        virtual bool equals(CNode* other) = 0;
+
         virtual void generateC(std::ostream& os, CGenerator& generator)
         {
             std::cerr << "Not implemented kind " << nodeKind << std::endl;
@@ -126,6 +132,11 @@ class CNode
             return true;
         }
 
+        void setNopped(bool value)
+        {
+            nopped = value;
+        }
+
         auto isNopped() const
         {
             return nopped;
@@ -159,6 +170,7 @@ class CCompound : public CNode
             return child == nullptr;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addStatement(CNode* statement);
@@ -168,16 +180,124 @@ class CCompound : public CNode
         void flatten();
 };
 
-class CBr : public CNode
+class CLoop : public CNode
 {
     public:
-        static const CNodeKind kind = kBr;
+        static const CNodeKind kind = kLoop;
 
-        CBr(unsigned label)
+        CLoop()
+            : CNode(kLoop), body(new CCompound)
+        {
+            body->link(this);
+        }
+
+        virtual bool equals(CNode* other) override;
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
+
+        void addStatement(CNode* statement);
+
+        auto* getBody() const
+        {
+            return body;
+        }
+
+        auto* getInitialize() const
+        {
+            return initialize;
+        }
+
+        auto* getCondition() const
+        {
+            return condition;
+        }
+
+        auto* getIncrement() const
+        {
+            return increment;
+        }
+
+        void setInitialize(CNode* node)
+        {
+            initialize = node;
+            initialize->link(this);
+        }
+
+        void setCondition(CNode* node)
+        {
+            condition = node;
+            condition->link(this);
+        }
+
+        void setIncrement(CNode* node)
+        {
+            increment = node;
+            increment->link(this);
+        }
+
+        void enhance(CGenerator& generator);
+
+    private:
+        enum
+        {
+            isNone,
+            isDo,
+            isFor,
+            isWhile
+        } loopType = isNone;
+
+        CCompound* body = nullptr;
+        CNode* initialize = nullptr;
+        CNode* condition = nullptr;
+        CNode* increment = nullptr;
+};
+
+class CBreak : public CNode
+{
+    public:
+        static const CNodeKind kind = kBreak;
+
+        CBreak(unsigned label)
+            : CNode(kind)
+        {
+        }
+
+        virtual bool equals(CNode* other) override
+        {
+            return other->getKind() == kind;
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
+};
+
+class CContinue : public CNode
+{
+    public:
+        static const CNodeKind kind = kContinue;
+
+        CContinue(unsigned label)
+            : CNode(kind)
+        {
+        }
+
+        virtual bool equals(CNode* other) override
+        {
+            return other->getKind() == kind;
+        }
+
+        virtual void generateC(std::ostream& os, CGenerator& generator) override;
+};
+
+class CBranch : public CNode
+{
+    public:
+        static const CNodeKind kind = kBranch;
+
+        CBranch(unsigned label)
             : CNode(kind), label(label)
         {
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getLabel() const
@@ -201,6 +321,7 @@ class CSubscript : public CNode
             subscript->link(this);
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto* getArray() const
@@ -238,6 +359,7 @@ class CSwitch : public CNode
             }
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         struct Case
@@ -259,12 +381,17 @@ class CSwitch : public CNode
             CCompound* statements = nullptr;
         };
 
+        auto* getCondition() const
+        {
+            return condition;
+        }
+
         auto& getCases()
         {
             return cases;
         }
 
-        auto* getDefault()
+        auto* getDefault() const
         {
             return defaultStatements;
         }
@@ -290,6 +417,7 @@ class CBinaryExpression : public CNode
             right->link(this);
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void setOp(std::string_view o)
@@ -302,12 +430,12 @@ class CBinaryExpression : public CNode
             return op;
         }
 
-        auto* getLeft()
+        auto* getLeft() const
         {
             return left;
         }
 
-        auto* getRight()
+        auto* getRight() const
         {
             return right;
         }
@@ -338,10 +466,31 @@ class CCallIndirect : public CNode
             indexInTable->link(this);
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addArgument(CNode* argument);
         void reverseArguments();
+
+        auto getTypeIndex() const
+        {
+            return typeIndex;
+        }
+
+        auto getTableIndex() const
+        {
+            return tableIndex;
+        }
+
+        auto* getIndexInTable() const
+        {
+            return indexInTable;
+        }
+
+        auto& getArguments()
+        {
+            return arguments;
+        }
 
     private:
         uint32_t typeIndex = 0;
@@ -375,7 +524,18 @@ class CCall : public CNode
             return !pure;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
+
+        std::string_view getFunctionName() const
+        {
+            return functionName;
+        }
+
+        auto& getArguments()
+        {
+            return arguments;
+        }
 
         void addArgument(CNode* argument);
         void reverseArguments();
@@ -402,7 +562,18 @@ class CCast : public CNode
             return operand->hasSideEffects();
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
+
+        auto getType()
+        {
+            return type;
+        }
+
+        auto* getOperand() const
+        {
+            return operand;
+        }
 
     private:
         std::string_view type;
@@ -424,6 +595,7 @@ class CLabel : public CNode
             return label;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
@@ -448,6 +620,11 @@ class CVariable : public CNode
             return name;
         }
 
+        auto getType() const
+        {
+            return type;
+        }
+
         void setInitialValue(CNode* v)
         {
             assert(initialValue == nullptr);
@@ -456,11 +633,12 @@ class CVariable : public CNode
             v->link(this);
         }
 
-        auto* getInitialValue()
+        auto* getInitialValue() const
         {
             return initialValue;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
@@ -481,11 +659,16 @@ class CFunction : public CNode
             statements->link(this);
         }
 
+        virtual bool equals(CNode* other) override
+        {
+            return false;
+        }
+
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void addStatement(CNode* statement);
 
-        auto* getStatements()
+        auto* getStatements() const
         {
             return statements;
         }
@@ -513,6 +696,7 @@ class CI32 : public CNode
         {
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
@@ -549,6 +733,7 @@ class CI64 : public CNode
             value = v;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
@@ -575,6 +760,7 @@ class CF32 : public CNode
         {
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
@@ -606,6 +792,7 @@ class CF64 : public CNode
         {
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
@@ -637,6 +824,7 @@ class CV128 : public CNode
         {
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         auto getValue() const
@@ -670,6 +858,7 @@ class CIf : public CNode
             elseStatements->link(this);
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         void setResultDeclaration(CNode* node);
@@ -684,26 +873,32 @@ class CIf : public CNode
             return label;
         }
 
-        auto* getThenStatements()
+        auto* getThenStatements() const
         {
             return thenStatements;
         }
 
-        auto* getElseStatements()
+        auto* getElseStatements() const
         {
             return elseStatements;
         }
 
-        auto* getCondition()
+        auto* getCondition() const
         {
             return condition;
         }
 
         void setCondition(CNode* expression)
         {
-            // it is the caller's responsibilty to delete the old expression if requierd.
+            // it is the caller's responsibilty to delete the old expression if requiered.
             condition = expression;
             condition->link(this);
+        }
+
+        void deleteCondition()
+        {
+            delete condition;
+            condition = nullptr;
         }
 
     private:
@@ -733,7 +928,23 @@ class CLoad : public CNode
             return offset->hasSideEffects();
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
+
+        auto getName() const
+        {
+            return name;
+        }
+
+        std::string_view getMemory() const
+        {
+            return memory;
+        }
+
+        auto* getOffset() const
+        {
+            return offset;
+        }
 
     private:
         std::string_view name;
@@ -751,6 +962,7 @@ class CNameUse : public CNode
         {
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         std::string_view getName() const
@@ -780,6 +992,12 @@ class CReturn : public CNode
             }
         }
 
+        auto* getValue() const
+        {
+            return value;
+        }
+
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
@@ -798,7 +1016,28 @@ class CStore : public CNode
             value->link(this);
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
+
+        auto getName() const
+        {
+            return name;
+        }
+
+        std::string_view getMemory() const
+        {
+            return memory;
+        }
+
+        auto* getOffset() const
+        {
+            return offset;
+        }
+
+        auto* getValue() const
+        {
+            return value;
+        }
 
     private:
         std::string_view name;
@@ -842,6 +1081,7 @@ class CTernaryExpression : public CNode
                 falseExpression->hasSideEffects();;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
     private:
@@ -871,6 +1111,7 @@ class CUnaryExpression : public CNode
             return operand;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         virtual bool hasSideEffects() const override
@@ -904,6 +1145,7 @@ class CPostfixExpression : public CNode
             return operand;
         }
 
+        virtual bool equals(CNode* other) override;
         virtual void generateC(std::ostream& os, CGenerator& generator) override;
 
         virtual bool hasSideEffects() const override
@@ -959,7 +1201,7 @@ class CGenerator
             return enhanced;
         }
 
-        const auto* getModule()
+        const auto* getModule() const
         {
             return module;
         }
@@ -982,8 +1224,8 @@ class CGenerator
 
         CNode* generateCBinaryExpression(std::string_view op);
         CNode* generateCBlock(Instruction* instruction);
-        CNode* generateCBr(uint32_t index);
-        CNode* generateCBr(Instruction* instruction);
+        CNode* generateCBranch(uint32_t index);
+        CNode* generateCBranch(Instruction* instruction);
         CNode* generateCBrIf(CNode* condition, uint32_t index);
         CNode* generateCBrIf(Instruction* instruction);
         CNode* generateCBrUnless(Instruction* instruction);

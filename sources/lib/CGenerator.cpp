@@ -19,6 +19,35 @@ using namespace std::string_literals;
 namespace libwasm
 {
 
+static bool equalNodes(CNode* node1, CNode* node2)
+{
+    if (node1 == nullptr) {
+        return node2 == nullptr;
+    }
+
+    if (node2 == nullptr) {
+        return false;
+    }
+
+    return node1->equals(node2);
+}
+
+template<typename T>
+bool equalVectors(std::vector<T*>& vector1, std::vector<T*>& vector2)
+{
+    if (vector1.size() != vector2.size()) {
+        return false;
+    }
+
+    for (size_t i = 0, c = vector1.size(); i < c; ++i) {
+        if (!equalNodes(vector1[i], vector2[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 static void traverse(CNode* node, std::function<void(CNode*)> exec)
 {
     for (auto* next = node->getChild(); next != nullptr; next = next->traverseToNext(node)) {
@@ -34,12 +63,18 @@ static void traverseStatements(CCompound* node, std::function<void(CNode*)> exec
         if (auto* ifStatement = next->castTo<CIf>(); ifStatement != nullptr) {
             traverseStatements(ifStatement->getThenStatements(), exec);
             traverseStatements(ifStatement->getElseStatements(), exec);
+            if (ifStatement->getCondition() == nullptr) {
+                ifStatement->getThenStatements()->link(node, ifStatement);
+                ifStatement->setNopped(true);
+            }
         } else if (auto* switchStatement = next->castTo<CSwitch>(); switchStatement != nullptr) {
             for (auto& cs : switchStatement->getCases()) {
                 traverseStatements(cs->statements, exec);
             }
 
             traverseStatements(switchStatement->getDefault(), exec);
+        } else if (auto* loop = next->castTo<CLoop>(); loop != nullptr) {
+            traverseStatements(loop->getBody(), exec);
         } else if (auto* compound = next->castTo<CCompound>(); compound != nullptr) {
             traverseStatements(compound, exec);
         }
@@ -252,6 +287,17 @@ void CFunction::enhance(CGenerator& generator)
     statements->enhanceVariables(generator);
 }
 
+bool CLabel::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherLabel = static_cast<CLabel*>(other);
+
+    return label == otherLabel->getLabel();
+}
+
 void CLabel::generateC(std::ostream& os, CGenerator& generator)
 {
     os << "\nlabel" << toString(label) << ":;";
@@ -362,6 +408,19 @@ static bool needsParenthesis(CNode* node, std::string_view op)
     }
 
     return false;
+}
+
+bool CBinaryExpression::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherBinary = static_cast<CBinaryExpression*>(other);
+
+    return op == otherBinary->getOp() &&
+        equalNodes(left, otherBinary->getLeft()) &&
+        equalNodes(right, otherBinary->getRight());
 }
 
 void CBinaryExpression::enhance()
@@ -480,9 +539,31 @@ void CBinaryExpression::generateC(std::ostream& os, CGenerator& generator)
     }
 }
 
+bool CI32::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherI32 = static_cast<CI32*>(other);
+
+    return value == otherI32->getValue();
+}
+
 void CI32::generateC(std::ostream& os, CGenerator& generator)
 {
     os << value;
+}
+
+bool CI64::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherI64 = static_cast<CI64*>(other);
+
+    return value == otherI64->getValue();
 }
 
 void CI64::generateC(std::ostream& os, CGenerator& generator)
@@ -494,9 +575,33 @@ void CI64::generateC(std::ostream& os, CGenerator& generator)
     }
 }
 
+bool CNameUse::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherNameUse = static_cast<CNameUse*>(other);
+
+    return name == otherNameUse->getName();
+}
+
 void CNameUse::generateC(std::ostream& os, CGenerator& generator)
 {
     os << name;
+}
+
+bool CVariable::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherVariable = static_cast<CVariable*>(other);
+
+    return type == otherVariable->getType() &&
+        name == otherVariable->getName() &&
+        equalNodes(initialValue, otherVariable->getInitialValue());
 }
 
 void CVariable::generateC(std::ostream& os, CGenerator& generator)
@@ -510,6 +615,19 @@ void CVariable::generateC(std::ostream& os, CGenerator& generator)
     }
 }
 
+bool CLoad::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherLoad = static_cast<CLoad*>(other);
+
+    return name == otherLoad->getName() &&
+        memory == otherLoad->getMemory() &&
+        equalNodes(offset, otherLoad->getOffset());
+}
+
 void CLoad::generateC(std::ostream& os, CGenerator& generator)
 {
     os << name << "(&" << memory << ", ";
@@ -517,9 +635,40 @@ void CLoad::generateC(std::ostream& os, CGenerator& generator)
     os << ')';
 }
 
-void CBr::generateC(std::ostream& os, CGenerator& generator)
+bool CBranch::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    return label == static_cast<CBranch*>(other)->getLabel();
+}
+
+void CBranch::generateC(std::ostream& os, CGenerator& generator)
 {
     os << "goto label" << label;
+}
+
+void CBreak::generateC(std::ostream& os, CGenerator& generator)
+{
+    os << "break";
+}
+
+void CContinue::generateC(std::ostream& os, CGenerator& generator)
+{
+    os << "continue";
+}
+
+bool CSubscript::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherSubscript = static_cast<CSubscript*>(other);
+
+    return equalNodes(array, otherSubscript->getArray()) &&
+        equalNodes(subscript, otherSubscript->getSubscript());
 }
 
 void CSubscript::generateC(std::ostream& os, CGenerator& generator)
@@ -539,6 +688,20 @@ void CCallIndirect::addArgument(CNode* argument)
 void CCallIndirect::reverseArguments()
 {
     std::reverse(arguments.begin(), arguments.end());
+}
+
+bool CCallIndirect::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherCall = static_cast<CCallIndirect*>(other);
+
+    return typeIndex == otherCall->getTypeIndex() &&
+        tableIndex == otherCall->getTableIndex() &&
+        equalNodes(indexInTable, otherCall->getIndexInTable()) &&
+        equalVectors(arguments, otherCall->getArguments());
 }
 
 void CCallIndirect::generateC(std::ostream& os, CGenerator& generator)
@@ -573,6 +736,18 @@ void CCall::reverseArguments()
     std::reverse(arguments.begin(), arguments.end());
 }
 
+bool CCall::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherCall = static_cast<CCall*>(other);
+
+    return functionName == otherCall->getFunctionName() &&
+        equalVectors(arguments, otherCall->getArguments());
+}
+
 void CCall::generateC(std::ostream& os, CGenerator& generator)
 {
     os << functionName << '(';
@@ -585,6 +760,18 @@ void CCall::generateC(std::ostream& os, CGenerator& generator)
     }
 
     os << ')';
+}
+
+bool CCast::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherCast = static_cast<CCast*>(other);
+
+    return type == otherCast->getType() &&
+        equalNodes(operand, otherCast->getOperand());
 }
 
 void CCast::generateC(std::ostream& os, CGenerator& generator)
@@ -605,14 +792,47 @@ void CCast::generateC(std::ostream& os, CGenerator& generator)
     operand->generateC(os, generator);
 }
 
+bool CF32::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherF32 = static_cast<CF32*>(other);
+
+    return value == otherF32->getValue();
+}
+
 void CF32::generateC(std::ostream& os, CGenerator& generator)
 {
     os << toString(value, true);
 }
 
+bool CF64::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherF64 = static_cast<CF64*>(other);
+
+    return value == otherF64->getValue();
+}
+
 void CF64::generateC(std::ostream& os, CGenerator& generator)
 {
     os << toString(value, true);
+}
+
+bool CV128::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherV128 = static_cast<CV128*>(other);
+
+    return value == otherV128->getValue();
 }
 
 void CV128::generateC(std::ostream& os, CGenerator& generator)
@@ -629,6 +849,17 @@ void CV128::generateC(std::ostream& os, CGenerator& generator)
                     "LL, 0x" << std::setw(16) << std::setfill('0') << a64[1] << std::dec << "LL)";
 }
 
+bool CReturn::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherReturn = static_cast<CReturn*>(other);
+
+    return equalNodes(value, otherReturn->getValue());
+}
+
 void CReturn::generateC(std::ostream& os, CGenerator& generator)
 {
     os << "return";
@@ -638,6 +869,20 @@ void CReturn::generateC(std::ostream& os, CGenerator& generator)
     }
 }
 
+bool CStore::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherStore = static_cast<CStore*>(other);
+
+    return name == otherStore->getName() &&
+        memory == otherStore->getMemory() &&
+        equalNodes(offset, otherStore->getOffset()) &&
+        equalNodes(value, otherStore->getValue());
+}
+
 void CStore::generateC(std::ostream& os, CGenerator& generator)
 {
     os << name << "(&" << memory << ", ";
@@ -645,6 +890,19 @@ void CStore::generateC(std::ostream& os, CGenerator& generator)
     os << ", ";
     value->generateC(os, generator);
     os << ')';
+}
+
+bool CTernaryExpression::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherTernaryExpression = static_cast<CTernaryExpression*>(other);
+
+    return equalNodes(condition, otherTernaryExpression->getCondition()) &&
+        equalNodes(trueExpression, otherTernaryExpression->getTrueExpression()) &&
+        equalNodes(falseExpression, otherTernaryExpression->getFalseExpression());
 }
 
 void CTernaryExpression::generateC(std::ostream& os, CGenerator& generator)
@@ -677,10 +935,34 @@ void CTernaryExpression::generateC(std::ostream& os, CGenerator& generator)
 
 }
 
+bool CUnaryExpression::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherUnaryExpression = static_cast<CUnaryExpression*>(other);
+
+    return op == otherUnaryExpression->getOp() &&
+        equalNodes(operand, otherUnaryExpression->getOperand());
+}
+
 void CUnaryExpression::generateC(std::ostream& os, CGenerator& generator)
 {
     os << op;
     operand->generateC(os, generator);
+}
+
+bool CPostfixExpression::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherPostfixExpression = static_cast<CPostfixExpression*>(other);
+
+    return op == otherPostfixExpression->getOp() &&
+        equalNodes(operand, otherPostfixExpression->getOperand());
 }
 
 void CPostfixExpression::generateC(std::ostream& os, CGenerator& generator)
@@ -692,6 +974,27 @@ void CPostfixExpression::generateC(std::ostream& os, CGenerator& generator)
 void CCompound::addStatement(CNode* statement)
 {
     statement->link(this);
+}
+
+bool CCompound::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* myStatement = getChild();
+    auto* otherStatement = other->getChild();
+
+    while (myStatement != nullptr) {
+        if (otherStatement == nullptr || !myStatement->equals(otherStatement)) {
+            return false;
+        }
+
+        myStatement = myStatement->getNext();
+        otherStatement = otherStatement->getNext();
+    }
+
+    return otherStatement == nullptr;
 }
 
 void CCompound::generateC(std::ostream& os, CGenerator& generator)
@@ -717,6 +1020,18 @@ void CCompound::flatten()
 
             ifStatement->getThenStatements()->flatten();
             ifStatement->getElseStatements()->flatten();
+        } else if (auto* switchStatement = statement->castTo<CSwitch>(); switchStatement != nullptr) {
+            statement = statement->getNext();
+
+            for (auto& cs : switchStatement->getCases()) {
+                cs->statements->flatten();
+            }
+
+            switchStatement->getDefault()->flatten();
+        } else if (auto* loop = statement->castTo<CLoop>(); loop != nullptr) {
+            statement = statement->getNext();
+
+            loop->getBody()->flatten();
         } else {
             statement = statement->getNext();
         }
@@ -829,7 +1144,7 @@ void CCompound::enhanceIf(CIf* ifStatement, CGenerator& generator)
         return;
     }
 
-    auto* branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
+    auto* branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBranch>();
 
     if (branchStatement == nullptr || branchStatement->getLastChild() != nullptr) {
         return;
@@ -860,7 +1175,7 @@ void CCompound::enhanceIf(CIf* ifStatement, CGenerator& generator)
     generator.decrementUseCount(label);
 
     if (ifStatement->getThenStatements()->getLastChild() != nullptr) {
-        if (branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBr>();
+        if (branchStatement = ifStatement->getThenStatements()->getLastChild()->castTo<CBranch>();
                 branchStatement != nullptr) {
             label = branchStatement->getLabel();
             labelStatement = findLabel(ifStatement->getParent(), label);
@@ -889,6 +1204,8 @@ void CCompound::enhance(CGenerator& generator)
     traverseStatements(this, [this, &generator](CNode* node) {
             if (auto* ifStatement = node->castTo<CIf>(); ifStatement != nullptr) {
                 enhanceIf(ifStatement, generator);
+            } else if (auto* loop = node->castTo<CLoop>(); loop != nullptr) {
+                loop->enhance(generator);
             } else if (auto* assignment = node->castTo<CBinaryExpression>();
                     assignment != nullptr && assignment->getOp() == "=") {
                 assignment->enhanceAssignment();
@@ -931,8 +1248,26 @@ void CIf::addElseStatement(CNode* statement)
     elseStatements->addStatement(statement);
 }
 
+bool CIf::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherIf = static_cast<CIf*>(other);
+
+    return equalNodes(condition, otherIf->getCondition()) &&
+        equalNodes(thenStatements, otherIf->getThenStatements()) &&
+        equalNodes(elseStatements, otherIf->getElseStatements());
+}
+
 void CIf::generateC(std::ostream& os, CGenerator& generator)
 {
+    if (condition == nullptr) {
+        generator.generateStatement(os, thenStatements);
+        return;
+    }
+
     if (resultDeclaration != nullptr) {
         generator.generateStatement(os, resultDeclaration);
         generator.nl(os);
@@ -964,6 +1299,124 @@ void CIf::generateC(std::ostream& os, CGenerator& generator)
     } else if (next != nullptr) {
         generator.nl(os);
     }
+}
+
+bool CLoop::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherLoop = static_cast<CLoop*>(other);
+
+    return equalNodes(body, otherLoop->getBody()) &&
+        equalNodes(initialize, otherLoop->getInitialize()) &&
+        equalNodes(condition, otherLoop->getCondition()) &&
+        equalNodes(increment, otherLoop->getIncrement());
+}
+
+void CLoop::generateC(std::ostream& os, CGenerator& generator)
+{
+    switch(loopType) {
+        case isDo:
+            os << "do {";
+            generator.indent();
+            body->generateC(os, generator);
+            generator.undent();
+            generator.nl(os);
+            os << "} while (";
+            condition->generateC(os, generator);
+            os << ')';
+            return;
+
+        case isWhile:
+            os << "while (";
+            condition->generateC(os, generator);
+            os << ") {";
+            generator.indent();
+            body->generateC(os, generator);
+            generator.undent();
+            generator.nl(os);
+            os << '}';
+            return;
+
+        default:
+            os << "//{loop\n";
+            body->generateC(os, generator);
+            os << "//loop}\n";
+    }
+}
+
+void CLoop::enhance(CGenerator& generator)
+{
+    body->enhance(generator);
+
+    if (body->getChild() == nullptr) {
+        return;
+    }
+
+    unsigned loopLabel = ~0u;
+
+    if (auto* label = body->getChild()->castTo<CLabel>(); label != nullptr) {
+        loopLabel = label->getLabel();
+
+        if (auto* ifStatement = body->getLastChild()->castTo<CIf>();
+                ifStatement != nullptr &&
+                ifStatement->getElseStatements()->getChild() == nullptr &&
+                ifStatement->getThenStatements()->getChild() != nullptr) {
+            if (auto* branch = ifStatement->getThenStatements()->getChild()->castTo<CBranch>();
+                    branch != nullptr && branch->getLabel() == loopLabel) {
+                loopType = isDo;
+                setCondition(ifStatement->getCondition());
+                delete ifStatement;
+                generator.decrementUseCount(loopLabel);
+
+                if (parent->getParent() != nullptr) {
+                    if (auto* ifParent = parent->getParent()->castTo<CIf>();
+                            ifParent != nullptr &&
+                            ifParent->getElseStatements()->getChild() == nullptr &&
+                            ifParent->getThenStatements()->getChild() == this &&
+                            ifParent->getThenStatements()->getChild()->getNext() == nullptr &&
+                            equalNodes(condition, ifParent->getCondition())) {
+                        loopType = isWhile;
+                        ifParent->deleteCondition();
+                    }
+                }
+            }
+        }
+    }
+}
+
+void CLoop::addStatement(CNode* statement)
+{
+    body->addStatement(statement);
+}
+
+bool CSwitch::equals(CNode* other)
+{
+    if (other->getKind() != kind) {
+        return false;
+    }
+
+    auto* otherSwitch = static_cast<CSwitch*>(other);
+    auto& otherCases = otherSwitch->getCases();
+
+    if (cases.size() != otherCases.size()) {
+        return false;
+    }
+
+    for (size_t i = 0, c = cases.size(); i < c; ++i) {
+        auto* cs = cases[i];
+        auto* otherCs = otherCases[i];
+
+        if (cs->value != otherCs->value ||
+                !equalNodes(cs->statements, otherCs->statements)) {
+            return false;
+        }
+    }
+
+    return equalNodes(condition, otherSwitch->getCondition()) &&
+        equalNodes(defaultStatements, otherSwitch->getDefault());
 }
 
 void CSwitch::Case::addStatement(CNode* statement)
@@ -1222,7 +1675,8 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
     auto* blockInstruction = static_cast<InstructionBlock*>(instruction);
     auto resultTypes = getBlockResults(blockInstruction);
     auto* previousCompound = currentCompound;
-    auto* result = currentCompound = new CCompound();
+    auto* result = new CLoop;
+    currentCompound = result->getBody();
     auto blockLabel = pushLabel(resultTypes);
     auto label = labelStack.back().label;
     auto labelStackSize = labelStack.size();
@@ -1434,7 +1888,7 @@ void CGenerator::pushBlockResults(uint32_t index)
     }
 }
 
-CNode* CGenerator::generateCBr(Instruction* instruction)
+CNode* CGenerator::generateCBranch(Instruction* instruction)
 {
     auto* branchInstruction = static_cast<InstructionLabelIdx*>(instruction);
     auto index = branchInstruction->getIndex();
@@ -1445,7 +1899,7 @@ CNode* CGenerator::generateCBr(Instruction* instruction)
     if (!labelInfo.backward && !labelInfo.types.empty()) {
         auto* result = saveBlockResults(index);
 
-        result->addStatement(new CBr(labelInfo.label));
+        result->addStatement(new CBranch(labelInfo.label));
         skipUnreachable(index);
 
         return result;
@@ -1459,7 +1913,7 @@ CNode* CGenerator::generateCBr(Instruction* instruction)
                 result->addStatement(new CBinaryExpression("=", new CNameUse(temp), popExpression()));
             }
 
-            result->addStatement(new CBr(labelInfo.label));
+            result->addStatement(new CBranch(labelInfo.label));
             skipUnreachable(index);
 
             return result;
@@ -1468,14 +1922,14 @@ CNode* CGenerator::generateCBr(Instruction* instruction)
 
     skipUnreachable(index);
 
-    return new CBr(labelInfo.label);
+    return new CBranch(labelInfo.label);
 }
 
 CNode* CGenerator::generateCBrIf(CNode* condition, uint32_t index)
 {
     auto& labelInfo = getLabel(index);
     auto* ifNode = new CIf(condition);
-    auto* branchStatement = new CBr(labelInfo.label);
+    auto* branchStatement = new CBranch(labelInfo.label);
 
     labelInfo.branchTarget = true;
 
@@ -1603,7 +2057,7 @@ CNode* CGenerator::generateCBrTable(Instruction* instruction)
             result->addStatement(saveBlockResults(defaultLabel));
         }
 
-        result->addStatement(new CBr(labelInfo.label));
+        result->addStatement(new CBranch(labelInfo.label));
 
         skipUnreachable();
 
@@ -1625,11 +2079,11 @@ CNode* CGenerator::generateCBrTable(Instruction* instruction)
             } else {
                 auto& labelInfo = getLabel(branch.label);
 
-                result->addCase(branch.number, new CBr(labelInfo.label));
+                result->addCase(branch.number, new CBranch(labelInfo.label));
             }
         }
 
-        result->addDefault(new CBr(labelInfo.label));
+        result->addDefault(new CBranch(labelInfo.label));
 
         skipUnreachable();
 
@@ -2481,7 +2935,7 @@ CNode* CGenerator::generateCStatement()
                 return nullptr;
 
             case Opcode::br:
-                statement = generateCBr(instruction);
+                statement = generateCBranch(instruction);
                 break;
 
             case Opcode::br_if:
@@ -3934,7 +4388,7 @@ void CGenerator::generateStatement(std::ostream& os, CNode* statement)
 
     statement->generateC(os, *this);
 
-    if (kind != CNode::kIf && kind != CNode::kSwitch &&
+    if (kind != CNode::kIf && kind != CNode::kSwitch && kind != CNode::kLoop &&
             kind != CNode::kCompound && kind != CNode::kLabel) {
         os << ';';
     }
@@ -3977,7 +4431,7 @@ void CGenerator::enhance()
     traverseStatements(function->getStatements(), [&](CNode* node) {
             if (auto* labelstatement = node->castTo<CLabel>(); labelstatement != nullptr) {
                 labelMap[labelstatement->getLabel()].declaration = node;
-            } else if (auto* branchStatement = node->castTo<CBr>(); branchStatement != nullptr) {
+            } else if (auto* branchStatement = node->castTo<CBranch>(); branchStatement != nullptr) {
                 labelMap[branchStatement->getLabel()].useCount++;
             }
         });
