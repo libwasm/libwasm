@@ -142,6 +142,8 @@ class CNode
             return nopped;
         }
 
+        bool contains(CNode* node);
+
     protected:
         CNodeKind nodeKind = kNone;
         bool nopped = false;
@@ -235,6 +237,9 @@ class CLoop : public CNode
         }
 
         void enhance(CGenerator& generator);
+        void enhanceContinues(unsigned loopLabel, CGenerator& generator);
+        void enhanceBreaks(unsigned loopLabel, CGenerator& generator);
+        void tryWhile2For(CGenerator& generator, CIf* ifParent);
 
     private:
         enum
@@ -256,7 +261,7 @@ class CBreak : public CNode
     public:
         static const CNodeKind kind = kBreak;
 
-        CBreak(unsigned label)
+        CBreak()
             : CNode(kind)
         {
         }
@@ -274,7 +279,7 @@ class CContinue : public CNode
     public:
         static const CNodeKind kind = kContinue;
 
-        CContinue(unsigned label)
+        CContinue()
             : CNode(kind)
         {
         }

@@ -250,6 +250,17 @@ CNode* CNode::traverseToNext(CNode* root)
     return result;
 }
 
+bool CNode::contains(CNode* node)
+{
+    for (auto* next = child; next != nullptr; next = next->traverseToNext(this)) {
+        if (next->equals(node)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static std::optional<int64_t> getIntegerValue(CNode* node)
 {
     if (auto* i32 = node->castTo<CI32>()) {
@@ -260,7 +271,6 @@ static std::optional<int64_t> getIntegerValue(CNode* node)
         return {};
     }
 }
-
 
 void CFunction::addStatement(CNode* statement)
 {
@@ -492,7 +502,7 @@ void CBinaryExpression::enhanceAssignment()
 
                         // a = a + b --> a += b
                         op = rightBinary->op + "=";
-                        
+
 
                         rightBinary->unlink();
                         right = rightRight;
@@ -1326,12 +1336,41 @@ void CLoop::generateC(std::ostream& os, CGenerator& generator)
             generator.nl(os);
             os << "} while (";
             condition->generateC(os, generator);
-            os << ')';
+            os << ");";
             return;
 
         case isWhile:
             os << "while (";
             condition->generateC(os, generator);
+            os << ") {";
+            generator.indent();
+            body->generateC(os, generator);
+            generator.undent();
+            generator.nl(os);
+            os << '}';
+            return;
+
+        case isFor:
+            os << "for (";
+
+            if (initialize != nullptr) {
+                initialize->generateC(os, generator);
+            }
+
+            os << ';';
+
+            if (condition != nullptr) {
+                os << ' ';
+                condition->generateC(os, generator);
+            }
+
+            os << ';';
+
+            if (increment != nullptr) {
+                os << ' ';
+                increment->generateC(os, generator);
+            }
+
             os << ") {";
             generator.indent();
             body->generateC(os, generator);
@@ -1347,8 +1386,96 @@ void CLoop::generateC(std::ostream& os, CGenerator& generator)
     }
 }
 
+void CLoop::enhanceContinues(unsigned loopLabel, CGenerator& generator)
+{
+    traverseStatements(body, [this, loopLabel, &generator](CNode* node) {
+            if (auto* branch = node->castTo<CBranch>();
+                    branch != nullptr && branch->getLabel() == loopLabel) {
+
+                for (auto* p = branch->getParent(); p != nullptr; p = p->getParent()) {
+                    if (auto* pLoop = p->castTo<CLoop>(); pLoop != nullptr) {
+                        if (pLoop == this) {
+                            auto* continueStatement = new CContinue;
+
+                            continueStatement->link(branch->getParent(), branch);
+                            branch->setNopped(true);
+                            generator.decrementUseCount(loopLabel);
+                        }
+
+                        break;
+                    }
+                }
+            }
+        });
+}
+
+void CLoop::enhanceBreaks(unsigned loopLabel, CGenerator& generator)
+{
+    traverseStatements(body, [this, loopLabel, &generator](CNode* node) {
+            if (auto* branch = node->castTo<CBranch>();
+                    branch != nullptr && branch->getLabel() == loopLabel) {
+
+                for (auto* p = branch->getParent(); p != nullptr; p = p->getParent()) {
+                    if (auto* pLoop = p->castTo<CLoop>(); pLoop != nullptr) {
+                        if (pLoop == this) {
+                            auto* breakStatement = new CBreak;
+
+                            breakStatement->link(branch->getParent(), branch);
+                            branch->setNopped(true);
+                            generator.decrementUseCount(loopLabel);
+                        }
+
+                        break;
+                    }
+                }
+            }
+        });
+}
+
+void CLoop::tryWhile2For(CGenerator& generator, CIf* ifParent)
+{
+    CNode* incrementStatement = nullptr;
+    CNode* variable = nullptr;
+
+    if (auto* binaryExpression = body->getLastChild()->castTo<CBinaryExpression>();
+            binaryExpression != nullptr && binaryPrecedence(binaryExpression->getOp()) == 2) {
+        incrementStatement = binaryExpression;
+        variable = binaryExpression->getLeft();
+    } else if (auto* postfixExpression = body->getLastChild()->castTo<CPostfixExpression>();
+            postfixExpression != postfixExpression) {
+        incrementStatement = postfixExpression;
+        variable = postfixExpression->getOperand();
+    }
+
+    if (incrementStatement != nullptr &&
+            (condition->equals(variable) || condition->contains(variable))) {
+        loopType = isFor;
+        setIncrement(incrementStatement);
+    }
+
+    auto* prev = ifParent->getPrevious();
+
+    if (prev == nullptr) {
+        return;
+    }
+
+    if (auto* binaryExpression = prev->castTo<CBinaryExpression>();
+            binaryExpression != nullptr && binaryPrecedence(binaryExpression->getOp()) == 2) {
+        variable = binaryExpression->getLeft();
+
+        if (condition->equals(variable) || condition->contains(variable)) {
+            loopType = isFor;
+            setInitialize(binaryExpression);
+        }
+    }
+}
+
 void CLoop::enhance(CGenerator& generator)
 {
+    if (loopType != isNone) {
+        return;
+    }
+
     body->enhance(generator);
 
     if (body->getChild() == nullptr) {
@@ -1378,11 +1505,30 @@ void CLoop::enhance(CGenerator& generator)
                             ifParent->getThenStatements()->getChild() == this &&
                             ifParent->getThenStatements()->getChild()->getNext() == nullptr &&
                             equalNodes(condition, ifParent->getCondition())) {
-                        loopType = isWhile;
                         ifParent->deleteCondition();
+                        loopType = isWhile;
+                        tryWhile2For(generator, ifParent);
                     }
                 }
             }
+        }
+    }
+
+    if (loopType == isNone) {
+        loopType = isFor;
+
+        if (auto* branch = body->getLastChild()->castTo<CBranch>(); branch == nullptr) {
+            auto* breakStatement = new CBreak;
+
+            breakStatement->link(body);
+        }
+    }
+
+    enhanceContinues(loopLabel, generator);
+
+    if (next != nullptr) {
+        if (auto* label = next->castTo<CLabel>(); label != nullptr) {
+            enhanceBreaks(label->getLabel(), generator);
         }
     }
 }
@@ -1687,7 +1833,7 @@ CNode* CGenerator::generateCLoop(Instruction* instruction)
     std::vector<std::string>& temps = labelStack.back().temps;
 
     if (resultNode != nullptr) {
-        result->addStatement(resultNode);
+        previousCompound->addStatement(resultNode);
     }
 
     labelStack.back().branchTarget = true;
@@ -2309,7 +2455,7 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
 {
     auto* call = new CCall(name);
     bool tempifyDone = false;
- 
+
     call->setPure(true);
     for (unsigned i = 0; i < argumentCount; ++i) {
         auto* argument = popExpression();
@@ -2321,7 +2467,7 @@ CNode* CGenerator::generateCCallPredef(std::string_view name, unsigned argumentC
 
         call->addArgument(argument);
     }
- 
+
     call->reverseArguments();
 
     return call;
@@ -2340,7 +2486,7 @@ CNode* CGenerator::generateCMemoryCall(std::string_view name, unsigned argumentC
     auto* memory = module->getMemory(0);
     auto* call = new CCall(name);
     bool tempifyDone = false;
- 
+
     for (unsigned i = 0; i < argumentCount; ++i) {
         auto* argument = popExpression();
 
@@ -2351,7 +2497,7 @@ CNode* CGenerator::generateCMemoryCall(std::string_view name, unsigned argumentC
 
         call->addArgument(argument);
     }
- 
+
     call->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
     call->reverseArguments();
 
@@ -2376,7 +2522,7 @@ CNode* CGenerator::generateCMemoryCopy(Instruction* instruction)
 
         call->addArgument(argument);
     }
- 
+
     call->addArgument(new CUnaryExpression("&", new CNameUse(source->getCName(module))));
     call->addArgument(new CUnaryExpression("&", new CNameUse(destination->getCName(module))));
     call->reverseArguments();
@@ -2391,7 +2537,7 @@ CNode* CGenerator::generateCMemoryInit(Instruction* instruction)
     auto* segment = module->getSegment(idxMemInstruction->getSegmentIndex());
     auto* call = new CCall("initMemory");
     bool tempifyDone = false;
- 
+
     for (unsigned i = 0; i < 3; ++i) {
         auto* argument = popExpression();
 
@@ -2402,7 +2548,7 @@ CNode* CGenerator::generateCMemoryInit(Instruction* instruction)
 
         call->addArgument(argument);
     }
- 
+
     call->addArgument(new CNameUse(segment->getCName(module)));
     call->addArgument(new CUnaryExpression("&", new CNameUse(memory->getCName(module))));
     call->reverseArguments();
@@ -2418,7 +2564,7 @@ CNode* CGenerator::generateCTableCall(Instruction* instruction, std::string_view
     auto* table = module->getTable(tableIndex);
     auto* call = new CCall(name);
     bool tempifyDone = false;
- 
+
     for (unsigned i = 0; i < argumentCount; ++i) {
         auto* argument = popExpression();
 
@@ -2429,7 +2575,7 @@ CNode* CGenerator::generateCTableCall(Instruction* instruction, std::string_view
 
         call->addArgument(argument);
     }
- 
+
     call->addArgument(new CUnaryExpression("&", new CNameUse(table->getCName(module))));
     call->reverseArguments();
 
@@ -2453,7 +2599,7 @@ CNode* CGenerator::generateCTableInit(Instruction* instruction)
     auto* element = module->getElement(tableElementIdxInstruction->getElementIndex());
     auto* call = new CCall("initTable");
     bool tempifyDone = false;
- 
+
     for (unsigned i = 0; i < 3; ++i) {
         auto* argument = popExpression();
 
@@ -2464,7 +2610,7 @@ CNode* CGenerator::generateCTableInit(Instruction* instruction)
 
         call->addArgument(argument);
     }
- 
+
     call->addArgument(new CNameUse(element->getCName(module)));
     call->addArgument(new CUnaryExpression("&", new CNameUse(table->getCName(module))));
     call->reverseArguments();
@@ -2490,7 +2636,7 @@ CNode* CGenerator::generateCTableCopy(Instruction* instruction)
 
         call->addArgument(argument);
     }
- 
+
     call->addArgument(new CUnaryExpression("&", new CNameUse(source->getCName(module))));
     call->addArgument(new CUnaryExpression("&", new CNameUse(destination->getCName(module))));
     call->reverseArguments();
@@ -2511,7 +2657,7 @@ CNode* CGenerator::generateCTableAccess(Instruction* instruction, bool set)
             tempify();
         }
     }
-    
+
     auto* subscript = popExpression();
 
     if (subscript->hasSideEffects()) {
