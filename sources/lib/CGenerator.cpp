@@ -1407,6 +1407,11 @@ void CLoop::enhanceContinues(unsigned loopLabel, CGenerator& generator)
                 }
             }
         });
+
+    if (auto* continueStatement = body->getLastChild()->castTo<CContinue>();
+            continueStatement != nullptr) {
+        delete continueStatement;
+    }
 }
 
 void CLoop::enhanceBreaks(unsigned loopLabel, CGenerator& generator)
