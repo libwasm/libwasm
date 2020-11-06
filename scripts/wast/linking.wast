@@ -329,7 +329,7 @@
   )
   "unknown import"
 )
-;;(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
 
 (assert_unlinkable
   (module
@@ -339,7 +339,7 @@
   )
   "data segment does not fit"
 )
-;;(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
 
 (assert_unlinkable
   (module
@@ -351,7 +351,7 @@
   )
   "elements segment does not fit"
 )
-;;(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
+(assert_return (invoke $Mm "load" (i32.const 0)) (i32.const 0))
 
 ;; Store is modified if the start function traps.
 (module $Ms
@@ -384,5 +384,5 @@
   "unreachable"
 )
 
-;;(assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
-;;(assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))
+(assert_return (invoke $Ms "get memory[0]") (i32.const 104))  ;; 'h'
+(assert_return (invoke $Ms "get table[0]") (i32.const 0xdead))

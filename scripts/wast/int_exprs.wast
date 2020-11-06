@@ -15,7 +15,9 @@
     (i64.lt_u (i64.add (local.get $x) (i64.const 1)) (i64.add (local.get $y) (i64.const 1))))
 )
 
+(assert_return (invoke "i32.no_fold_cmp_s_offset" (i32.const 0x7fffffff) (i32.const 0)) (i32.const 1))
 (assert_return (invoke "i32.no_fold_cmp_u_offset" (i32.const 0xffffffff) (i32.const 0)) (i32.const 1))
+(assert_return (invoke "i64.no_fold_cmp_s_offset" (i64.const 0x7fffffffffffffff) (i64.const 0)) (i32.const 1))
 (assert_return (invoke "i64.no_fold_cmp_u_offset" (i64.const 0xffffffffffffffff) (i64.const 0)) (i32.const 1))
 
 ;; Test that wrap(extend_s(x)) is not folded to x.
@@ -146,7 +148,9 @@
     (i64.div_u (i64.mul (local.get $x) (i64.const 6)) (i64.const 6)))
 )
 
+(assert_return (invoke "i32.no_fold_mul_div_s" (i32.const 0x80000000)) (i32.const 0))
 (assert_return (invoke "i32.no_fold_mul_div_u" (i32.const 0x80000000)) (i32.const 0))
+(assert_return (invoke "i64.no_fold_mul_div_s" (i64.const 0x8000000000000000)) (i64.const 0))
 (assert_return (invoke "i64.no_fold_mul_div_u" (i64.const 0x8000000000000000)) (i64.const 0))
 
 ;; Test that x/n where n is a known power of 2 is not folded to shr_s.

@@ -1447,7 +1447,7 @@ void CLoop::tryWhile2For(CGenerator& generator, CIf* ifParent)
         incrementStatement = binaryExpression;
         variable = binaryExpression->getLeft();
     } else if (auto* postfixExpression = body->getLastChild()->castTo<CPostfixExpression>();
-            postfixExpression != postfixExpression) {
+            postfixExpression != nullptr) {
         incrementStatement = postfixExpression;
         variable = postfixExpression->getOperand();
     }

@@ -107,7 +107,7 @@
 (assert_return (invoke "rem_s" (i64.const 0) (i64.const 1)) (i64.const 0))
 (assert_return (invoke "rem_s" (i64.const 0) (i64.const -1)) (i64.const 0))
 (assert_return (invoke "rem_s" (i64.const -1) (i64.const -1)) (i64.const 0))
-;;(assert_return (invoke "rem_s" (i64.const 0x8000000000000000) (i64.const -1)) (i64.const 0))
+(assert_return (invoke "rem_s" (i64.const 0x8000000000000000) (i64.const -1)) (i64.const 0))
 (assert_return (invoke "rem_s" (i64.const 0x8000000000000000) (i64.const 2)) (i64.const 0))
 (assert_return (invoke "rem_s" (i64.const 0x8000000000000001) (i64.const 1000)) (i64.const -807))
 (assert_return (invoke "rem_s" (i64.const 5) (i64.const 2)) (i64.const 1))
